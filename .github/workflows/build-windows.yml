@@ -6,8 +6,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            flutter-arch: x64
+            vc-redist: https://aka.ms/vs/17/release/vc_redist.x64.exe
+          - arch: x86
+            flutter-arch: x86
+            vc-redist: https://aka.ms/vs/17/release/vc_redist.x86.exe
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,38 +32,63 @@ jobs:
         working-directory: medicore_app
         run: flutter pub get
 
-      - name: Build Windows Release
+      - name: Build Windows ${{ matrix.arch }} Release
         working-directory: medicore_app
         run: flutter build windows --release
+        env:
+          FLUTTER_BUILD_WINDOWS_ARCH: ${{ matrix.flutter-arch }}
 
-      - name: Download VC++ Redistributable
+      - name: Download VC++ Redistributable ${{ matrix.arch }}
         run: |
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "medicore_app/build/windows/x64/runner/Release/vc_redist.x64.exe"
+          $buildPath = "medicore_app/build/windows/${{ matrix.flutter-arch }}/runner/Release"
+          Invoke-WebRequest -Uri "${{ matrix.vc-redist }}" -OutFile "$buildPath/vc_redist_${{ matrix.arch }}.exe"
         shell: powershell
 
-      - name: Create README
+      - name: Create README for ${{ matrix.arch }}
         run: |
+          $buildPath = "medicore_app/build/windows/${{ matrix.flutter-arch }}/runner/Release"
           @"
           MediCore - Medical Management System
           =====================================
+          Version: Windows ${{ matrix.arch }}
+          Compatible: Windows 7, 8, 8.1, 10, 11
           
-          IMPORTANT: If you get MSVCP140.dll error, run vc_redist.x64.exe first!
+          IMPORTANT - FIRST TIME INSTALLATION:
+          ====================================
+          If you get "MSVCP140.dll is missing" error:
+          1. Run vc_redist_${{ matrix.arch }}.exe FIRST (only needed once)
+          2. Click "Install" and wait for completion
+          3. Then run medicore_app.exe
           
-          Installation:
-          1. Run vc_redist.x64.exe (only once)
-          2. Run medicore_app.exe
+          SETUP INSTRUCTIONS:
+          ===================
+          First time you run the app, you will choose:
           
-          First Time Setup:
-          - ADMIN: Select this on the main computer with the database
-          - CLIENT: Select this on other computers to connect to the admin
+          ADMIN (Main Computer):
+          - Select this on ONE computer that has the database
+          - Choose your database file (.db)
+          - This computer will broadcast to the network
           
-          The client will automatically find the admin on your network.
+          CLIENT (Other Computers):
+          - Select this on all other computers
+          - Wait 5 seconds - the Admin will appear automatically
+          - Click on the Admin to connect
           
-          "@  | Out-File -FilePath "medicore_app/build/windows/x64/runner/Release/README.txt" -Encoding UTF8
+          All clients will work on the same database through the network!
+          
+          TROUBLESHOOTING:
+          ================
+          - Client can't find Admin? Make sure they're on the same network
+          - Firewall blocking? Allow medicore_app.exe in Windows Firewall
+          - Admin not broadcasting? Restart the Admin computer
+          
+          Support: github.com/ilyesthen/medicore
+          
+          "@  | Out-File -FilePath "$buildPath/README.txt" -Encoding UTF8
         shell: powershell
 
-      - name: Upload Build
+      - name: Upload ${{ matrix.arch }} Build
         uses: actions/upload-artifact@v4
         with:
-          name: MediCore-Windows-x64
-          path: medicore_app/build/windows/x64/runner/Release/
+          name: MediCore-Windows-${{ matrix.arch }}
+          path: medicore_app/build/windows/${{ matrix.flutter-arch }}/runner/Release/
