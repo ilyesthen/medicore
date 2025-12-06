@@ -379,17 +379,20 @@ class _SetupWizardState extends State<SetupWizard> {
     setState(() { _isWorking = true; _status = 'Connexion à ${server.name}...'; });
     
     try {
-      // Test connection
-      final connected = await _testConnection(server.ip);
-      if (!connected) throw Exception('Impossible de se connecter');
-      
-      // Save config
+      // Save config (no need to test gRPC connection, broadcast confirms admin exists)
       final appDir = await getApplicationSupportDirectory();
       if (!await appDir.exists()) await appDir.create(recursive: true);
       
-      final config = {'mode': 'client', 'serverIp': server.ip, 'serverName': server.name, 'date': DateTime.now().toIso8601String()};
+      final config = {
+        'mode': 'client',
+        'serverIp': server.ip,
+        'serverName': server.name,
+        'date': DateTime.now().toIso8601String()
+      };
       final configFile = File(p.join(appDir.path, 'medicore_config.txt'));
       await configFile.writeAsString(jsonEncode(config));
+      
+      print('✓ Client configured: ${server.name} at ${server.ip}');
       
       setState(() => _status = '✓ Connecté à ${server.name}');
       
@@ -512,13 +515,6 @@ class _SetupWizardState extends State<SetupWizard> {
     return servers;
   }
 
-  Future<bool> _testConnection(String ip) async {
-    try {
-      final socket = await Socket.connect(ip, 50051, timeout: const Duration(seconds: 2));
-      socket.destroy();
-      return true;
-    } catch (_) { return false; }
-  }
 }
 
 class _ServerInfo {
