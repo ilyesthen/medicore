@@ -1,4 +1,4 @@
-name: Build MediCore Windows
+name: Build MediCore Windows Universal Installer
 
 on:
   push:
@@ -27,75 +27,71 @@ jobs:
         working-directory: medicore_app
         run: flutter build windows --release
 
-      - name: Download VC++ Redistributables (both x64 and x86)
+      - name: Download VC++ Redistributables
         run: |
-          $buildPath = "medicore_app/build/windows/x64/runner/Release"
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "$buildPath/vc_redist.x64.exe"
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x86.exe" -OutFile "$buildPath/vc_redist.x86.exe"
+          New-Item -ItemType Directory -Force -Path "medicore_app/installer/vcredist"
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "medicore_app/installer/vcredist/vc_redist.x64.exe"
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x86.exe" -OutFile "medicore_app/installer/vcredist/vc_redist.x86.exe"
         shell: powershell
 
-      - name: Create README
+      - name: Create placeholder icon
+        run: |
+          # Create a simple ICO file placeholder if it doesn't exist
+          $iconPath = "medicore_app/assets/images/logos/icon.ico"
+          if (-not (Test-Path $iconPath)) {
+            New-Item -ItemType Directory -Force -Path "medicore_app/assets/images/logos"
+            # Copy from build or create empty
+            Copy-Item "medicore_app/build/windows/x64/runner/Release/app_icon.ico" $iconPath -ErrorAction SilentlyContinue
+          }
+        shell: powershell
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+        shell: powershell
+
+      - name: Build Universal Installer
+        run: |
+          $env:PATH = "C:\Program Files (x86)\Inno Setup 6;$env:PATH"
+          iscc "medicore_app/installer/windows_universal_installer.iss"
+        shell: powershell
+
+      - name: Create Portable ZIP (no installer)
         run: |
           $buildPath = "medicore_app/build/windows/x64/runner/Release"
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x64.exe" "$buildPath/"
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "$buildPath/"
+          
           @"
-          MediCore - Medical Management System
-          =====================================
-          Version: Windows 64-bit
-          Compatible: Windows 7, 8, 8.1, 10, 11 (64-bit)
+          MediCore - Portable Version
+          ============================
           
-          IMPORTANT - FIRST TIME INSTALLATION:
-          ====================================
-          If you get "MSVCP140.dll is missing" error:
+          INSTALLATION:
+          1. Extract all files to a folder
+          2. Run vc_redist.x64.exe (only once, ever)
+          3. If error persists, run vc_redist.x86.exe too
+          4. Run medicore_app.exe
           
-          1. Run vc_redist.x64.exe FIRST (only needed once)
-          2. If that doesn't work, also run vc_redist.x86.exe
-          3. Click "Install" on both and wait for completion
-          4. Then run medicore_app.exe
+          FIRST USE:
+          - Choose ADMIN on main computer (with database)
+          - Choose CLIENT on other computers
+          - Clients auto-detect admin on network
           
-          Note: Both redistributables are included for maximum compatibility.
-          Most systems only need x64, but some require both.
+          This is the portable version. No installation required!
+          Works on Windows 7, 8, 8.1, 10, 11 (64-bit)
+          "@ | Out-File -FilePath "$buildPath/README.txt" -Encoding UTF8
           
-          SETUP INSTRUCTIONS:
-          ===================
-          First time you run the app, you will choose:
-          
-          ADMIN (Main Computer):
-          - Select this on ONE computer that has the database
-          - Click "Sélectionner le fichier .db" 
-          - Choose your database file
-          - Click "DÉMARRER COMME ADMIN"
-          - This computer will broadcast to the network
-          
-          CLIENT (Other Computers):
-          - Select this on all other computers
-          - Click "Rechercher le serveur Admin"
-          - Wait 5 seconds - the Admin will appear automatically
-          - Click on the Admin server to connect
-          
-          All clients will work on the same database through your local network!
-          
-          TROUBLESHOOTING:
-          ================
-          - Client can't find Admin? 
-            * Make sure they're on the same WiFi/LAN network
-            * Check Windows Firewall - allow medicore_app.exe
-            * Make sure Admin computer is running and setup is complete
-          
-          - MSVCP140.dll error persists?
-            * Run both vc_redist files as Administrator
-            * Restart your computer after installation
-          
-          - Admin not broadcasting?
-            * Restart the Admin application
-            * Check firewall settings
-          
-          Support: github.com/ilyesthen/medicore
-          
-          "@  | Out-File -FilePath "$buildPath/README.txt" -Encoding UTF8
+          Compress-Archive -Path "$buildPath/*" -DestinationPath "medicore_app/build/installer/MediCore-Portable.zip"
         shell: powershell
 
-      - name: Upload Build
+      - name: Upload Universal Installer
         uses: actions/upload-artifact@v4
         with:
-          name: MediCore-Windows-x64
-          path: medicore_app/build/windows/x64/runner/Release/
+          name: MediCore-Setup-Universal
+          path: medicore_app/build/installer/MediCore-Setup-Universal.exe
+
+      - name: Upload Portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: MediCore-Portable
+          path: medicore_app/build/installer/MediCore-Portable.zip
