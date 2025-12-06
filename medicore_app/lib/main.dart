@@ -142,8 +142,12 @@ class _MediCoreAppState extends ConsumerState<MediCoreApp> {
     _needsSetup = widget.needsSetup;
   }
 
-  void _onSetupComplete() {
-    setState(() => _needsSetup = false);
+  void _onSetupComplete() async {
+    // Give a moment for database/services to fully initialize
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (mounted) {
+      setState(() => _needsSetup = false);
+    }
   }
 
   @override
@@ -161,6 +165,41 @@ class _MediCoreAppState extends ConsumerState<MediCoreApp> {
         home: _needsSetup 
             ? SetupWizard(onComplete: _onSetupComplete)
             : const _MainApp(),
+        // Global error handling
+        builder: (context, child) {
+          ErrorWidget.builder = (FlutterErrorDetails details) {
+            print('❌ FLUTTER ERROR CAUGHT: ${details.exception}');
+            print('Stack: ${details.stack}');
+            return Scaffold(
+              backgroundColor: MediCoreColors.canvasGrey,
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.bug_report, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Erreur inattendue',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${details.exception}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => exit(0),
+                      child: const Text('Redémarrer'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          };
+          return child ?? const SizedBox();
+        },
       ),
     );
   }
@@ -172,14 +211,51 @@ class _MainApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateProvider);
-    
-    if (!authState.isAuthenticated) {
-      return const LoginScreenFrench();
+    try {
+      final authState = ref.watch(authStateProvider);
+      
+      if (!authState.isAuthenticated) {
+        return const LoginScreenFrench();
+      }
+      
+      return authState.isAdmin
+          ? const AdminDashboard()
+          : const RoomSelectionWrapper();
+    } catch (e, stack) {
+      print('❌ CRITICAL ERROR in _MainApp: $e');
+      print('Stack trace: $stack');
+      
+      // Show error screen instead of crashing
+      return Scaffold(
+        backgroundColor: MediCoreColors.canvasGrey,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text(
+                'Erreur de chargement',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Erreur: $e',
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  // Force restart by exiting
+                  exit(0);
+                },
+                child: const Text('Redémarrer l\'application'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
-    
-    return authState.isAdmin
-        ? const AdminDashboard()
-        : const RoomSelectionWrapper();
   }
 }
