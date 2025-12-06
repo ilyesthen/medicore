@@ -17,12 +17,12 @@ desktop.ini
 # Large XML data files (NOT needed for build)
 *.xml
 
-# Large image files in root
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
+# Large image files in root (not in assets)
+/*.jpg
+/*.jpeg
+/*.png
+/*.gif
+/*.bmp
 
 # Database files
 *.db

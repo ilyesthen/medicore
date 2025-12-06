@@ -19,8 +19,10 @@ go.work
 
 # Binary output
 /bin/
-server
-server.exe
+/server
+/server.exe
+medicore_server
+medicore_server.exe
 
 # IDE
 .vscode/

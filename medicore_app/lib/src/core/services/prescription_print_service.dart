@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -8,7 +9,8 @@ import 'package:path_provider/path_provider.dart';
 
 /// Enterprise-grade prescription PDF service with background template, patient info, and barcode
 class PrescriptionPrintService {
-  static const String _backgroundPath = '/Applications/eye/ffad17b0-7b80-424b-99e2-4173d59b7fcb-2.jpg';
+  static const String _assetBackgroundPath = 'assets/images/prescription_bg.jpg';
+  static Uint8List? _cachedBackground;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // OPTIQUE - PRINT METHODS
@@ -388,12 +390,24 @@ class PrescriptionPrintService {
   }
 
   static Future<Uint8List?> _loadBackgroundImage() async {
+    // Return cached version if available
+    if (_cachedBackground != null) return _cachedBackground;
+    
     try {
-      final file = File(_backgroundPath);
-      if (await file.exists()) {
-        return await file.readAsBytes();
-      }
-    } catch (_) {}
+      // Load from bundled assets
+      final data = await rootBundle.load(_assetBackgroundPath);
+      _cachedBackground = data.buffer.asUint8List();
+      return _cachedBackground;
+    } catch (e) {
+      // Fallback: try loading from file system (dev mode)
+      try {
+        final file = File('assets/images/prescription_bg.jpg');
+        if (await file.exists()) {
+          _cachedBackground = await file.readAsBytes();
+          return _cachedBackground;
+        }
+      } catch (_) {}
+    }
     return null;
   }
 
