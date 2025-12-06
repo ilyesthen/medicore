@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -8,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/services/admin_broadcast_service.dart';
+import '../../../core/theme/medicore_colors.dart';
 
 /// Setup Wizard - Choose Admin (with database) or Client (connects to Admin)
 class SetupWizard extends StatefulWidget {

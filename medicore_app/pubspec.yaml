@@ -33,6 +33,7 @@ dependencies:
   
   # Window Customization (Desktop)
   bitsdojo_window: ^0.1.6
+  window_manager: ^0.3.7
   
   # Utilities
   intl: ^0.18.0
