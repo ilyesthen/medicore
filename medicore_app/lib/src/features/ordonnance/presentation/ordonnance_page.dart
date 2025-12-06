@@ -1,0 +1,1553 @@
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../../core/theme/medicore_colors.dart';
+import '../../../core/theme/medicore_typography.dart';
+import '../../../core/database/app_database.dart';
+import '../../../core/services/prescription_print_service.dart';
+import '../../auth/presentation/auth_provider.dart';
+import '../../messages/presentation/send_message_dialog.dart';
+import '../../messages/presentation/receive_messages_dialog.dart';
+import '../../comptabilite/presentation/comptabilite_dialog.dart';
+import '../data/ordonnances_repository.dart';
+import '../data/medications_repository.dart';
+import '../../consultation/presentation/prescription_optique_dialog.dart';
+import '../../consultation/presentation/prescription_lentilles_dialog.dart';
+
+/// Ordonnance Page - 3 tabs with different document types
+class OrdonnancePage extends ConsumerStatefulWidget {
+  final Patient patient;
+
+  const OrdonnancePage({super.key, required this.patient});
+
+  @override
+  ConsumerState<OrdonnancePage> createState() => _OrdonnancePageState();
+}
+
+class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTickerProviderStateMixin {
+  final FocusNode _focusNode = FocusNode();
+  late TabController _tabController;
+  
+  DateTime _selectedDate = DateTime.now();
+  
+  // ALL documents for patient (shown in every tab)
+  List<OrdonnanceDocument> _allDocuments = [];
+  int _currentDocIndex = 0;
+  bool _isLoadingDocs = true;
+  
+  // SEPARATE new document state per tab
+  DocumentData? _newDocTab1;  // Prescriptions
+  DocumentData? _newDocTab2;  // Bilan
+  DocumentData? _newDocTab3;  // Comptes
+  bool _isCreatingNewTab1 = false;
+  bool _isCreatingNewTab2 = false;
+  bool _isCreatingNewTab3 = false;
+  
+  // Tab-specific type selections for NEW documents
+  String _selectedPrescriptionType = 'ORDONNANCE';
+  String _selectedBilanType = 'DEMANDE DE BILAN';
+  String _selectedCompteType = 'COMPTE RENDU MEDICAL';
+  
+  // Search and print
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  final _printNameController = TextEditingController();
+  final _printPrenomController = TextEditingController();
+  final _printAgeController = TextEditingController();
+  
+  // Bilan shortcuts
+  final _jourController = TextEditingController(text: '0');
+  
+  // Medications from DB
+  List<Medication> _medications = [];
+  bool _isLoadingMeds = true;
+  
+  // Templates CR from DB (only for Comptes tab)
+  List<Map<String, dynamic>> _templatesCR = [];
+  bool _isLoadingTemplates = true;
+
+  static const bilanTypes = [
+    'DEMANDE DE BILAN',
+    'CERTIFICAT MEDICAL',
+    'CERTIFICAT D\'ARRÊT DE TRAVAIL',
+    'CERTIFICAT D\'ARRÊT DE SCOLARITE',
+    'ORIENTATION',
+    'REPONSE',
+    'LENTILLES DE CONTACT',
+    'CORRECTION OPTIQUE',
+    'PROTOCOLE OPERATOIRE',
+  ];
+
+  static const compteTypes = [
+    'COMPTE RENDU MEDICAL',
+    'COMPTE RENDU',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+      _loadDocuments();
+      _loadMedications();
+      _loadTemplatesCR();
+    });
+  }
+
+  /// Load documents from database
+  Future<void> _loadDocuments() async {
+    setState(() => _isLoadingDocs = true);
+    try {
+      final repo = ref.read(ordonnancesRepositoryProvider);
+      final docs = await repo.getDocumentsForPatient(widget.patient.code);
+      setState(() {
+        _allDocuments = docs;
+        _currentDocIndex = 0;
+        _isLoadingDocs = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingDocs = false);
+    }
+  }
+
+  /// Load medications from database
+  Future<void> _loadMedications() async {
+    setState(() => _isLoadingMeds = true);
+    try {
+      final repo = ref.read(medicationsRepositoryProvider);
+      final meds = _searchQuery.isEmpty 
+          ? await repo.getAllSortedByUsage()
+          : await repo.searchByCode(_searchQuery);
+      setState(() {
+        _medications = meds;
+        _isLoadingMeds = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingMeds = false);
+    }
+  }
+
+  /// Get current document or null if creating new
+  OrdonnanceDocument? get _currentDocument {
+    final isCreating = _tabController.index == 0 ? _isCreatingNewTab1 
+        : _tabController.index == 1 ? _isCreatingNewTab2 : _isCreatingNewTab3;
+    if (isCreating || _allDocuments.isEmpty) return null;
+    if (_currentDocIndex >= 0 && _currentDocIndex < _allDocuments.length) {
+      return _allDocuments[_currentDocIndex];
+    }
+    return null;
+  }
+
+  /// Navigate to next/previous document
+  void _navigateDoc(int delta) {
+    if (_allDocuments.isEmpty) return;
+    final newIndex = _currentDocIndex + delta;
+    if (newIndex >= 0 && newIndex < _allDocuments.length) {
+      setState(() {
+        _currentDocIndex = newIndex;
+        // Cancel creating on any tab when navigating
+        _isCreatingNewTab1 = false;
+        _isCreatingNewTab2 = false;
+        _isCreatingNewTab3 = false;
+      });
+    }
+  }
+
+  /// Start creating a new document for current tab
+  void _startNewDocumentForTab(int tabIndex, String type) {
+    setState(() {
+      if (tabIndex == 0) {
+        _isCreatingNewTab1 = true;
+        _newDocTab1 = DocumentData(type: type);
+      } else if (tabIndex == 1) {
+        _isCreatingNewTab2 = true;
+        _newDocTab2 = DocumentData(type: type);
+      } else {
+        _isCreatingNewTab3 = true;
+        _newDocTab3 = DocumentData(type: type);
+      }
+    });
+  }
+
+  /// Cancel creating for current tab
+  void _cancelNewDocumentForTab(int tabIndex) {
+    setState(() {
+      if (tabIndex == 0) {
+        _isCreatingNewTab1 = false;
+        _newDocTab1 = null;
+      } else if (tabIndex == 1) {
+        _isCreatingNewTab2 = false;
+        _newDocTab2 = null;
+      } else {
+        _isCreatingNewTab3 = false;
+        _newDocTab3 = null;
+      }
+    });
+  }
+
+  /// Get new document for tab
+  DocumentData? _getNewDocForTab(int tabIndex) {
+    return tabIndex == 0 ? _newDocTab1 : tabIndex == 1 ? _newDocTab2 : _newDocTab3;
+  }
+
+  /// Check if creating new for tab
+  bool _isCreatingForTab(int tabIndex) {
+    return tabIndex == 0 ? _isCreatingNewTab1 : tabIndex == 1 ? _isCreatingNewTab2 : _isCreatingNewTab3;
+  }
+
+  /// Load templates CR from database
+  Future<void> _loadTemplatesCR() async {
+    setState(() => _isLoadingTemplates = true);
+    try {
+      final db = AppDatabase.instance;
+      final results = await db.customSelect(
+        'SELECT id, code, content, usage_count FROM templates_cr ORDER BY usage_count DESC'
+      ).get();
+      setState(() {
+        _templatesCR = results.map((row) => {
+          'id': row.read<int>('id'),
+          'code': row.read<String>('code'),
+          'content': row.read<String>('content'),
+          'usageCount': row.read<int>('usage_count'),
+        }).toList();
+        _isLoadingTemplates = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingTemplates = false);
+    }
+  }
+
+  /// Insert template CR into document
+  void _insertTemplateCR(Map<String, dynamic> template) async {
+    final tabIndex = _tabController.index;
+    
+    if (!_isCreatingForTab(tabIndex)) {
+      _startNewDocumentForTab(tabIndex, _selectedCompteType);
+    }
+    
+    final doc = _getNewDocForTab(tabIndex);
+    if (doc == null) return;
+    
+    final text = doc.controller.text;
+    final content = template['content'] as String;
+    doc.controller.text = text.isEmpty ? content : '$text\n\n$content';
+    doc.controller.selection = TextSelection.collapsed(offset: doc.controller.text.length);
+    
+    // Increment usage count
+    final id = template['id'] as int;
+    await AppDatabase.instance.customStatement(
+      'UPDATE templates_cr SET usage_count = usage_count + 1 WHERE id = ?',
+      [id],
+    );
+    _loadTemplatesCR();
+    
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _focusNode.dispose();
+    _searchController.dispose();
+    _printNameController.dispose();
+    _printPrenomController.dispose();
+    _printAgeController.dispose();
+    super.dispose();
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.f5) _showComptabiliteDialog();
+      else if (event.logicalKey == LogicalKeyboardKey.escape) Navigator.of(context).pop();
+    }
+  }
+
+  void _showComptabiliteDialog() => showDialog(context: context, builder: (_) => const ComptabiliteDialog());
+
+  void _showSendMessageDialog() {
+    final authState = ref.read(authStateProvider);
+    if (authState.user != null && authState.selectedRoom != null) {
+      showDialog(context: context, builder: (_) => SendMessageDialog(
+        preSelectedRoomId: authState.selectedRoom!.id,
+        patientCode: widget.patient.code,
+        patientName: '${widget.patient.firstName} ${widget.patient.lastName}',
+      ));
+    }
+  }
+
+  void _showReceiveMessagesDialog() {
+    final authState = ref.read(authStateProvider);
+    if (authState.selectedRoom != null) {
+      showDialog(context: context, builder: (_) => ReceiveMessagesDialog(doctorRoomId: authState.selectedRoom!.id));
+    }
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.dark(primary: MediCoreColors.professionalBlue, surface: MediCoreColors.deepNavy)), child: child!),
+    );
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  /// Show Optique prescription dialog
+  void _showOptiqueDialog() {
+    final p = widget.patient;
+    showDialog(
+      context: context,
+      builder: (_) => PrescriptionOptiqueDialog(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        age: p.age?.toString(),
+      ),
+    );
+  }
+
+  /// Show Lentilles prescription dialog
+  void _showLentillesDialog() {
+    final p = widget.patient;
+    showDialog(
+      context: context,
+      builder: (_) => PrescriptionLentillesDialog(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        age: p.age?.toString(),
+      ),
+    );
+  }
+
+  /// Get filtered medications (search by code starting with query)
+  List<Medication> get _filteredMedications {
+    if (_searchQuery.isEmpty) return _medications;
+    return _medications.where((m) => 
+      m.code.toLowerCase().startsWith(_searchQuery.toLowerCase())
+    ).toList();
+  }
+
+  /// Insert medication into current tab's document
+  void _insertMedication(Medication med) async {
+    final tabIndex = _tabController.index;
+    final type = tabIndex == 0 ? _selectedPrescriptionType : _selectedBilanType;
+    
+    // Start new doc if not already creating
+    if (!_isCreatingForTab(tabIndex)) {
+      _startNewDocumentForTab(tabIndex, type);
+    }
+    
+    final doc = _getNewDocForTab(tabIndex);
+    if (doc == null) return;
+    
+    final text = doc.controller.text;
+    // Use the prescription text from DB, preserving format
+    final line = med.prescription;
+    // Add separator line between medications
+    doc.controller.text = text.isEmpty ? line : '$text\n\n────────────────────────────────────\n\n$line';
+    doc.controller.selection = TextSelection.collapsed(offset: doc.controller.text.length);
+    
+    // Increment usage count
+    final repo = ref.read(medicationsRepositoryProvider);
+    await repo.incrementUsage(med.id);
+    
+    // Refresh medications list
+    _loadMedications();
+    
+    setState(() {});
+  }
+
+  /// Edit medication usage count
+  void _editMedicationCount(Medication med) async {
+    final controller = TextEditingController(text: med.usageCount.toString());
+    final result = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Modifier le compteur: ${med.code}'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nouveau compteur'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 0), child: const Text('Réinitialiser à 0')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, int.tryParse(controller.text) ?? med.usageCount),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result != null) {
+      final repo = ref.read(medicationsRepositoryProvider);
+      await repo.setUsageCount(med.id, result);
+      _loadMedications();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authStateProvider);
+    final userName = authState.user?.name ?? 'Utilisateur';
+
+    return KeyboardListener(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: Scaffold(
+        backgroundColor: MediCoreColors.canvasGrey,
+        body: Column(children: [
+          _buildTopBar(userName),
+          _buildTabBar(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildPrescriptionsTab(),
+                _buildBilanTab(),
+                _buildComptesTab(),
+              ],
+            ),
+          ),
+          _buildBottomBar(),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildTopBar(String userName) {
+    final p = widget.patient;
+    return Container(
+      height: 70,
+      decoration: const BoxDecoration(color: MediCoreColors.deepNavy, border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline, width: 2))),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: MediCoreColors.professionalBlue.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.professionalBlue)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.person, color: Colors.white, size: 18), const SizedBox(width: 8), Text(userName.toUpperCase(), style: MediCoreTypography.button.copyWith(color: Colors.white, fontSize: 13))])),
+        const SizedBox(width: 32),
+        Container(width: 2, height: 40, color: MediCoreColors.steelOutline),
+        const SizedBox(width: 32),
+        Container(width: 44, height: 44, decoration: BoxDecoration(color: MediCoreColors.healthyGreen.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.healthyGreen)), child: const Icon(Icons.person_outline, color: MediCoreColors.healthyGreen, size: 24)),
+        const SizedBox(width: 16),
+        Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${p.lastName} ${p.firstName}'.toUpperCase(), style: MediCoreTypography.sectionHeader.copyWith(color: Colors.white, fontSize: 16)), Text('Patient N° ${p.code}', style: MediCoreTypography.body.copyWith(color: Colors.white60, fontSize: 11))]),
+        const SizedBox(width: 32),
+        if (p.age != null) _InfoChip(icon: Icons.cake_outlined, label: '${p.age} ans'),
+        const Spacer(),
+        InkWell(onTap: _selectDate, borderRadius: BorderRadius.circular(4), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF4CAF50))), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.calendar_today, color: Color(0xFF81C784), size: 16), const SizedBox(width: 8), Text(DateFormat('dd/MM/yyyy').format(_selectedDate), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(width: 4), const Icon(Icons.edit, color: Color(0xFF81C784), size: 12)]))),
+        const SizedBox(width: 16),
+        IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close, color: Colors.white)),
+      ]),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      height: 48,
+      decoration: const BoxDecoration(color: MediCoreColors.deepNavy, border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
+      child: TabBar(
+        controller: _tabController,
+        indicatorColor: MediCoreColors.healthyGreen,
+        indicatorWeight: 3,
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white60,
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        tabs: const [
+          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Text('📝', style: TextStyle(fontSize: 16)), SizedBox(width: 8), Text('PRESCRIPTIONS')])),
+          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Text('🧪', style: TextStyle(fontSize: 16)), SizedBox(width: 8), Text('BILAN')])),
+          Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [Text('📄', style: TextStyle(fontSize: 16)), SizedBox(width: 8), Text('COMPTES')])),
+        ],
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // TAB 1: PRESCRIPTIONS (View ALL docs + Medicines + Print with another name)
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  Widget _buildPrescriptionsTab() {
+    return Container(
+      color: MediCoreColors.canvasGrey,
+      padding: const EdgeInsets.all(16),
+      child: Row(children: [
+        Expanded(flex: 3, child: _buildUnifiedDocViewer(
+          tabIndex: 0,
+          showPrintWithAnother: true,
+          newDocType: _selectedPrescriptionType,
+          typeOptions: const ['ORDONNANCE', 'CORRECTION OPTIQUE', 'LENTILLES DE CONTACT'],
+          selectedType: _selectedPrescriptionType,
+          onTypeChanged: (v) => setState(() => _selectedPrescriptionType = v),
+        )),
+        const SizedBox(width: 16),
+        Expanded(flex: 2, child: _buildMedicinePanel()),
+      ]),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // TAB 2: BILAN (View ALL docs + Medications - NOT templates!)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildBilanTab() {
+    return Container(
+      color: MediCoreColors.canvasGrey,
+      padding: const EdgeInsets.all(16),
+      child: Row(children: [
+        Expanded(flex: 3, child: _buildUnifiedDocViewer(
+          tabIndex: 1,
+          showPrintWithAnother: false,  // Bilan has NO print with another name
+          newDocType: _selectedBilanType,
+          typeOptions: bilanTypes,
+          selectedType: _selectedBilanType,
+          onTypeChanged: (v) => setState(() => _selectedBilanType = v),
+        )),
+        const SizedBox(width: 16),
+        Expanded(flex: 2, child: Column(children: [
+          // ART Shortcuts panel
+          _buildArtShortcutsPanel(),
+          const SizedBox(height: 16),
+          // Medications panel
+          Expanded(child: _buildMedicinePanel()),
+        ])),
+      ]),
+    );
+  }
+
+  /// ART shortcuts panel for Bilan tab
+  Widget _buildArtShortcutsPanel() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: MediCoreColors.paperWhite,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: MediCoreColors.steelOutline),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.medical_services, color: Colors.blue.shade700, size: 18),
+          const SizedBox(width: 8),
+          const Text('Raccourcis Certificats', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          // Jour field
+          const Text('Jours:', style: TextStyle(fontSize: 12)),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 60,
+            child: TextField(
+              controller: _jourController,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                isDense: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // ART (W) button
+          Tooltip(
+            message: 'Arrêt de travail',
+            child: Material(
+              color: Colors.orange.shade600,
+              borderRadius: BorderRadius.circular(6),
+              child: InkWell(
+                onTap: () => _insertArtTravail(1),
+                borderRadius: BorderRadius.circular(6),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text('ART (W)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // ART (scol) button
+          Tooltip(
+            message: 'Éviction scolaire',
+            child: Material(
+              color: Colors.purple.shade600,
+              borderRadius: BorderRadius.circular(6),
+              child: InkWell(
+                onTap: () => _insertArtScolaire(1),
+                borderRadius: BorderRadius.circular(6),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text('ART (scol)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        Text('Cliquez sur le bouton pour insérer le certificat', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+      ]),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // TAB 3: COMPTES RENDUS (View ALL docs + Templates)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildComptesTab() {
+    return Container(
+      color: MediCoreColors.canvasGrey,
+      padding: const EdgeInsets.all(16),
+      child: Row(children: [
+        Expanded(flex: 3, child: _buildUnifiedDocViewer(
+          tabIndex: 2,
+          showPrintWithAnother: false,  // Comptes has NO print with another name
+          newDocType: _selectedCompteType,
+          typeOptions: compteTypes,
+          selectedType: _selectedCompteType,
+          onTypeChanged: (v) => setState(() => _selectedCompteType = v),
+        )),
+        const SizedBox(width: 16),
+        Expanded(flex: 2, child: _buildTemplatePanel()),  // Only Comptes has templates
+      ]),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // UNIFIED DOCUMENT VIEWER - Shows ALL documents for patient
+  // ════════════════════════════════════════════════════════════════════════════
+  
+  Widget _buildUnifiedDocViewer({
+    required int tabIndex,
+    required bool showPrintWithAnother,
+    required String newDocType,
+    required List<String> typeOptions,
+    required String selectedType,
+    required ValueChanged<String> onTypeChanged,
+  }) {
+    final currentDoc = _currentDocument;
+    final total = _allDocuments.length;
+    final isCreating = _isCreatingForTab(tabIndex);
+    final isViewing = !isCreating && currentDoc != null;
+    
+    return Container(
+      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]),
+      child: Column(children: [
+        // Header with navigation
+        Container(
+          height: 50,
+          decoration: const BoxDecoration(gradient: LinearGradient(colors: [MediCoreColors.deepNavy, Color(0xFF2A3F5F)]), borderRadius: BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7))),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            // Navigation arrows
+            _NavBtn(icon: Icons.chevron_left, onTap: () => _navigateDoc(-1)),
+            const SizedBox(width: 8),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)), child: Text(isCreating ? 'NOUVEAU' : '${_currentDocIndex + 1} / $total', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))),
+            const SizedBox(width: 8),
+            _NavBtn(icon: Icons.chevron_right, onTap: () => _navigateDoc(1)),
+            const SizedBox(width: 16),
+            
+            // Document title - shows type from DB or dropdown for new
+            const Icon(Icons.description, color: Colors.white70, size: 18),
+            const SizedBox(width: 8),
+            if (isViewing)
+              Expanded(child: Text(currentDoc.displayTitle, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis))
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white30)),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: selectedType,
+                    dropdownColor: MediCoreColors.deepNavy,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
+                    items: typeOptions.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    onChanged: (v) => onTypeChanged(v ?? selectedType),
+                  ),
+                ),
+              ),
+            
+            const Spacer(),
+            
+            // Add new button
+            if (!isCreating)
+              Material(
+                color: const Color(0xFF4CAF50),
+                borderRadius: BorderRadius.circular(4),
+                child: InkWell(
+                  onTap: () => _startNewDocumentForTab(tabIndex, selectedType),
+                  borderRadius: BorderRadius.circular(4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.add, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Text('NOUVEAU', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ]),
+                  ),
+                ),
+              ),
+            
+            // Cancel new button
+            if (isCreating)
+              Material(
+                color: Colors.red.shade400,
+                borderRadius: BorderRadius.circular(4),
+                child: InkWell(
+                  onTap: () => _cancelNewDocumentForTab(tabIndex),
+                  borderRadius: BorderRadius.circular(4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.close, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Text('ANNULER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ]),
+                  ),
+                ),
+              ),
+          ]),
+        ),
+        
+        // Date info for viewed document + delete button
+        if (isViewing && currentDoc.documentDate != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(color: const Color(0xFFE3F2FD), border: Border(bottom: BorderSide(color: Colors.blue.shade200))),
+            child: Row(children: [
+              Icon(Icons.calendar_today, size: 14, color: Colors.blue.shade700),
+              const SizedBox(width: 8),
+              Text('Date: ${currentDoc.formattedDate}', style: TextStyle(fontSize: 12, color: Colors.blue.shade800, fontWeight: FontWeight.w500)),
+              if (currentDoc.doctorName != null) ...[
+                const SizedBox(width: 24),
+                Icon(Icons.person, size: 14, color: Colors.blue.shade700),
+                const SizedBox(width: 4),
+                Text(currentDoc.doctorName!, style: TextStyle(fontSize: 12, color: Colors.blue.shade800)),
+              ],
+              const Spacer(),
+              // Delete button
+              Material(
+                color: Colors.red.shade400,
+                borderRadius: BorderRadius.circular(4),
+                child: InkWell(
+                  onTap: () => _deleteCurrentDocument(currentDoc),
+                  borderRadius: BorderRadius.circular(4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.delete, color: Colors.white, size: 14),
+                      SizedBox(width: 4),
+                      Text('SUPPRIMER', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ]),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        
+        // Content area
+        Expanded(
+          child: _isLoadingDocs
+              ? const Center(child: CircularProgressIndicator())
+              : isViewing
+                  ? _buildDocumentContent(currentDoc)
+                  : _buildNewDocumentEditor(tabIndex, showPrintWithAnother),
+        ),
+        
+        // Bottom actions - print/download buttons
+        if (isCreating)
+          tabIndex == 0 
+              ? _buildPrintWithAnotherSection(tabIndex, selectedType)
+              : _buildSimplePrintSection(tabIndex, selectedType),
+      ]),
+    );
+  }
+
+  /// Simple print/download buttons (for Bilan and Comptes - no "print with another name")
+  Widget _buildSimplePrintSection(int tabIndex, String documentType) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFFE8F5E9).withValues(alpha: 0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
+      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        // Download button
+        Material(
+          color: const Color(0xFF1565C0),
+          borderRadius: BorderRadius.circular(4),
+          child: InkWell(
+            onTap: () => _downloadDocument(tabIndex, documentType),
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.download, color: Colors.white, size: 16),
+                SizedBox(width: 6),
+                Text('TÉLÉCHARGER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              ]),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Print button
+        Material(
+          color: MediCoreColors.healthyGreen,
+          borderRadius: BorderRadius.circular(4),
+          child: InkWell(
+            onTap: () => _printDocumentTab(tabIndex, documentType),
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.print, color: Colors.white, size: 16),
+                SizedBox(width: 6),
+                Text('IMPRIMER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+  
+  /// Display existing document content (read-only, preserves formatting)
+  Widget _buildDocumentContent(OrdonnanceDocument doc) {
+    return Column(children: [
+      Expanded(
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: MediCoreColors.steelOutline),
+          ),
+          child: SingleChildScrollView(
+            child: SelectableText(
+              doc.content,
+              style: const TextStyle(
+                fontSize: 14,
+                fontFamily: 'Courier New',
+                height: 1.5,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ),
+      ),
+      // Print button for existing documents
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: const Color(0xFFE8F5E9).withValues(alpha: 0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
+        child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          // Download button
+          Material(
+            color: const Color(0xFF1565C0),
+            borderRadius: BorderRadius.circular(4),
+            child: InkWell(
+              onTap: () => _downloadExistingDocument(doc),
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.download, color: Colors.white, size: 16),
+                  SizedBox(width: 6),
+                  Text('TÉLÉCHARGER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Print button
+          Material(
+            color: MediCoreColors.healthyGreen,
+            borderRadius: BorderRadius.circular(4),
+            child: InkWell(
+              onTap: () => _printExistingDocument(doc),
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.print, color: Colors.white, size: 16),
+                  SizedBox(width: 6),
+                  Text('IMPRIMER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    ]);
+  }
+
+  /// Print existing document (no save needed)
+  Future<void> _printExistingDocument(OrdonnanceDocument doc) async {
+    final printContent = _stripSeparatorsForPrint(doc.content);
+    final p = widget.patient;
+    final tabIndex = _tabController.index;
+    
+    final success = await PrescriptionPrintService.printOrdonnance(
+      patientName: '${p.firstName} ${p.lastName}',
+      patientCode: p.code.toString(),
+      barcode: p.code.toString(),
+      date: doc.formattedDate,
+      content: printContent,
+      documentType: doc.type ?? 'ORDONNANCE',
+      age: p.age?.toString(),
+      useA4: tabIndex == 2,
+    );
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success ? 'Impression envoyée' : 'Aucune imprimante connectée'),
+        backgroundColor: success ? Colors.green : Colors.orange,
+      ));
+    }
+  }
+
+  /// Download existing document as PDF
+  Future<void> _downloadExistingDocument(OrdonnanceDocument doc) async {
+    final pdfContent = _stripSeparatorsForPrint(doc.content);
+    final p = widget.patient;
+    final tabIndex = _tabController.index;
+    
+    try {
+      final pdf = await PrescriptionPrintService.generateOrdonnancePdf(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        date: doc.formattedDate,
+        content: pdfContent,
+        documentType: doc.type ?? 'ORDONNANCE',
+        age: p.age?.toString(),
+        useA4: tabIndex == 2,
+      );
+      
+      final cleanType = (doc.type ?? 'ORDONNANCE').replaceAll(' ', '_').replaceAll("'", '');
+      final path = await PrescriptionPrintService.downloadPdf(pdf, '${cleanType}_${p.code}.pdf');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF téléchargé: $path'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+  
+  /// Editor for new documents
+  Widget _buildNewDocumentEditor(int tabIndex, bool showPrintWithAnother) {
+    final newDoc = _getNewDocForTab(tabIndex);
+    if (newDoc == null) {
+      return const Center(child: Text('Cliquez sur NOUVEAU pour créer un document'));
+    }
+    
+    return Column(children: [
+      // Eye selection (click to insert text with line break)
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(color: MediCoreColors.canvasGrey.withValues(alpha: 0.5), border: const Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
+        child: Row(children: [
+          _EyeChip(
+            label: '👁️ Opéré', 
+            isSelected: newDoc.eyeSelection == 'OPERE', 
+            onTap: () {
+              setState(() => newDoc.eyeSelection = 'OPERE');
+              _insertTextIntoDoc(tabIndex, "\n\nMettre uniquement dans l'œil opéré\n");
+            },
+            color: const Color(0xFF7B1FA2),
+          ),
+          const SizedBox(width: 8),
+          _EyeChip(
+            label: '👁️👁️ Les deux', 
+            isSelected: newDoc.eyeSelection == 'BOTH', 
+            onTap: () {
+              setState(() => newDoc.eyeSelection = 'BOTH');
+              _insertTextIntoDoc(tabIndex, "\n\nMettre dans les deux yeux\n");
+            },
+            color: const Color(0xFF1565C0),
+          ),
+          const SizedBox(width: 8),
+          _EyeChip(
+            label: 'OD', 
+            isSelected: newDoc.eyeSelection == 'OD', 
+            onTap: () {
+              setState(() => newDoc.eyeSelection = 'OD');
+              _insertTextIntoDoc(tabIndex, "\n\nMettre uniquement dans l'œil droit\n");
+            },
+            color: const Color(0xFF2E7D32),
+          ),
+          const SizedBox(width: 8),
+          _EyeChip(
+            label: 'OG', 
+            isSelected: newDoc.eyeSelection == 'OG', 
+            onTap: () {
+              setState(() => newDoc.eyeSelection = 'OG');
+              _insertTextIntoDoc(tabIndex, "\n\nMettre uniquement dans l'œil gauche\n");
+            },
+            color: const Color(0xFF0277BD),
+          ),
+        ]),
+      ),
+      // Toolbar - pass DocumentData to update formatting
+      _ProfessionalToolbar(doc: newDoc, onChanged: () => setState(() {})),
+      // Editor
+      Expanded(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.steelOutline)),
+          child: TextField(
+            controller: newDoc.controller,
+            maxLines: null,
+            expands: true,
+            style: TextStyle(fontSize: newDoc.fontSize, fontFamily: newDoc.fontFamily, fontWeight: newDoc.isBold ? FontWeight.bold : FontWeight.normal, fontStyle: newDoc.isItalic ? FontStyle.italic : FontStyle.normal, decoration: newDoc.isUnderline ? TextDecoration.underline : null, color: newDoc.textColor),
+            textAlign: newDoc.alignment,
+            decoration: InputDecoration(hintText: 'Saisir le contenu...', hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13), border: InputBorder.none, contentPadding: const EdgeInsets.all(16)),
+          ),
+        ),
+      ),
+    ]);
+  }
+  
+  Widget _buildPrintWithAnotherSection(int tabIndex, String documentType) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFFFFF3E0).withValues(alpha: 0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Icon(Icons.print, color: Colors.orange.shade700, size: 16), const SizedBox(width: 8), Text('Imprimer avec un autre nom', style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600))]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: _SmallField(controller: _printNameController, label: 'Nom')),
+          const SizedBox(width: 8),
+          Expanded(child: _SmallField(controller: _printPrenomController, label: 'Prénom')),
+          const SizedBox(width: 8),
+          SizedBox(width: 80, child: _SmallField(controller: _printAgeController, label: 'Âge')),
+        ]),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          // Download button
+          Material(
+            color: const Color(0xFF1565C0),
+            borderRadius: BorderRadius.circular(4),
+            child: InkWell(
+              onTap: () => _downloadDocument(tabIndex, documentType),
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.download, color: Colors.white, size: 16),
+                  SizedBox(width: 6),
+                  Text('TÉLÉCHARGER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Print button
+          Material(
+            color: MediCoreColors.healthyGreen,
+            borderRadius: BorderRadius.circular(4),
+            child: InkWell(
+              onTap: () => _printDocumentTab(tabIndex, documentType),
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.print, color: Colors.white, size: 16),
+                  SizedBox(width: 6),
+                  Text('IMPRIMER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  /// Save document to database
+  Future<void> _saveDocumentToDb(int tabIndex, String documentType, String content) async {
+    try {
+      final p = widget.patient;
+      final db = AppDatabase.instance;
+      
+      // Insert new ordonnance record
+      await db.customStatement(
+        '''INSERT INTO ordonnances (patient_code, document_date, content1, type1, doctor_name, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)''',
+        [
+          p.code,
+          _selectedDate.toIso8601String(),
+          content,
+          documentType,
+          ref.read(authStateProvider).user?.name ?? 'Docteur',
+          DateTime.now().toIso8601String(),
+        ],
+      );
+      
+      // Reload documents
+      _loadDocuments();
+    } catch (e) {
+      debugPrint('Error saving to DB: $e');
+    }
+  }
+
+  /// Strip separator lines for printing (keep spacing with newlines)
+  String _stripSeparatorsForPrint(String text) {
+    // Replace separator line with just blank line to keep spacing
+    return text.replaceAll(RegExp(r'─+'), '').replaceAll(RegExp(r'\n\s*\n\s*\n'), '\n\n');
+  }
+
+  /// Insert text into the document for a specific tab
+  void _insertTextIntoDoc(int tabIndex, String text) {
+    final newDoc = _getNewDocForTab(tabIndex);
+    if (newDoc == null) return;
+    
+    final controller = newDoc.controller;
+    final currentText = controller.text;
+    final selection = controller.selection;
+    
+    // Insert at cursor position or at end
+    final insertPos = selection.isValid ? selection.start : currentText.length;
+    final newText = currentText.substring(0, insertPos) + text + currentText.substring(insertPos);
+    
+    controller.text = newText;
+    controller.selection = TextSelection.collapsed(offset: insertPos + text.length);
+    setState(() {});
+  }
+
+  /// Insert ART (Work) certificate template
+  void _insertArtTravail(int tabIndex) {
+    final jours = int.tryParse(_jourController.text) ?? 0;
+    final joursText = jours == 0 ? 'zéro (0)' : '$jours (${_numberToFrench(jours)})';
+    final doctorName = ref.read(authStateProvider).user?.name ?? 'Dr KARKOURI.N';
+    
+    final text = '''Je soussigné, $doctorName, certifie avoir examiné, ce jour, le sus-nommé
+
+dont l'état de santé nécessite un arrêt de travail de :
+
+$joursText jours à compter d'aujourd'hui.
+
+
+Sauf complications.
+
+
+
+
+                                                      Dont certificat.''';
+    
+    _insertTextIntoDoc(tabIndex, text);
+  }
+
+  /// Insert ART (School) certificate template
+  void _insertArtScolaire(int tabIndex) {
+    final jours = int.tryParse(_jourController.text) ?? 0;
+    final joursText = jours == 0 ? 'zéro (0)' : '$jours (${_numberToFrench(jours)})';
+    final doctorName = ref.read(authStateProvider).user?.name ?? 'Dr KARKOURI.N';
+    
+    final text = '''Je soussigné, $doctorName, certifie avoir examiné, ce jour, le sus-nommé
+
+dont l'état de santé nécessite une éviction scolaire de :
+
+$joursText jours à compter d'aujourd'hui.
+
+
+Sauf complications.
+
+
+
+
+                                                      Dont certificat.''';
+    
+    _insertTextIntoDoc(tabIndex, text);
+  }
+
+  /// Convert number to French text
+  String _numberToFrench(int n) {
+    const units = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf', 'vingt'];
+    if (n <= 20) return units[n];
+    if (n < 30) return 'vingt-${units[n - 20]}';
+    if (n < 40) return 'trente${n == 30 ? '' : '-${units[n - 30]}'}';
+    if (n < 50) return 'quarante${n == 40 ? '' : '-${units[n - 40]}'}';
+    if (n < 60) return 'cinquante${n == 50 ? '' : '-${units[n - 50]}'}';
+    if (n < 70) return 'soixante${n == 60 ? '' : '-${units[n - 60]}'}';
+    if (n < 80) return 'soixante-${units[n - 60]}';
+    if (n < 90) return 'quatre-vingt${n == 80 ? 's' : '-${units[n - 80]}'}';
+    if (n < 100) return 'quatre-vingt-${units[n - 80]}';
+    return '$n';
+  }
+
+  /// Delete the current viewed document
+  Future<void> _deleteCurrentDocument(OrdonnanceDocument doc) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer le document?'),
+        content: Text('Voulez-vous vraiment supprimer ce document du ${doc.formattedDate}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('ANNULER')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('SUPPRIMER'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed != true) return;
+    
+    try {
+      final db = AppDatabase.instance;
+      await db.customStatement('DELETE FROM ordonnances WHERE id = ?', [doc.id]);
+      
+      // Reload documents and reset index if needed
+      _loadDocuments();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Document supprimé'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// Print document - saves to DB first, uses "print with another name" fields if filled
+  /// Tab 2 (Comptes) uses A4, others use A5
+  Future<void> _printDocumentTab(int tabIndex, String documentType) async {
+    final newDoc = _getNewDocForTab(tabIndex);
+    if (newDoc == null || newDoc.controller.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rien à imprimer'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    
+    // Only save if not already saved OR if content was edited
+    bool didSave = false;
+    if (!newDoc.isSaved || newDoc.wasEdited) {
+      await _saveDocumentToDb(tabIndex, documentType, newDoc.controller.text);
+      newDoc.markSaved();
+      didSave = true;
+    }
+    
+    // Strip separators for printing
+    final printContent = _stripSeparatorsForPrint(newDoc.controller.text);
+    
+    final p = widget.patient;
+    bool success;
+    
+    // All tabs use same A5 design for PDF, but Comptes (tab 2) prints on A4 paper
+    success = await PrescriptionPrintService.printOrdonnance(
+      patientName: '${p.firstName} ${p.lastName}',
+      patientCode: p.code.toString(),
+      barcode: p.code.toString(),
+      date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+      content: printContent,
+      documentType: documentType,
+      printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
+      printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
+      printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
+      age: p.age?.toString(),
+      useA4: tabIndex == 2,  // Comptes uses A4 paper
+    );
+    
+    // Clear print with another name fields after printing
+    _printNameController.clear();
+    _printPrenomController.clear();
+    _printAgeController.clear();
+    
+    if (mounted) {
+      final msg = success 
+          ? (didSave ? 'Document sauvegardé et impression envoyée' : 'Impression envoyée')
+          : (didSave ? 'Document sauvegardé, aucune imprimante' : 'Aucune imprimante connectée');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: success ? Colors.green : Colors.orange,
+      ));
+    }
+  }
+
+  /// Download document as PDF
+  /// Tab 2 (Comptes) uses A4, others use A5
+  Future<void> _downloadDocument(int tabIndex, String documentType) async {
+    final newDoc = _getNewDocForTab(tabIndex);
+    if (newDoc == null || newDoc.controller.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rien à télécharger'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    
+    // Strip separators for PDF
+    final pdfContent = _stripSeparatorsForPrint(newDoc.controller.text);
+    
+    try {
+      final p = widget.patient;
+      
+      // All tabs use same design, Comptes (tab 2) uses A4 paper
+      final pdf = await PrescriptionPrintService.generateOrdonnancePdf(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+        content: pdfContent,
+        documentType: documentType,
+        printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
+        printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
+        printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
+        age: p.age?.toString(),
+        useA4: tabIndex == 2,  // Comptes uses A4 paper
+      );
+      
+      // Clean filename: replace spaces and special chars
+      final cleanType = documentType.replaceAll(' ', '_').replaceAll("'", '');
+      final path = await PrescriptionPrintService.downloadPdf(pdf, '${cleanType}_${p.code}.pdf');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF téléchargé: $path'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // RIGHT PANEL: MEDICATIONS (Tab 1 & 2)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildMedicinePanel() {
+    final meds = _filteredMedications;
+    return Container(
+      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]),
+      child: Column(children: [
+        Container(height: 50, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF1976D2)]), borderRadius: BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7))), padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [const Icon(Icons.medication, color: Colors.white, size: 20), const SizedBox(width: 12), const Text('MÉDICAMENTS', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)), const Spacer(), Text('${meds.length}', style: const TextStyle(color: Colors.white70, fontSize: 12))])),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(color: Color(0xFFE3F2FD), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
+          child: TextField(
+            controller: _searchController, 
+            onChanged: (v) {
+              setState(() => _searchQuery = v);
+              _loadMedications();
+            }, 
+            style: const TextStyle(fontSize: 14), 
+            decoration: InputDecoration(
+              hintText: 'Tapez pour filtrer...', 
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF1565C0), size: 20), 
+              suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () { 
+                _searchController.clear(); 
+                setState(() => _searchQuery = ''); 
+                _loadMedications();
+              }) : null, 
+              filled: true, 
+              fillColor: Colors.white, 
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), 
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+        ),
+        Container(height: 36, color: const Color(0xFFECEFF1), padding: const EdgeInsets.symmetric(horizontal: 12), child: const Row(children: [Expanded(flex: 5, child: Text('NOM', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))), SizedBox(width: 50, child: Text('N°', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center))])),
+        Expanded(
+          child: _isLoadingMeds 
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.builder(
+                itemCount: meds.length,
+                itemBuilder: (_, i) {
+                  final m = meds[i];
+                  return InkWell(
+                    onDoubleTap: () => _insertMedication(m),
+                    child: Container(
+                      height: 40, 
+                      padding: const EdgeInsets.symmetric(horizontal: 12), 
+                      decoration: BoxDecoration(color: i % 2 == 0 ? Colors.white : const Color(0xFFF5F5F5), border: const Border(bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.5))), 
+                      child: Row(children: [
+                        Expanded(flex: 5, child: Text(m.code, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                        GestureDetector(
+                          onDoubleTap: () => _editMedicationCount(m),
+                          child: Container(
+                            width: 50, 
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), 
+                            decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(10)), 
+                            child: Text('${m.usageCount}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1565C0)), textAlign: TextAlign.center),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+        ),
+        Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Color(0xFFE8F5E9), borderRadius: BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))), child: Row(children: [Icon(Icons.info_outline, color: Colors.green.shade700, size: 16), const SizedBox(width: 8), Expanded(child: Text('Double-clic: insérer | Double-clic N°: modifier', style: TextStyle(color: Colors.green.shade700, fontSize: 10, fontStyle: FontStyle.italic)))])),
+      ]),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // RIGHT PANEL: MODÈLES CR (only for Comptes tab)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTemplatePanel() {
+    return Container(
+      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]),
+      child: Column(children: [
+        Container(height: 50, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF7B1FA2), Color(0xFF9C27B0)]), borderRadius: BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7))), padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [const Icon(Icons.description, color: Colors.white, size: 20), const SizedBox(width: 12), const Text('MODÈLES CR', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)), const Spacer(), Text('${_templatesCR.length}', style: const TextStyle(color: Colors.white70, fontSize: 12))])),
+        Container(height: 36, color: const Color(0xFFF3E5F5), padding: const EdgeInsets.symmetric(horizontal: 12), child: const Row(children: [Expanded(flex: 5, child: Text('NOM', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))), SizedBox(width: 40, child: Text('N°', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center))])),
+        Expanded(
+          child: _isLoadingTemplates 
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.builder(
+                itemCount: _templatesCR.length,
+                itemBuilder: (_, i) {
+                  final t = _templatesCR[i];
+                  return InkWell(
+                    onDoubleTap: () => _insertTemplateCR(t),
+                    child: Container(
+                      height: 44, 
+                      padding: const EdgeInsets.symmetric(horizontal: 12), 
+                      decoration: BoxDecoration(color: i % 2 == 0 ? Colors.white : const Color(0xFFFAF5FC), border: const Border(bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.5))), 
+                      child: Row(children: [
+                        Expanded(flex: 5, child: Text(t['code'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                        Container(
+                          width: 40, 
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), 
+                          decoration: BoxDecoration(color: const Color(0xFFE1BEE7), borderRadius: BorderRadius.circular(10)), 
+                          child: Text('${t['usageCount']}', style: const TextStyle(fontSize: 10, color: Color(0xFF7B1FA2), fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                        ),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+        ),
+        Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Color(0xFFF3E5F5), borderRadius: BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))), child: Row(children: [Icon(Icons.info_outline, color: Colors.purple.shade700, size: 16), const SizedBox(width: 8), Text('Double-clic pour insérer', style: TextStyle(color: Colors.purple.shade700, fontSize: 11, fontStyle: FontStyle.italic))])),
+      ]),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      height: 56,
+      decoration: const BoxDecoration(color: MediCoreColors.deepNavy, border: Border(top: BorderSide(color: MediCoreColors.steelOutline, width: 2))),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        _CompactBtn(icon: Icons.send, label: 'ENVOYER', onPressed: _showSendMessageDialog),
+        const SizedBox(width: 8),
+        _CompactBtn(icon: Icons.inbox, label: 'RECEVOIR', onPressed: _showReceiveMessagesDialog),
+        const SizedBox(width: 16),
+        Container(width: 1, height: 32, color: MediCoreColors.steelOutline),
+        const SizedBox(width: 16),
+        _CompactBtn(icon: Icons.preview, label: 'OPTIQUE', onPressed: _showOptiqueDialog),
+        const SizedBox(width: 8),
+        _CompactBtn(icon: Icons.blur_circular, label: 'LENTILLES', onPressed: _showLentillesDialog),
+        const SizedBox(width: 8),
+        _CompactBtn(icon: Icons.description_outlined, label: 'ORDO', onPressed: () {}, isActive: true),
+        const SizedBox(width: 16),
+        Container(width: 1, height: 32, color: MediCoreColors.steelOutline),
+        const SizedBox(width: 16),
+        _CompactBtn(icon: Icons.account_balance_wallet, label: 'F5', onPressed: _showComptabiliteDialog, color: const Color(0xFF7B1FA2)),
+      ]),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROFESSIONAL TOOLBAR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _ProfessionalToolbar extends StatefulWidget {
+  final DocumentData doc;
+  final VoidCallback onChanged;
+  const _ProfessionalToolbar({required this.doc, required this.onChanged});
+  @override
+  State<_ProfessionalToolbar> createState() => _ProfessionalToolbarState();
+}
+
+class _ProfessionalToolbarState extends State<_ProfessionalToolbar> {
+  static const fonts = ['Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Helvetica', 'Palatino'];
+  static const sizes = [8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 28.0, 32.0, 36.0, 48.0, 72.0];
+  static const colors = [Colors.black, Colors.grey, Colors.white, Colors.red, Colors.pink, Colors.purple, Colors.deepPurple, Colors.indigo, Colors.blue, Colors.lightBlue, Colors.cyan, Colors.teal, Colors.green, Colors.lightGreen, Colors.lime, Colors.yellow, Colors.amber, Colors.orange, Colors.deepOrange, Colors.brown];
+
+  DocumentData get _doc => widget.doc;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(color: Color(0xFFF8F9FA), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
+      child: Column(children: [
+        Container(height: 44, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), child: Row(children: [_fontDrop(), const SizedBox(width: 6), _sizeDrop(), _div(), _fmtBtn(Icons.format_bold, _doc.isBold, () { _doc.isBold = !_doc.isBold; }), _fmtBtn(Icons.format_italic, _doc.isItalic, () { _doc.isItalic = !_doc.isItalic; }), _fmtBtn(Icons.format_underline, _doc.isUnderline, () { _doc.isUnderline = !_doc.isUnderline; }), _div(), _colorBtn(Icons.format_color_text, _doc.textColor, (c) { _doc.textColor = c; })])),
+        Container(height: 44, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE0E0E0)))), child: Row(children: [_alignBtn(Icons.format_align_left, TextAlign.left), _alignBtn(Icons.format_align_center, TextAlign.center), _alignBtn(Icons.format_align_right, TextAlign.right), _alignBtn(Icons.format_align_justify, TextAlign.justify), _div(), _fmtBtn(Icons.format_list_bulleted, false, _insertBullet), _fmtBtn(Icons.format_list_numbered, false, _insertNumber), _div(), _fmtBtn(Icons.horizontal_rule, false, _insertLine), _div(), _fmtBtn(Icons.format_clear, false, _clear), const Spacer()])),
+      ]),
+    );
+  }
+
+  Widget _fontDrop() => Container(width: 130, height: 30, padding: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: _doc.fontFamily, isExpanded: true, isDense: true, style: const TextStyle(fontSize: 12, color: Colors.black87), icon: const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey), items: fonts.map((f) => DropdownMenuItem(value: f, child: Text(f, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: f)))).toList(), onChanged: (v) { _doc.fontFamily = v ?? 'Arial'; widget.onChanged(); })));
+  Widget _sizeDrop() => Container(width: 65, height: 30, padding: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))), child: DropdownButtonHideUnderline(child: DropdownButton<double>(value: _doc.fontSize, isExpanded: true, isDense: true, style: const TextStyle(fontSize: 12, color: Colors.black87), icon: const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey), items: sizes.map((s) => DropdownMenuItem(value: s, child: Text('${s.toInt()}'))).toList(), onChanged: (v) { _doc.fontSize = v ?? 14; widget.onChanged(); })));
+  Widget _div() => Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 6), color: const Color(0xFFBDBDBD));
+  Widget _fmtBtn(IconData icon, bool active, VoidCallback onTap) => Material(color: active ? const Color(0xFFE3F2FD) : Colors.transparent, borderRadius: BorderRadius.circular(4), child: InkWell(onTap: () { onTap(); widget.onChanged(); }, borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null, child: Icon(icon, size: 20, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242)))));
+  Widget _alignBtn(IconData icon, TextAlign a) { final active = _doc.alignment == a; return Material(color: active ? const Color(0xFFE3F2FD) : Colors.transparent, borderRadius: BorderRadius.circular(4), child: InkWell(onTap: () { _doc.alignment = a; widget.onChanged(); }, borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null, child: Icon(icon, size: 20, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242))))); }
+  Widget _colorBtn(IconData icon, Color cur, ValueChanged<Color> onSel) => Material(color: Colors.transparent, child: InkWell(onTap: () => _showPicker(cur, onSel), borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 18, color: const Color(0xFF424242)), Container(height: 4, width: 18, decoration: BoxDecoration(color: cur, borderRadius: BorderRadius.circular(1)))]))));
+  void _showPicker(Color cur, ValueChanged<Color> onSel) => showDialog(context: context, builder: (c) => AlertDialog(title: const Text('Couleur'), content: SizedBox(width: 300, child: Wrap(spacing: 8, runSpacing: 8, children: colors.map((col) => InkWell(onTap: () { onSel(col); Navigator.pop(c); widget.onChanged(); }, child: Container(width: 36, height: 36, decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(4), border: Border.all(color: col == cur ? const Color(0xFF1565C0) : Colors.grey.shade300, width: col == cur ? 3 : 1))))).toList()))));
+  void _insertBullet() { final t = _doc.controller.text; final s = _doc.controller.selection; _doc.controller.text = '${t.substring(0, s.start)}• ${t.substring(s.end)}'; _doc.controller.selection = TextSelection.collapsed(offset: s.start + 2); }
+  void _insertNumber() { final t = _doc.controller.text; final s = _doc.controller.selection; _doc.controller.text = '${t.substring(0, s.start)}1. ${t.substring(s.end)}'; _doc.controller.selection = TextSelection.collapsed(offset: s.start + 3); }
+  void _insertLine() { final t = _doc.controller.text; final s = _doc.controller.selection; _doc.controller.text = '${t.substring(0, s.start)}\n────────────────────────────────────\n${t.substring(s.end)}'; _doc.controller.selection = TextSelection.collapsed(offset: s.start + 40); }
+  void _clear() { _doc.isBold = false; _doc.isItalic = false; _doc.isUnderline = false; _doc.alignment = TextAlign.left; _doc.textColor = Colors.black; _doc.fontSize = 14; _doc.fontFamily = 'Arial'; widget.onChanged(); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPER WIDGETS & DATA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _InfoChip extends StatelessWidget { final IconData icon; final String label; const _InfoChip({required this.icon, required this.label}); @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white70, size: 14), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12))])); }
+class _CompactBtn extends StatelessWidget { final IconData icon; final String label; final VoidCallback onPressed; final Color? color; final bool isActive; const _CompactBtn({required this.icon, required this.label, required this.onPressed, this.color, this.isActive = false}); @override Widget build(BuildContext context) { final c = color ?? MediCoreColors.professionalBlue; return Material(color: isActive ? c : c.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onPressed, borderRadius: BorderRadius.circular(4), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 16), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))])))); } }
+class _NavBtn extends StatelessWidget { final IconData icon; final VoidCallback onTap; const _NavBtn({required this.icon, required this.onTap}); @override Widget build(BuildContext context) => Material(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(4), child: Container(width: 28, height: 28, alignment: Alignment.center, child: Icon(icon, color: Colors.white, size: 20)))); }
+class _EyeChip extends StatelessWidget { final String label; final bool isSelected; final VoidCallback onTap; final Color color; const _EyeChip({required this.label, required this.isSelected, required this.onTap, required this.color}); @override Widget build(BuildContext context) => Material(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(20), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? color : MediCoreColors.steelOutline, width: 1.5)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : MediCoreColors.deepNavy, fontSize: 12, fontWeight: FontWeight.w600))))); }
+class _EyeChipWithInsert extends StatelessWidget { final String label; final bool isSelected; final VoidCallback onTap; final VoidCallback onDoubleTap; final Color color; const _EyeChipWithInsert({required this.label, required this.isSelected, required this.onTap, required this.onDoubleTap, required this.color}); @override Widget build(BuildContext context) => Tooltip(message: 'Double-clic pour insérer', child: Material(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(20), child: InkWell(onTap: onTap, onDoubleTap: onDoubleTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? color : MediCoreColors.steelOutline, width: 1.5)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : MediCoreColors.deepNavy, fontSize: 12, fontWeight: FontWeight.w600)))))); }
+class _SmallField extends StatelessWidget { final TextEditingController controller; final String label; const _SmallField({required this.controller, required this.label}); @override Widget build(BuildContext context) => TextField(controller: controller, style: const TextStyle(fontSize: 13), decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(fontSize: 11, color: Colors.grey), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), isDense: true)); }
+class _ActionBtn extends StatelessWidget { final IconData icon; final String label; final Color color; final VoidCallback onTap; final bool large; const _ActionBtn({required this.icon, required this.label, required this.color, required this.onTap, this.large = false}); @override Widget build(BuildContext context) => Material(color: color, borderRadius: BorderRadius.circular(6), elevation: 2, child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(6), child: Container(padding: EdgeInsets.symmetric(horizontal: large ? 24 : 12, vertical: 10), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 16), const SizedBox(width: 6), Text(label, style: TextStyle(color: Colors.white, fontSize: large ? 13 : 12, fontWeight: FontWeight.w600))])))); }
+
+class DocumentData {
+  String type;
+  String eyeSelection = 'BOTH';
+  final TextEditingController controller = TextEditingController();
+  String fontFamily = 'Arial';
+  double fontSize = 14;
+  bool isBold = false, isItalic = false, isUnderline = false;
+  Color textColor = Colors.black;
+  TextAlign alignment = TextAlign.left;
+  bool isSaved = false;  // Track if already saved to DB
+  String? savedContent;  // Content when last saved (to detect edits)
+  DocumentData({required this.type});
+  
+  /// Check if content was edited since last save
+  bool get wasEdited => savedContent != null && controller.text != savedContent;
+  
+  /// Mark as saved with current content
+  void markSaved() {
+    isSaved = true;
+    savedContent = controller.text;
+  }
+}
+
+class MedicineItem { final String code, name, category; final int stock; MedicineItem({required this.code, required this.name, required this.category, required this.stock}); }

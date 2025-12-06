@@ -1,0 +1,65 @@
+name: medicore_app
+description: Thaziri Medical Management Application
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Local Database
+  drift: ^2.14.0
+  sqlite3_flutter_libs: ^0.5.0
+  sqlite3: ^2.0.0  # For standalone scripts
+  path_provider: ^2.1.0
+  path: ^1.8.3
+  
+  # Backend Communication
+  grpc: ^3.2.0
+  protobuf: ^3.1.0
+  
+  # PDF Generation & Printing
+  pdf: ^3.10.0
+  printing: ^5.11.0
+  
+  # State Management
+  flutter_riverpod: ^2.4.0
+  
+  # Fixed Canvas Scaling (Cockpit Design)
+  flutter_screenutil: ^5.9.0
+  
+  # Window Customization (Desktop)
+  bitsdojo_window: ^0.1.6
+  
+  # Utilities
+  intl: ^0.18.0
+  google_fonts: ^6.1.0
+  uuid: ^4.0.0
+  shared_preferences: ^2.2.0
+  xml: ^6.3.0
+  audioplayers: ^5.2.0
+  file_picker: ^6.1.1
+  
+  # Multi-pane layouts
+  multi_split_view: ^3.0.0
+  
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  
+  # Database Code Generation
+  drift_dev: ^2.14.0
+  build_runner: ^2.4.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/sounds/notification.mp3
+    - assets/images/
+    - assets/logos/

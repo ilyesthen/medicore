@@ -1,0 +1,94 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# MediCore Project - Git Ignore (CLEAN BUILD)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Large XML data files (NOT needed for build)
+*.xml
+
+# Large image files in root
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+build/
+dist/
+installer/Output/
+*.dill
+*.cache.dill*
+
+# Environment files
+*.env
+!*.example.env
+
+# Temporary
+*.tmp
+*.temp
+.cache/
+
+# Go binaries
+medicore_server/medicore_server
+medicore_server/*.exe
+
+# Flutter build artifacts
+medicore_app/.dart_tool/
+medicore_app/.packages
+medicore_app/build/
+medicore_app/.flutter-plugins
+medicore_app/.flutter-plugins-dependencies
+*.snapshot
+
+# Proto compiler (download in CI)
+medicore_server/protoc-*.zip
+medicore_server/protoc-install/
+
+# Zip files
+*.zip
+
+# MD status files (not needed for build)
+*_COMPLETE.md
+*_STATUS.md
+*_SUMMARY.md
+*_FIX.md
+*_FIXED.md
+*_READY.md
+*_GUIDE.md
+*_NOW.md
+*_PRET.md
+
+# Shell scripts (dev only)
+*.sh
+
+# Test artifacts
+coverage/
+*.lcov
+
+# Backup files
+*.bak
+*.backup
+backups/

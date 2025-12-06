@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package medicore.users;
+
+option go_package = "medicore-server/proto/users";
+
+// User message
+message User {
+  string id = 1;
+  string name = 2;
+  string role = 3;
+  string password_hash = 4;
+  optional double percentage = 5;
+  bool is_template_user = 6;
+  int64 created_at = 7;
+  int64 updated_at = 8;
+  optional int64 deleted_at = 9;
+  int32 sync_version = 10;
+  optional int64 last_synced_at = 11;
+  bool needs_sync = 12;
+}
+
+// Template message
+message UserTemplate {
+  string id = 1;
+  string role = 2;
+  string password_hash = 3;
+  double percentage = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+  optional int64 deleted_at = 7;
+  int32 sync_version = 8;
+  optional int64 last_synced_at = 9;
+  bool needs_sync = 10;
+}
+
+// Sync Users Request
+message SyncUsersRequest {
+  int64 last_sync_timestamp = 1;
+  repeated User local_changes = 2;
+}
+
+// Sync Users Response
+message SyncUsersResponse {
+  repeated User server_updates = 1;
+  repeated string deleted_ids = 2;
+  int64 server_timestamp = 3;
+}
+
+// Sync Templates Request
+message SyncTemplatesRequest {
+  int64 last_sync_timestamp = 1;
+  repeated UserTemplate local_changes = 2;
+}
+
+// Sync Templates Response
+message SyncTemplatesResponse {
+  repeated UserTemplate server_updates = 1;
+  repeated string deleted_ids = 2;
+  int64 server_timestamp = 3;
+}
+
+// Get Users Request
+message GetUsersRequest {}
+
+// Get Users Response
+message GetUsersResponse {
+  repeated User users = 1;
+}
+
+// Get Templates Request
+message GetTemplatesRequest {}
+
+// Get Templates Response
+message GetTemplatesResponse {
+  repeated UserTemplate templates = 1;
+}
+
+// Delete User Request
+message DeleteUserRequest {
+  string id = 1;
+}
+
+// Delete User Response
+message DeleteUserResponse {
+  bool success = 1;
+}
+
+// Delete Template Request
+message DeleteTemplateRequest {
+  string id = 1;
+}
+
+// Delete Template Response
+message DeleteTemplateResponse {
+  bool success = 1;
+}
+
+// Users Service
+service UsersService {
+  // Sync users from client to server
+  rpc SyncUsers(SyncUsersRequest) returns (SyncUsersResponse);
+  
+  // Sync templates from client to server
+  rpc SyncTemplates(SyncTemplatesRequest) returns (SyncTemplatesResponse);
+  
+  // Create new user
+  rpc CreateUser(User) returns (User);
+  
+  // Update existing user
+  rpc UpdateUser(User) returns (User);
+  
+  // Delete user (soft delete)
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  
+  // Get all users
+  rpc GetAllUsers(GetUsersRequest) returns (GetUsersResponse);
+  
+  // Create new template
+  rpc CreateTemplate(UserTemplate) returns (UserTemplate);
+  
+  // Update existing template
+  rpc UpdateTemplate(UserTemplate) returns (UserTemplate);
+  
+  // Delete template (soft delete)
+  rpc DeleteTemplate(DeleteTemplateRequest) returns (DeleteTemplateResponse);
+  
+  // Get all templates
+  rpc GetAllTemplates(GetTemplatesRequest) returns (GetTemplatesResponse);
+}
