@@ -430,17 +430,17 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       decoration: const BoxDecoration(color: MediCoreColors.deepNavy, border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline, width: 2))),
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(children: [
-        Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: MediCoreColors.professionalBlue.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.professionalBlue)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.person, color: Colors.white, size: 18), const SizedBox(width: 8), Text(userName.toUpperCase(), style: MediCoreTypography.button.copyWith(color: Colors.white, fontSize: 13))])),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: MediCoreColors.professionalBlue.withOpacity(0.3), borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.professionalBlue)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.person, color: Colors.white, size: 18), const SizedBox(width: 8), Text(userName.toUpperCase(), style: MediCoreTypography.button.copyWith(color: Colors.white, fontSize: 13))])),
         const SizedBox(width: 32),
         Container(width: 2, height: 40, color: MediCoreColors.steelOutline),
         const SizedBox(width: 32),
-        Container(width: 44, height: 44, decoration: BoxDecoration(color: MediCoreColors.healthyGreen.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.healthyGreen)), child: const Icon(Icons.person_outline, color: MediCoreColors.healthyGreen, size: 24)),
+        Container(width: 44, height: 44, decoration: BoxDecoration(color: MediCoreColors.healthyGreen.withOpacity(0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.healthyGreen)), child: const Icon(Icons.person_outline, color: MediCoreColors.healthyGreen, size: 24)),
         const SizedBox(width: 16),
         Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${p.lastName} ${p.firstName}'.toUpperCase(), style: MediCoreTypography.sectionHeader.copyWith(color: Colors.white, fontSize: 16)), Text('Patient N° ${p.code}', style: MediCoreTypography.body.copyWith(color: Colors.white60, fontSize: 11))]),
         const SizedBox(width: 32),
         if (p.age != null) _InfoChip(icon: Icons.cake_outlined, label: '${p.age} ans'),
         const Spacer(),
-        InkWell(onTap: _selectDate, borderRadius: BorderRadius.circular(4), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF4CAF50))), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.calendar_today, color: Color(0xFF81C784), size: 16), const SizedBox(width: 8), Text(DateFormat('dd/MM/yyyy').format(_selectedDate), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(width: 4), const Icon(Icons.edit, color: Color(0xFF81C784), size: 12)]))),
+        InkWell(onTap: _selectDate, borderRadius: BorderRadius.circular(4), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF2E7D32).withOpacity(0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF4CAF50))), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.calendar_today, color: Color(0xFF81C784), size: 16), const SizedBox(width: 8), Text(DateFormat('dd/MM/yyyy').format(_selectedDate), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(width: 4), const Icon(Icons.edit, color: Color(0xFF81C784), size: 12)]))),
         const SizedBox(width: 16),
         IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close, color: Colors.white)),
       ]),
@@ -637,7 +637,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     final isViewing = !isCreating && currentDoc != null;
     
     return Container(
-      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))]),
       child: Column(children: [
         // Header with navigation
         Container(
@@ -648,7 +648,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
             // Navigation arrows
             _NavBtn(icon: Icons.chevron_left, onTap: () => _navigateDoc(-1)),
             const SizedBox(width: 8),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)), child: Text(isCreating ? 'NOUVEAU' : '${_currentDocIndex + 1} / $total', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(4)), child: Text(isCreating ? 'NOUVEAU' : '${_currentDocIndex + 1} / $total', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))),
             const SizedBox(width: 8),
             _NavBtn(icon: Icons.chevron_right, onTap: () => _navigateDoc(1)),
             const SizedBox(width: 16),
@@ -661,7 +661,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
             else
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white30)),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white30)),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: selectedType,
@@ -774,7 +774,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   Widget _buildSimplePrintSection(int tabIndex, String documentType) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFE8F5E9).withValues(alpha: 0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
+      decoration: BoxDecoration(color: const Color(0xFFE8F5E9).withOpacity(0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
       child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         // Download button
         Material(
@@ -843,7 +843,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       // Print button for existing documents
       Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFE8F5E9).withValues(alpha: 0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
+        decoration: BoxDecoration(color: const Color(0xFFE8F5E9).withOpacity(0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
         child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           // Download button
           Material(
@@ -955,7 +955,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       // Eye selection (click to insert text with line break)
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(color: MediCoreColors.canvasGrey.withValues(alpha: 0.5), border: const Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
+        decoration: BoxDecoration(color: MediCoreColors.canvasGrey.withOpacity(0.5), border: const Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
         child: Row(children: [
           _EyeChip(
             label: '👁️ Opéré', 
@@ -1021,7 +1021,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   Widget _buildPrintWithAnotherSection(int tabIndex, String documentType) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFFFF3E0).withValues(alpha: 0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
+      decoration: BoxDecoration(color: const Color(0xFFFFF3E0).withOpacity(0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [Icon(Icons.print, color: Colors.orange.shade700, size: 16), const SizedBox(width: 8), Text('Imprimer avec un autre nom', style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600))]),
         const SizedBox(height: 10),
@@ -1340,7 +1340,7 @@ Sauf complications.
   Widget _buildMedicinePanel() {
     final meds = _filteredMedications;
     return Container(
-      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))]),
       child: Column(children: [
         Container(height: 50, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF1976D2)]), borderRadius: BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7))), padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [const Icon(Icons.medication, color: Colors.white, size: 20), const SizedBox(width: 12), const Text('MÉDICAMENTS', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)), const Spacer(), Text('${meds.length}', style: const TextStyle(color: Colors.white70, fontSize: 12))])),
         Container(
@@ -1410,7 +1410,7 @@ Sauf complications.
 
   Widget _buildTemplatePanel() {
     return Container(
-      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))]),
       child: Column(children: [
         Container(height: 50, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF7B1FA2), Color(0xFF9C27B0)]), borderRadius: BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7))), padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [const Icon(Icons.description, color: Colors.white, size: 20), const SizedBox(width: 12), const Text('MODÈLES CR', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)), const Spacer(), Text('${_templatesCR.length}', style: const TextStyle(color: Colors.white70, fontSize: 12))])),
         Container(height: 36, color: const Color(0xFFF3E5F5), padding: const EdgeInsets.symmetric(horizontal: 12), child: const Row(children: [Expanded(flex: 5, child: Text('NOM', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))), SizedBox(width: 40, child: Text('N°', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center))])),
@@ -1519,9 +1519,9 @@ class _ProfessionalToolbarState extends State<_ProfessionalToolbar> {
 // HELPER WIDGETS & DATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _InfoChip extends StatelessWidget { final IconData icon; final String label; const _InfoChip({required this.icon, required this.label}); @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white70, size: 14), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12))])); }
-class _CompactBtn extends StatelessWidget { final IconData icon; final String label; final VoidCallback onPressed; final Color? color; final bool isActive; const _CompactBtn({required this.icon, required this.label, required this.onPressed, this.color, this.isActive = false}); @override Widget build(BuildContext context) { final c = color ?? MediCoreColors.professionalBlue; return Material(color: isActive ? c : c.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onPressed, borderRadius: BorderRadius.circular(4), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 16), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))])))); } }
-class _NavBtn extends StatelessWidget { final IconData icon; final VoidCallback onTap; const _NavBtn({required this.icon, required this.onTap}); @override Widget build(BuildContext context) => Material(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(4), child: Container(width: 28, height: 28, alignment: Alignment.center, child: Icon(icon, color: Colors.white, size: 20)))); }
+class _InfoChip extends StatelessWidget { final IconData icon; final String label; const _InfoChip({required this.icon, required this.label}); @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(4)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white70, size: 14), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12))])); }
+class _CompactBtn extends StatelessWidget { final IconData icon; final String label; final VoidCallback onPressed; final Color? color; final bool isActive; const _CompactBtn({required this.icon, required this.label, required this.onPressed, this.color, this.isActive = false}); @override Widget build(BuildContext context) { final c = color ?? MediCoreColors.professionalBlue; return Material(color: isActive ? c : c.withOpacity(0.3), borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onPressed, borderRadius: BorderRadius.circular(4), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 16), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))])))); } }
+class _NavBtn extends StatelessWidget { final IconData icon; final VoidCallback onTap; const _NavBtn({required this.icon, required this.onTap}); @override Widget build(BuildContext context) => Material(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(4), child: Container(width: 28, height: 28, alignment: Alignment.center, child: Icon(icon, color: Colors.white, size: 20)))); }
 class _EyeChip extends StatelessWidget { final String label; final bool isSelected; final VoidCallback onTap; final Color color; const _EyeChip({required this.label, required this.isSelected, required this.onTap, required this.color}); @override Widget build(BuildContext context) => Material(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(20), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? color : MediCoreColors.steelOutline, width: 1.5)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : MediCoreColors.deepNavy, fontSize: 12, fontWeight: FontWeight.w600))))); }
 class _EyeChipWithInsert extends StatelessWidget { final String label; final bool isSelected; final VoidCallback onTap; final VoidCallback onDoubleTap; final Color color; const _EyeChipWithInsert({required this.label, required this.isSelected, required this.onTap, required this.onDoubleTap, required this.color}); @override Widget build(BuildContext context) => Tooltip(message: 'Double-clic pour insérer', child: Material(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(20), child: InkWell(onTap: onTap, onDoubleTap: onDoubleTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? color : MediCoreColors.steelOutline, width: 1.5)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : MediCoreColors.deepNavy, fontSize: 12, fontWeight: FontWeight.w600)))))); }
 class _SmallField extends StatelessWidget { final TextEditingController controller; final String label; const _SmallField({required this.controller, required this.label}); @override Widget build(BuildContext context) => TextField(controller: controller, style: const TextStyle(fontSize: 13), decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(fontSize: 11, color: Colors.grey), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), isDense: true)); }
