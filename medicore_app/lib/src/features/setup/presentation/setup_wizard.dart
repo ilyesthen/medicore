@@ -347,8 +347,13 @@ class _SetupWizardState extends State<SetupWizard> {
       // Get local IP
       final ip = await _getLocalIP();
       
-      // Save config to file
-      final config = {'mode': 'admin', 'ip': ip, 'date': DateTime.now().toIso8601String()};
+      // Save config to file (with version for upgrade detection)
+      final config = {
+        'version': '2.0.0',
+        'mode': 'admin', 
+        'ip': ip, 
+        'date': DateTime.now().toIso8601String()
+      };
       final configFile = File(p.join(appDir.path, 'medicore_config.txt'));
       await configFile.writeAsString(jsonEncode(config));
       
@@ -409,6 +414,7 @@ class _SetupWizardState extends State<SetupWizard> {
       if (!await appDir.exists()) await appDir.create(recursive: true);
       
       final config = {
+        'version': '2.0.0',
         'mode': 'client',
         'serverIp': server.ip,
         'serverName': server.name,

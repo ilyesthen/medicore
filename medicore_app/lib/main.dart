@@ -20,6 +20,9 @@ import 'src/features/auth/presentation/room_selection_wrapper.dart';
 import 'src/features/dashboard/presentation/admin_dashboard.dart';
 import 'src/features/setup/presentation/setup_wizard.dart';
 
+/// Current app version - bump this to force setup wizard on upgrade
+const String _currentAppVersion = '2.0.0';
+
 /// Check if setup has been completed
 /// Returns true ONLY if config exists AND database exists (for admin) or server IP is saved (for client)
 Future<bool> _isSetupComplete() async {
@@ -36,6 +39,19 @@ Future<bool> _isSetupComplete() async {
     
     // Parse config
     final config = jsonDecode(await configFile.readAsString());
+    
+    // Check version - force setup if version mismatch
+    final configVersion = config['version'] ?? '1.0.0';
+    if (configVersion != _currentAppVersion) {
+      print('⚠️ Version mismatch: config=$configVersion, app=$_currentAppVersion');
+      print('🔄 Clearing old config to force fresh setup...');
+      await configFile.delete();
+      if (dbFile.existsSync()) {
+        await dbFile.delete();
+      }
+      return false;
+    }
+    
     final mode = config['mode'];
     
     if (mode == 'admin') {
