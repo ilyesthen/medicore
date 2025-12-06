@@ -40,7 +40,7 @@ class MediCoreApp extends ConsumerStatefulWidget {
 
 class _MediCoreAppState extends ConsumerState<MediCoreApp> {
   // Skip setup in development mode - set to false for production
-  static const bool _devMode = true;
+  static const bool _devMode = false;
   
   bool _setupComplete = false;
 
