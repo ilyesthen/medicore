@@ -1,4 +1,4 @@
-name: Build MediCore Windows
+name: Build MediCore Windows Universal Installer
 
 on:
   push:
@@ -23,45 +23,9 @@ jobs:
         working-directory: medicore_app
         run: flutter pub get
 
-      - name: Enable Web Support
-        working-directory: medicore_app
-        run: flutter create . --platforms=web
-
-      - name: Build Windows 64-bit (Native)
+      - name: Build Windows x64 Release
         working-directory: medicore_app
         run: flutter build windows --release
-
-      - name: Build Flutter Web (For 32-bit wrapper)
-        working-directory: medicore_app
-        run: flutter build web --web-renderer html --release
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - name: Build 32-bit Web Wrapper
-        run: |
-          # Copy web build to wrapper
-          New-Item -ItemType Directory -Force -Path "medicore_app/web_wrapper/web"
-          Copy-Item -Path "medicore_app/build/web/*" -Destination "medicore_app/web_wrapper/web/" -Recurse -Force
-          
-          # Initialize Go module if not exists
-          cd medicore_app/web_wrapper
-          if (-not (Test-Path "go.mod")) {
-            go mod init medicore/wrapper
-          }
-          
-          # Build 32-bit wrapper
-          $env:GOOS = "windows"
-          $env:GOARCH = "386"
-          $env:CGO_ENABLED = "0"
-          go build -ldflags="-s -w" -o medicore_32bit.exe main.go
-          
-          # Build 64-bit wrapper too
-          $env:GOARCH = "amd64"
-          go build -ldflags="-s -w" -o medicore_64bit_web.exe main.go
-        shell: powershell
 
       - name: Download VC++ Redistributables
         run: |
@@ -70,174 +34,55 @@ jobs:
           Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x86.exe" -OutFile "medicore_app/installer/vcredist/vc_redist.x86.exe"
         shell: powershell
 
-      - name: Create Packages (Both 32-bit and 64-bit)
+      - name: Install Inno Setup
         run: |
-          # ====== 64-BIT NATIVE PACKAGE ======
-          $buildPath64 = "medicore_app/build/windows/x64/runner/Release"
-          New-Item -ItemType Directory -Force -Path "medicore_app/build/package_64bit"
-          
-          Copy-Item -Path "$buildPath64/*" -Destination "medicore_app/build/package_64bit/" -Recurse -Force
-          Copy-Item "medicore_app/installer/vcredist/vc_redist.x64.exe" "medicore_app/build/package_64bit/"
-          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "medicore_app/build/package_64bit/"
-          
-          # ====== 32-BIT WEB WRAPPER PACKAGE ======
-          New-Item -ItemType Directory -Force -Path "medicore_app/build/package_32bit"
-          
-          Copy-Item "medicore_app/web_wrapper/medicore_32bit.exe" "medicore_app/build/package_32bit/MediCore.exe"
-          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "medicore_app/build/package_32bit/"
-          
-          # 64-BIT LAUNCHER
-          @"
-          @echo off
-          chcp 65001 >nul
-          echo Installation...
-          vc_redist.x64.exe /install /quiet /norestart 2>nul
-          vc_redist.x86.exe /install /quiet /norestart 2>nul
-          start "" medicore_app.exe
-          exit
-          "@ | Out-File -FilePath "medicore_app/build/package_64bit/DEMARRER.bat" -Encoding UTF8
-          
-          # 32-BIT LAUNCHER
-          @"
-          @echo off
-          chcp 65001 >nul
-          echo Installation...
-          vc_redist.x86.exe /install /quiet /norestart 2>nul
-          start "" MediCore.exe
-          exit
-          "@ | Out-File -FilePath "medicore_app/build/package_32bit/DEMARRER.bat" -Encoding UTF8
-          
-          # Create README
-          @"
-          ╔══════════════════════════════════════════════════════════════╗
-          ║                 MEDICORE - INSTALLATION SIMPLE               ║
-          ║          Système de Gestion Médicale pour Cabinet            ║
-          ╚══════════════════════════════════════════════════════════════╝
-          
-          
-          ═══════════════════════════════════════════════════════════════
-          CONFIGURATION REQUISE:
-          ═══════════════════════════════════════════════════════════════
-          
-          ✅ Windows 7, 8, 10, 11 (VERSION 64-BIT SEULEMENT)
-          ❌ Ne fonctionne PAS sur Windows 32-bit (architecture x86)
-          
-          → Pour vérifier: Ordinateur → Propriétés → "Système d'exploitation 64 bits"
-          
-          
-          ═══════════════════════════════════════════════════════════════
-          INSTALLATION EN 3 ÉTAPES:
-          ═══════════════════════════════════════════════════════════════
-          
-          ÉTAPE 1: Extraire le ZIP
-          -------------------------
-          Extraire tous les fichiers dans un dossier (ex: C:\MediCore)
-          
-          ÉTAPE 2: Autoriser l'application
-          ---------------------------------
-          Windows SmartScreen ou Antivirus vont BLOQUER l'app.
-          C'EST NORMAL! L'app n'est pas signée (coûte 300€/an).
-          
-          👉 Windows SmartScreen:
-             1. Clic droit sur DEMARRER.bat → "Exécuter en tant qu'administrateur"
-             2. Si alerte: "Informations complémentaires" → "Exécuter quand même"
-          
-          👉 Avira / Avast / Windows Defender:
-             1. Ouvrir l'antivirus → Paramètres → Exclusions
-             2. Ajouter le dossier C:\MediCore complet
-             3. Recommencer
-          
-          ÉTAPE 3: Lancer
-          ----------------
-          Double-clic sur: DEMARRER.bat
-          
-          OU MANUEL:
-          1. Double-clic: vc_redist.x64.exe (installer)
-          2. Double-clic: vc_redist.x86.exe (installer)
-          3. Double-clic: medicore_app.exe
-          
-          
-          ═══════════════════════════════════════════════════════════════
-          PREMIÈRE UTILISATION - CHOIX ADMIN OU CLIENT:
-          ═══════════════════════════════════════════════════════════════
-          
-          Au démarrage, l'app demande:
-          
-          🖥️  ADMIN → Ordinateur principal avec la base de données
-             • Importez votre fichier .db
-             • Cet ordi diffuse sur le réseau
-          
-          💻 CLIENT → Autres ordinateurs
-             • Détecte automatiquement l'Admin
-             • Cliquez pour connecter
-          
-          
-          ═══════════════════════════════════════════════════════════════
-          PROBLÈMES FRÉQUENTS:
-          ═══════════════════════════════════════════════════════════════
-          
-          ❌ "Ne peut pas démarrer, MSVCP140.dll manquant"
-             → Lancez DEMARRER.bat en admin (clic droit)
-          
-          ❌ "L'app ne démarre pas sur Windows 7/8"
-             → Vérifiez: c'est bien Windows 64-bit?
-             → Si 32-bit: impossible, l'app ne peut pas fonctionner
-          
-          ❌ "CLIENT ne trouve pas ADMIN"
-             → Même réseau WiFi/LAN?
-             → Pare-feu Windows: autoriser medicore_app.exe
-          
-          ❌ "Antivirus supprime l'app"
-             → Ajouter aux exclusions (c'est une fausse alerte)
-          
-          
-          ═══════════════════════════════════════════════════════════════
-          POURQUOI 64-BIT SEULEMENT?
-          ═══════════════════════════════════════════════════════════════
-          
-          Flutter (la technologie utilisée) ne supporte QUE le 64-bit
-          pour Windows. Ce n'est pas un choix, c'est une limitation
-          technique.
-          
-          ~95% des PC depuis 2010 sont 64-bit. Les PC 32-bit sont très
-          rares maintenant.
-          
-          
-          ═══════════════════════════════════════════════════════════════
-                          MediCore v1.0 - 2025
-                  https://github.com/ilyesthen/medicore
-          ═══════════════════════════════════════════════════════════════
-          "@ | Out-File -FilePath "medicore_app/build/package_64bit/LISEZ-MOI.txt" -Encoding UTF8
-          
-          # 32-BIT README
-          @"
-          MediCore 32-bit (Windows 7/8/10/11)
-          ===================================
-          
-          Cette version fonctionne sur Windows 32-bit!
-          
-          INSTALLATION:
-          1. Double-clic sur DEMARRER.bat
-          2. L'app s'ouvre dans votre navigateur
-          
-          NOTE: Cette version utilise votre navigateur web.
-          Performance légèrement inférieure à la version 64-bit native.
-          
-          "@ | Out-File -FilePath "medicore_app/build/package_32bit/LISEZ-MOI.txt" -Encoding UTF8
-          
-          # Create ZIPs
-          Compress-Archive -Path "medicore_app/build/package_64bit/*" -DestinationPath "medicore_app/build/MediCore-Windows-64bit.zip" -Force
-          Compress-Archive -Path "medicore_app/build/package_32bit/*" -DestinationPath "medicore_app/build/MediCore-Windows-32bit.zip" -Force
+          choco install innosetup -y
         shell: powershell
 
-      - name: Upload 64-bit Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: MediCore-Windows-64bit
-          path: medicore_app/build/MediCore-Windows-64bit.zip
+      - name: Build Universal Installer
+        run: |
+          New-Item -ItemType Directory -Force -Path "medicore_app/build/installer"
+          $env:PATH = "C:\Program Files (x86)\Inno Setup 6;$env:PATH"
+          iscc "medicore_app/installer/windows_universal_installer.iss"
+        shell: powershell
 
-      - name: Upload 32-bit Package
+      - name: Create Portable ZIP (no installer)
+        run: |
+          $buildPath = "medicore_app/build/windows/x64/runner/Release"
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x64.exe" "$buildPath/"
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "$buildPath/"
+          
+          @"
+          MediCore - Portable Version
+          ============================
+          
+          INSTALLATION:
+          1. Extract all files to a folder
+          2. Run vc_redist.x64.exe (only once, ever)
+          3. If error persists, run vc_redist.x86.exe too
+          4. Run medicore_app.exe
+          
+          FIRST USE:
+          - Choose ADMIN on main computer (with database)
+          - Choose CLIENT on other computers
+          - Clients auto-detect admin on network
+          
+          This is the portable version. No installation required!
+          Works on Windows 7, 8, 8.1, 10, 11 (64-bit)
+          "@ | Out-File -FilePath "$buildPath/README.txt" -Encoding UTF8
+          
+          New-Item -ItemType Directory -Force -Path "medicore_app/build/installer"
+          Compress-Archive -Path "$buildPath/*" -DestinationPath "medicore_app/build/installer/MediCore-Portable.zip" -Force
+        shell: powershell
+
+      - name: Upload Universal Installer
         uses: actions/upload-artifact@v4
         with:
-          name: MediCore-Windows-32bit
-          path: medicore_app/build/MediCore-Windows-32bit.zip
+          name: MediCore-Setup-Universal
+          path: medicore_app/build/installer/MediCore-Setup-Universal.exe
+
+      - name: Upload Portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: MediCore-Portable
+          path: medicore_app/build/installer/MediCore-Portable.zip
