@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'tables/users_table.dart';
 import 'tables/templates_table.dart';
@@ -38,6 +39,29 @@ class AppDatabase extends _$AppDatabase {
   
   /// Public constructor - returns singleton
   factory AppDatabase() => instance;
+  
+  /// Flag to skip migrations (used when importing existing database)
+  static bool _skipMigrations = false;
+  
+  /// Reinitialize the database (used after import)
+  /// This closes the current connection and creates a new one
+  static Future<AppDatabase> reinitialize({bool skipMigrations = true}) async {
+    _skipMigrations = skipMigrations;
+    if (_instance != null) {
+      await _instance!.close();
+      _instance = null;
+    }
+    // Clear cached path to ensure fresh lookup
+    DatabasePath._cachedPath = null;
+    _instance = AppDatabase._internal();
+    return _instance!;
+  }
+  
+  /// Check if database is initialized
+  static bool get isInitialized => _instance != null;
+  
+  /// Check if migrations should be skipped
+  static bool get skipMigrations => _skipMigrations;
 
   @override
   int get schemaVersion => 14;
@@ -46,6 +70,12 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
+        // Skip if importing existing database
+        if (_skipMigrations) {
+          print('AppDatabase: Skipping onCreate (database imported)');
+          return;
+        }
+        
         await m.createAll();
         
         // Insert admin user on first run
@@ -61,6 +91,11 @@ class AppDatabase extends _$AppDatabase {
         );
       },
       onUpgrade: (Migrator m, int from, int to) async {
+        // Skip migrations if importing existing database
+        if (_skipMigrations) {
+          print('AppDatabase: Skipping onUpgrade (database imported)');
+          return;
+        }
         if (from < 2) {
           // Add Rooms table in schema version 2
           await m.createTable(rooms);
@@ -200,19 +235,137 @@ class AppDatabase extends _$AppDatabase {
   }
 }
 
+/// Database path helper - used by both app and setup wizard
+class DatabasePath {
+  static const String _dbFileName = 'medicore.db';
+  static String? _cachedPath;
+  
+  /// Get the database directory (with app bundle ID subfolder)
+  static Future<String> getDbDirectory() async {
+    final appSupport = await getApplicationSupportDirectory();
+    // The path already includes the app bundle ID on macOS/Windows
+    return appSupport.path;
+  }
+  
+  /// Get the full database path
+  static Future<String> getDbPath() async {
+    if (_cachedPath != null) return _cachedPath!;
+    final dir = await getDbDirectory();
+    _cachedPath = p.join(dir, _dbFileName);
+    return _cachedPath!;
+  }
+  
+  static Future<File> getDbFile() async {
+    return File(await getDbPath());
+  }
+  
+  /// Import a database file (used by setup wizard)
+  /// This REPLACES the current database with the imported one
+  static Future<bool> importDatabase(String sourcePath) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        print('DatabasePath: Source file does not exist: $sourcePath');
+        return false;
+      }
+      
+      final sourceSize = await sourceFile.length();
+      print('DatabasePath: Importing database ($sourceSize bytes) from: $sourcePath');
+      
+      // Get destination path and ensure directory exists
+      final destPath = await getDbPath();
+      final destDir = Directory(p.dirname(destPath));
+      if (!await destDir.exists()) {
+        await destDir.create(recursive: true);
+        print('DatabasePath: Created directory: ${destDir.path}');
+      }
+      
+      // Delete existing database if present
+      final destFile = File(destPath);
+      if (await destFile.exists()) {
+        await destFile.delete();
+        print('DatabasePath: Deleted existing database');
+      }
+      
+      // Copy the source database
+      await sourceFile.copy(destPath);
+      
+      // Verify the copy succeeded
+      final newFile = File(destPath);
+      if (!await newFile.exists()) {
+        print('DatabasePath: Copy failed - destination file does not exist');
+        return false;
+      }
+      
+      final newSize = await newFile.length();
+      if (newSize != sourceSize) {
+        print('DatabasePath: Copy failed - size mismatch ($newSize vs $sourceSize)');
+        return false;
+      }
+      
+      print('DatabasePath: Successfully imported database to: $destPath ($newSize bytes)');
+      
+      // Mark database as imported
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('database_imported', true);
+      
+      return true;
+    } catch (e, stack) {
+      print('DatabasePath: Import error: $e');
+      print(stack);
+      return false;
+    }
+  }
+  
+  /// Export database to a file
+  static Future<bool> exportDatabase(String destPath) async {
+    try {
+      final dbFile = await getDbFile();
+      if (!await dbFile.exists()) return false;
+      await dbFile.copy(destPath);
+      return true;
+    } catch (e) {
+      print('DatabasePath: Export error: $e');
+      return false;
+    }
+  }
+  
+  /// Check if database exists
+  static Future<bool> databaseExists() async {
+    final file = await getDbFile();
+    final exists = await file.exists();
+    if (exists) {
+      final size = await file.length();
+      print('DatabasePath: Database exists at ${file.path} ($size bytes)');
+    }
+    return exists;
+  }
+  
+  /// Get database size for display
+  static Future<int> getDatabaseSize() async {
+    final file = await getDbFile();
+    if (await file.exists()) {
+      return await file.length();
+    }
+    return 0;
+  }
+}
+
 /// Opens database connection
-/// Desktop: Uses SQLite file in app documents directory
-/// Web: Not supported (uses in-memory fallback)
+/// Desktop: Uses SQLite file in app support directory
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     if (kIsWeb) {
-      // Web doesn't support persistent SQLite
-      // This shouldn't be reached in production as we're desktop-focused
       return NativeDatabase.memory();
     }
 
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'medicore.db'));
+    final file = await DatabasePath.getDbFile();
+    
+    // Ensure directory exists
+    final dir = file.parent;
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
     
     return NativeDatabase.createInBackground(file);
   });

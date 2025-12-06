@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/api/grpc_client.dart';
+import '../../../core/database/app_database.dart';
 import '../data/network_service.dart';
 import '../data/setup_provider.dart';
 
@@ -81,8 +81,12 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
     try {
       // Handle database import if provided
       if (importDbPath != null) {
-        setState(() => _statusMessage = 'Importation de la base de données...');
-        await _importDatabase(importDbPath);
+        final imported = await _importDatabase(importDbPath);
+        if (!imported) {
+          throw Exception('Échec de l\'importation');
+        }
+        setState(() => _statusMessage = 'Base de données importée avec succès!');
+        await Future.delayed(const Duration(milliseconds: 500));
       }
       
       // Save server configuration
@@ -102,12 +106,24 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
       // Start broadcasting server presence
       await NetworkService.startServerBroadcast(_serverNameController.text);
       
-      final dbStatus = importDbPath != null ? 'Base importée' : 'Nouvelle base créée';
-      setState(() => _statusMessage = 'Serveur configuré sur $ip\n$dbStatus');
+      // Show success with database path
+      final dbPath = await DatabasePath.getDbPath();
+      final dbExists = await DatabasePath.databaseExists();
+      final dbStatus = importDbPath != null 
+          ? '✓ Base importée' 
+          : (dbExists ? '✓ Base existante' : '✓ Nouvelle base créée');
+      
+      setState(() => _statusMessage = 'Serveur configuré!\nIP: $ip\n$dbStatus');
       
       // Wait a moment then complete
-      await Future.delayed(const Duration(seconds: 1));
-      widget.onSetupComplete();
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Show restart dialog if database was imported
+      if (importDbPath != null && mounted) {
+        await _showRestartDialog();
+      } else {
+        widget.onSetupComplete();
+      }
       
     } catch (e) {
       setState(() {
@@ -117,27 +133,109 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
     }
   }
   
-  /// Import database from file
-  Future<void> _importDatabase(String sourcePath) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(appDir.path, 'medicore.db');
-    
-    // Copy the source database to app location
-    final sourceFile = File(sourcePath);
-    if (await sourceFile.exists()) {
-      await sourceFile.copy(dbPath);
-    } else {
-      throw Exception('Fichier source introuvable');
+  Future<void> _showRestartDialog() async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 28),
+          SizedBox(width: 12),
+          Text('Configuration terminée!'),
+        ]),
+        content: const Text(
+          'La base de données a été importée avec succès.\n\n'
+          'L\'application va maintenant redémarrer pour charger vos données.',
+        ),
+        actions: [
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // Trigger app restart by calling onSetupComplete
+              widget.onSetupComplete();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Continuer'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Import database from file - uses DatabasePath for correct location
+  Future<bool> _importDatabase(String sourcePath) async {
+    try {
+      // Step 1: Show source info
+      final sourceFile = File(sourcePath);
+      final sourceSize = await sourceFile.length();
+      final sourceSizeMB = (sourceSize / 1024 / 1024).toStringAsFixed(1);
+      setState(() => _statusMessage = 'Fichier source: ${p.basename(sourcePath)}\nTaille: $sourceSizeMB MB');
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Step 2: Close any existing database connection
+      setState(() => _statusMessage = 'Fermeture de la connexion actuelle...');
+      if (AppDatabase.isInitialized) {
+        await AppDatabase.instance.close();
+        // Give time for the connection to fully close
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+      
+      // Step 3: Get destination path and show it
+      final destPath = await DatabasePath.getDbPath();
+      setState(() => _statusMessage = 'Destination: ${p.basename(destPath)}\nCopie en cours...');
+      
+      // Step 4: Import the database file
+      final success = await DatabasePath.importDatabase(sourcePath);
+      if (!success) {
+        throw Exception('La copie du fichier a échoué');
+      }
+      
+      // Step 5: Verify the file was copied
+      final destFile = File(destPath);
+      if (!await destFile.exists()) {
+        throw Exception('Le fichier n\'existe pas après la copie');
+      }
+      final destSize = await destFile.length();
+      if (destSize != sourceSize) {
+        throw Exception('Taille incorrecte: $destSize vs $sourceSize octets');
+      }
+      
+      setState(() => _statusMessage = 'Fichier copié avec succès!\nChargement de la base...');
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Step 6: Reinitialize the database with the imported file
+      await AppDatabase.reinitialize();
+      
+      // Step 7: Verify we can read from it
+      final db = AppDatabase.instance;
+      final users = await db.select(db.users).get();
+      final patients = await db.select(db.patients).get();
+      
+      if (users.isEmpty) {
+        throw Exception('Aucun utilisateur trouvé dans la base importée');
+      }
+      
+      final destSizeMB = (destSize / 1024 / 1024).toStringAsFixed(1);
+      setState(() => _statusMessage = 
+        '✓ Base importée avec succès!\n'
+        '• ${users.length} utilisateur(s)\n'
+        '• ${patients.length} patient(s)\n'
+        '• Taille: $destSizeMB MB');
+      
+      await Future.delayed(const Duration(seconds: 1));
+      return true;
+      
+    } catch (e) {
+      print('Import error: $e');
+      rethrow;
     }
   }
   
   /// Export/backup database to selected location
   static Future<String?> exportDatabase() async {
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final dbPath = p.join(appDir.path, 'medicore.db');
-      final dbFile = File(dbPath);
-      
+      final dbFile = await DatabasePath.getDbFile();
       if (!await dbFile.exists()) {
         return null;
       }
@@ -151,7 +249,7 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
       );
       
       if (result != null) {
-        await dbFile.copy(result);
+        await DatabasePath.exportDatabase(result);
         return result;
       }
       return null;
