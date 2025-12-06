@@ -1,14 +1,18 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:window_manager/window_manager.dart';
 import 'src/core/ui/canvas_scaler.dart';
 import 'src/core/ui/scroll_behavior.dart';
 import 'src/core/ui/window_init.dart';
 import 'src/core/theme/medicore_colors.dart';
 import 'src/core/api/grpc_client.dart';
+import 'src/core/services/admin_broadcast_service.dart';
 import 'src/features/auth/presentation/auth_provider.dart';
 import 'src/features/auth/presentation/login_screen_french.dart';
 import 'src/features/auth/presentation/room_selection_wrapper.dart';
@@ -29,8 +33,15 @@ Future<bool> _isSetupComplete() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Check if setup is needed BEFORE running app
+  Intl.defaultLocale = 'fr';
+  
+  // Check if setup is needed
   final setupDone = await _isSetupComplete();
+  
+  // If setup is done and we're in admin mode, start broadcasting
+  if (setupDone && !kIsWeb) {
+    _startAdminBroadcastIfNeeded();
+  }
   
   // Initialize gRPC client configuration
   await GrpcClientConfig.initialize();
@@ -44,6 +55,24 @@ void main() async {
   // Initialize custom window (desktop platforms only)
   if (!kIsWeb) {
     initializeWindow();
+  }
+}
+
+/// Start admin broadcast service if this instance is configured as admin
+Future<void> _startAdminBroadcastIfNeeded() async {
+  try {
+    final appDir = await getApplicationSupportDirectory();
+    final configFile = File(p.join(appDir.path, 'medicore_config.txt'));
+    
+    if (await configFile.exists()) {
+      final config = jsonDecode(await configFile.readAsString());
+      if (config['mode'] == 'admin' && config['ip'] != null) {
+        await AdminBroadcastService.instance.start(config['ip']);
+        print('✓ Admin broadcast service started');
+      }
+    }
+  } catch (e) {
+    print('Error starting broadcast: $e');
   }
 }
 

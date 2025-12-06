@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import '../../../core/theme/medicore_colors.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/services/admin_broadcast_service.dart';
 
 /// Setup Wizard - Choose Admin (with database) or Client (connects to Admin)
 class SetupWizard extends StatefulWidget {
@@ -348,8 +349,8 @@ class _SetupWizardState extends State<SetupWizard> {
       final configFile = File(p.join(appDir.path, 'medicore_config.txt'));
       await configFile.writeAsString(jsonEncode(config));
       
-      // Start broadcasting
-      _startBroadcast(ip);
+      // Start persistent broadcast service
+      await AdminBroadcastService.instance.start(ip);
       
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) widget.onComplete();
@@ -416,12 +417,24 @@ class _SetupWizardState extends State<SetupWizard> {
   }
 
   void _startBroadcast(String ip) {
-    // Simple UDP broadcast for discovery
+    // Start UDP broadcast for discovery
     RawDatagramSocket.bind(InternetAddress.anyIPv4, 0).then((socket) {
       socket.broadcastEnabled = true;
       final msg = jsonEncode({'type': 'medicore', 'name': 'MediCore Admin', 'ip': ip});
-      Timer.periodic(const Duration(seconds: 2), (_) {
-        try { socket.send(utf8.encode(msg), InternetAddress('255.255.255.255'), 45678); } catch (_) {}
+      
+      // Broadcast immediately
+      try { 
+        socket.send(utf8.encode(msg), InternetAddress('255.255.255.255'), 45678);
+        print('✓ Broadcasting MediCore Admin at $ip');
+      } catch (e) {
+        print('Broadcast error: $e');
+      }
+      
+      // Then keep broadcasting every second
+      Timer.periodic(const Duration(seconds: 1), (_) {
+        try { 
+          socket.send(utf8.encode(msg), InternetAddress('255.255.255.255'), 45678);
+        } catch (_) {}
       });
     });
   }
@@ -444,39 +457,52 @@ class _SetupWizardState extends State<SetupWizard> {
               if (data['type'] == 'medicore' && !seen.contains(data['ip'])) {
                 seen.add(data['ip']);
                 servers.add(_ServerInfo(data['name'], data['ip']));
-                if (mounted) setState(() {}); // Update UI immediately
+                if (mounted) setState(() {
+                  _foundServers = List.from(servers);
+                  _status = '${servers.length} serveur(s) trouvé(s)...';
+                });
               }
             } catch (_) {}
           }
         }
       });
       
-      // Scan local subnet in parallel
+      // Get local IP and subnet
       final localIP = await _getLocalIP();
       final subnet = localIP.substring(0, localIP.lastIndexOf('.'));
       
-      // Batch scan in groups for better performance
-      final futures = <Future>[];
+      if (mounted) setState(() => _status = 'Scan réseau $subnet.0/24...');
+      
+      // Scan local subnet with longer timeout
+      int scanned = 0;
       for (int i = 1; i <= 254; i++) {
         final ip = '$subnet.$i';
-        if (!seen.contains(ip)) {
-          futures.add(
-            Socket.connect(ip, 50051, timeout: const Duration(milliseconds: 300))
-                .then((s) {
-                  s.destroy();
-                  if (!seen.contains(ip)) {
-                    seen.add(ip);
-                    servers.add(_ServerInfo('MediCore Admin', ip));
-                    if (mounted) setState(() {}); // Update UI as we find servers
-                  }
-                })
-                .catchError((_) {})
-          );
+        if (ip == localIP || seen.contains(ip)) continue;
+        
+        Socket.connect(ip, 50051, timeout: const Duration(milliseconds: 500))
+            .then((s) {
+              s.destroy();
+              if (!seen.contains(ip)) {
+                seen.add(ip);
+                servers.add(_ServerInfo('MediCore Admin', ip));
+                if (mounted) setState(() {
+                  _foundServers = List.from(servers);
+                  _status = '${servers.length} serveur(s) trouvé(s)!';
+                });
+              }
+            })
+            .catchError((_) {});
+        
+        scanned++;
+        if (scanned % 50 == 0 && mounted) {
+          setState(() => _status = 'Scan en cours... $scanned/254');
+          await Future.delayed(const Duration(milliseconds: 100));
         }
       }
       
-      // Wait up to 5 seconds for responses
-      await Future.delayed(const Duration(seconds: 5));
+      // Wait up to 10 seconds for all responses
+      if (mounted) setState(() => _status = 'Attente des réponses...');
+      await Future.delayed(const Duration(seconds: 10));
       socket.close();
       
       return servers;
