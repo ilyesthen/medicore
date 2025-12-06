@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/services/admin_broadcast_service.dart';
+import '../../../core/services/grpc_server_launcher.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/api/grpc_client.dart';
 
@@ -363,9 +364,19 @@ class _SetupWizardState extends State<SetupWizard> {
       print('✓ Admin configured at $ip');
       print('✓ gRPC server mode enabled');
       
+      // Start gRPC server for clients
+      setState(() => _status = 'Démarrage du serveur gRPC...');
+      final serverStarted = await GrpcServerLauncher.start();
+      if (serverStarted) {
+        print('✅ gRPC server started - Clients can now connect!');
+      } else {
+        print('⚠️ gRPC server not started - Clients will not be able to connect');
+      }
+      
       // Start persistent broadcast service
       await AdminBroadcastService.instance.start(ip);
       
+      setState(() => _status = '✓ Configuration terminée!');
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) widget.onComplete();
       

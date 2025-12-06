@@ -13,6 +13,7 @@ import 'src/core/ui/window_init.dart';
 import 'src/core/theme/medicore_colors.dart';
 import 'src/core/api/grpc_client.dart';
 import 'src/core/services/admin_broadcast_service.dart';
+import 'src/core/services/grpc_server_launcher.dart';
 import 'src/features/auth/presentation/auth_provider.dart';
 import 'src/features/auth/presentation/login_screen_french.dart';
 import 'src/features/auth/presentation/room_selection_wrapper.dart';
@@ -95,7 +96,7 @@ void main() async {
   }
 }
 
-/// Start admin broadcast service if this instance is configured as admin
+/// Start admin services (gRPC server + broadcast) if this instance is configured as admin
 Future<void> _startAdminBroadcastIfNeeded() async {
   try {
     final appDir = await getApplicationSupportDirectory();
@@ -104,12 +105,23 @@ Future<void> _startAdminBroadcastIfNeeded() async {
     if (await configFile.exists()) {
       final config = jsonDecode(await configFile.readAsString());
       if (config['mode'] == 'admin' && config['ip'] != null) {
+        // Start gRPC server for client connections
+        print('🚀 Starting admin services...');
+        final serverStarted = await GrpcServerLauncher.start();
+        if (serverStarted) {
+          print('✅ gRPC server started on port 50051');
+        } else {
+          print('⚠️ gRPC server failed to start - Clients cannot connect');
+        }
+        
+        // Start UDP broadcast for client discovery
         await AdminBroadcastService.instance.start(config['ip']);
-        print('✓ Admin broadcast service started');
+        print('✅ Admin broadcast service started');
+        print('📡 Admin ready to accept client connections!');
       }
     }
   } catch (e) {
-    print('Error starting broadcast: $e');
+    print('❌ Error starting admin services: $e');
   }
 }
 
