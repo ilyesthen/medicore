@@ -26,6 +26,32 @@ jobs:
         working-directory: medicore_app
         run: flutter build windows --release
 
+      - name: Download VC++ Redistributable
+        run: |
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "medicore_app/build/windows/x64/runner/Release/vc_redist.x64.exe"
+        shell: powershell
+
+      - name: Create README
+        run: |
+          @"
+          MediCore - Medical Management System
+          =====================================
+          
+          IMPORTANT: If you get MSVCP140.dll error, run vc_redist.x64.exe first!
+          
+          Installation:
+          1. Run vc_redist.x64.exe (only once)
+          2. Run medicore_app.exe
+          
+          First Time Setup:
+          - ADMIN: Select this on the main computer with the database
+          - CLIENT: Select this on other computers to connect to the admin
+          
+          The client will automatically find the admin on your network.
+          
+          "@  | Out-File -FilePath "medicore_app/build/windows/x64/runner/Release/README.txt" -Encoding UTF8
+        shell: powershell
+
       - name: Upload Build
         uses: actions/upload-artifact@v4
         with:

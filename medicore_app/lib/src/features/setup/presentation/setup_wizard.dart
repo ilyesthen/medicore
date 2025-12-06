@@ -431,10 +431,9 @@ class _SetupWizardState extends State<SetupWizard> {
     final seen = <String>{};
     
     try {
+      // Listen for UDP broadcasts
       final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 45678, reuseAddress: true);
       socket.broadcastEnabled = true;
-      
-      final completer = Completer<List<_ServerInfo>>();
       
       socket.listen((event) {
         if (event == RawSocketEvent.read) {
@@ -445,27 +444,45 @@ class _SetupWizardState extends State<SetupWizard> {
               if (data['type'] == 'medicore' && !seen.contains(data['ip'])) {
                 seen.add(data['ip']);
                 servers.add(_ServerInfo(data['name'], data['ip']));
+                if (mounted) setState(() {}); // Update UI immediately
               }
             } catch (_) {}
           }
         }
       });
       
-      // Also scan local subnet
+      // Scan local subnet in parallel
       final localIP = await _getLocalIP();
       final subnet = localIP.substring(0, localIP.lastIndexOf('.'));
+      
+      // Batch scan in groups for better performance
+      final futures = <Future>[];
       for (int i = 1; i <= 254; i++) {
         final ip = '$subnet.$i';
-        if (seen.contains(ip)) continue;
-        Socket.connect(ip, 50051, timeout: const Duration(milliseconds: 200))
-            .then((s) { s.destroy(); if (!seen.contains(ip)) { seen.add(ip); servers.add(_ServerInfo('MediCore', ip)); } })
-            .catchError((_) {});
+        if (!seen.contains(ip)) {
+          futures.add(
+            Socket.connect(ip, 50051, timeout: const Duration(milliseconds: 300))
+                .then((s) {
+                  s.destroy();
+                  if (!seen.contains(ip)) {
+                    seen.add(ip);
+                    servers.add(_ServerInfo('MediCore Admin', ip));
+                    if (mounted) setState(() {}); // Update UI as we find servers
+                  }
+                })
+                .catchError((_) {})
+          );
+        }
       }
       
-      await Future.delayed(const Duration(seconds: 3));
+      // Wait up to 5 seconds for responses
+      await Future.delayed(const Duration(seconds: 5));
       socket.close();
+      
       return servers;
-    } catch (_) {}
+    } catch (e) {
+      print('Discovery error: $e');
+    }
     return servers;
   }
 
