@@ -1023,7 +1023,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: const Color(0xFFFFF3E0).withOpacity(0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [Icon(Icons.print, color: Colors.orange.shade700, size: 16), const SizedBox(width: 8), Text('Imprimer avec un autre nom', style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600))]),
+        Row(children: [Icon(Icons.print, color: Colors.orange.shade700, size: 16), const SizedBox(width: 6), Icon(Icons.description, color: Colors.orange.shade600, size: 14), const SizedBox(width: 8), Text('Imprimer avec un autre nom', style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600))]),
         const SizedBox(height: 10),
         Row(children: [
           Expanded(child: _SmallField(controller: _printNameController, label: 'Nom')),

@@ -1,0 +1,8 @@
+# Build configuration for code generation (Drift, etc.)
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # Generate Drift database code
+          store_date_time_values_as_text: true

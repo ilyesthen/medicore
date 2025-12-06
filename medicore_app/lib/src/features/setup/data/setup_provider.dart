@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/database/app_database.dart';
 import 'network_service.dart';
 
 /// Setup state
@@ -44,10 +45,27 @@ class SetupNotifier extends StateNotifier<SetupState> {
   Future<void> _loadSetup() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isComplete = prefs.getBool('setup_complete') ?? false;
+      
+      // Check if setup_complete is set in preferences
+      final prefComplete = prefs.getBool('setup_complete') ?? false;
       final isServer = prefs.getBool('is_server') ?? false;
       final serverIP = prefs.getString('server_ip');
       final serverName = prefs.getString('server_name');
+      
+      // Also check if database actually exists with data
+      bool dbHasData = false;
+      try {
+        final db = AppDatabase.instance;
+        final users = await db.select(db.users).get();
+        dbHasData = users.isNotEmpty;
+        print('SetupProvider: Database has ${users.length} users');
+      } catch (e) {
+        print('SetupProvider: Could not read database: $e');
+      }
+      
+      // Setup is complete only if BOTH preference is set AND database has data
+      final isComplete = prefComplete && dbHasData;
+      print('SetupProvider: prefComplete=$prefComplete, dbHasData=$dbHasData, isComplete=$isComplete');
 
       state = SetupState(
         isSetupComplete: isComplete,
@@ -62,6 +80,7 @@ class SetupNotifier extends StateNotifier<SetupState> {
         NetworkService.startServerBroadcast(serverName);
       }
     } catch (e) {
+      print('SetupProvider: Error loading setup: $e');
       state = state.copyWith(isLoading: false);
     }
   }
