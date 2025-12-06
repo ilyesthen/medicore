@@ -24,12 +24,25 @@ class RoomsNotifier extends StateNotifier<List<Room>> {
   final RoomsRepository _repository;
 
   RoomsNotifier(this._repository) : super([]) {
-    loadRooms();
+    _init();
+  }
+  
+  Future<void> _init() async {
+    try {
+      await loadRooms();
+    } catch (e) {
+      print('❌ RoomsNotifier init error: $e');
+    }
   }
 
   /// Load all rooms from database
   Future<void> loadRooms() async {
-    state = await _repository.getAllRooms();
+    try {
+      state = await _repository.getAllRooms();
+    } catch (e) {
+      print('❌ loadRooms error: $e');
+      state = [];
+    }
   }
 
   /// Create a new room

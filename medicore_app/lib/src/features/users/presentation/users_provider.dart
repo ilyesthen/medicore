@@ -20,11 +20,25 @@ class UsersNotifier extends StateNotifier<List<User>> {
   final UsersRepository _repository;
   
   UsersNotifier(this._repository) : super([]) {
-    loadUsers();
+    _init();
+  }
+  
+  Future<void> _init() async {
+    try {
+      await loadUsers();
+    } catch (e) {
+      print('❌ UsersNotifier init error: $e');
+      // Don't crash, just leave empty list
+    }
   }
   
   Future<void> loadUsers() async {
-    state = await _repository.getAllUsers();
+    try {
+      state = await _repository.getAllUsers();
+    } catch (e) {
+      print('❌ loadUsers error: $e');
+      state = []; // Return empty on error
+    }
   }
   
   Future<void> createUser({
