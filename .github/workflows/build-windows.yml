@@ -34,17 +34,6 @@ jobs:
           Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x86.exe" -OutFile "medicore_app/installer/vcredist/vc_redist.x86.exe"
         shell: powershell
 
-      - name: Create placeholder icon
-        run: |
-          # Create a simple ICO file placeholder if it doesn't exist
-          $iconPath = "medicore_app/assets/images/logos/icon.ico"
-          if (-not (Test-Path $iconPath)) {
-            New-Item -ItemType Directory -Force -Path "medicore_app/assets/images/logos"
-            # Copy from build or create empty
-            Copy-Item "medicore_app/build/windows/x64/runner/Release/app_icon.ico" $iconPath -ErrorAction SilentlyContinue
-          }
-        shell: powershell
-
       - name: Install Inno Setup
         run: |
           choco install innosetup -y
@@ -52,6 +41,7 @@ jobs:
 
       - name: Build Universal Installer
         run: |
+          New-Item -ItemType Directory -Force -Path "medicore_app/build/installer"
           $env:PATH = "C:\Program Files (x86)\Inno Setup 6;$env:PATH"
           iscc "medicore_app/installer/windows_universal_installer.iss"
         shell: powershell
@@ -81,7 +71,8 @@ jobs:
           Works on Windows 7, 8, 8.1, 10, 11 (64-bit)
           "@ | Out-File -FilePath "$buildPath/README.txt" -Encoding UTF8
           
-          Compress-Archive -Path "$buildPath/*" -DestinationPath "medicore_app/build/installer/MediCore-Portable.zip"
+          New-Item -ItemType Directory -Force -Path "medicore_app/build/installer"
+          Compress-Archive -Path "$buildPath/*" -DestinationPath "medicore_app/build/installer/MediCore-Portable.zip" -Force
         shell: powershell
 
       - name: Upload Universal Installer

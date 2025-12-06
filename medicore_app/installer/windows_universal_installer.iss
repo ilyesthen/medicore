@@ -20,7 +20,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\build\installer
 OutputBaseFilename=MediCore-Setup-Universal
-SetupIconFile=..\assets\images\logos\icon.ico
+; SetupIconFile will use default if not found
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
