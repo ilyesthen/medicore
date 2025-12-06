@@ -23,9 +23,41 @@ jobs:
         working-directory: medicore_app
         run: flutter pub get
 
-      - name: Build Windows Release
+      - name: Build Windows 64-bit (Native)
         working-directory: medicore_app
         run: flutter build windows --release
+
+      - name: Build Flutter Web (For 32-bit wrapper)
+        working-directory: medicore_app
+        run: flutter build web --web-renderer html --release
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build 32-bit Web Wrapper
+        run: |
+          # Copy web build to wrapper
+          New-Item -ItemType Directory -Force -Path "medicore_app/web_wrapper/web"
+          Copy-Item -Path "medicore_app/build/web/*" -Destination "medicore_app/web_wrapper/web/" -Recurse -Force
+          
+          # Initialize Go module if not exists
+          cd medicore_app/web_wrapper
+          if (-not (Test-Path "go.mod")) {
+            go mod init medicore/wrapper
+          }
+          
+          # Build 32-bit wrapper
+          $env:GOOS = "windows"
+          $env:GOARCH = "386"
+          $env:CGO_ENABLED = "0"
+          go build -ldflags="-s -w" -o medicore_32bit.exe main.go
+          
+          # Build 64-bit wrapper too
+          $env:GOARCH = "amd64"
+          go build -ldflags="-s -w" -o medicore_64bit_web.exe main.go
+        shell: powershell
 
       - name: Download VC++ Redistributables
         run: |
@@ -34,109 +66,42 @@ jobs:
           Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x86.exe" -OutFile "medicore_app/installer/vcredist/vc_redist.x86.exe"
         shell: powershell
 
-      - name: Create Simple Package
+      - name: Create Packages (Both 32-bit and 64-bit)
         run: |
-          $buildPath = "medicore_app/build/windows/x64/runner/Release"
-          New-Item -ItemType Directory -Force -Path "medicore_app/build/package"
+          # ====== 64-BIT NATIVE PACKAGE ======
+          $buildPath64 = "medicore_app/build/windows/x64/runner/Release"
+          New-Item -ItemType Directory -Force -Path "medicore_app/build/package_64bit"
           
-          # Copy all app files
-          Copy-Item -Path "$buildPath/*" -Destination "medicore_app/build/package/" -Recurse -Force
+          Copy-Item -Path "$buildPath64/*" -Destination "medicore_app/build/package_64bit/" -Recurse -Force
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x64.exe" "medicore_app/build/package_64bit/"
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "medicore_app/build/package_64bit/"
           
-          # Copy VC++ redistributables
-          Copy-Item "medicore_app/installer/vcredist/vc_redist.x64.exe" "medicore_app/build/package/"
-          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "medicore_app/build/package/"
+          # ====== 32-BIT WEB WRAPPER PACKAGE ======
+          New-Item -ItemType Directory -Force -Path "medicore_app/build/package_32bit"
           
-          # Create smart launcher that detects 32-bit vs 64-bit
+          Copy-Item "medicore_app/web_wrapper/medicore_32bit.exe" "medicore_app/build/package_32bit/MediCore.exe"
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "medicore_app/build/package_32bit/"
+          
+          # 64-BIT LAUNCHER
           @"
           @echo off
           chcp 65001 >nul
-          cls
-          
-          REM Check if running on 32-bit or 64-bit Windows
-          if defined PROCESSOR_ARCHITEW6432 goto :64bit
-          if "%PROCESSOR_ARCHITECTURE%"=="AMD64" goto :64bit
-          if "%PROCESSOR_ARCHITECTURE%"=="x86_64" goto :64bit
-          
-          REM 32-bit Windows detected - show error
-          :32bit
-          color 4F
-          cls
-          echo.
-          echo ╔═══════════════════════════════════════════════════════════════╗
-          echo ║                    ⚠️  ERREUR SYSTEME  ⚠️                    ║
-          echo ╚═══════════════════════════════════════════════════════════════╝
-          echo.
-          echo  MediCore necessite Windows 64-bit
-          echo.
-          echo  Votre ordinateur utilise Windows 32-bit (x86)
-          echo  Cette version ne peut PAS executer MediCore
-          echo.
-          echo  ═══════════════════════════════════════════════════════════════
-          echo  POURQUOI?
-          echo  ═══════════════════════════════════════════════════════════════
-          echo.
-          echo  La technologie Flutter ne supporte QUE le 64-bit sur Windows
-          echo  Ce n'est pas un bug - c'est une limitation technique
-          echo.
-          echo  ═══════════════════════════════════════════════════════════════
-          echo  SOLUTIONS:
-          echo  ═══════════════════════════════════════════════════════════════
-          echo.
-          echo  1. Utiliser un autre ordinateur avec Windows 64-bit
-          echo  2. Mettre a niveau vers Windows 64-bit
-          echo  3. Acheter un PC moderne (tous sont 64-bit depuis 2010)
-          echo.
-          echo  Pour verifier: Ordinateur -^> Proprietes
-          echo                 Cherchez "Type du systeme"
-          echo.
-          pause
-          exit
-          
-          REM 64-bit Windows - proceed with installation
-          :64bit
-          cls
-          echo.
-          echo ╔═══════════════════════════════════════════════════════╗
-          echo ║              MEDICORE - DEMARRAGE RAPIDE              ║
-          echo ╚═══════════════════════════════════════════════════════╝
-          echo.
-          echo ✓ Windows 64-bit detecte - Compatible!
-          echo.
-          echo Installation des composants requis...
-          
+          echo Installation...
           vc_redist.x64.exe /install /quiet /norestart 2>nul
-          if %errorlevel% neq 0 (
-            echo   Installation VC++ x64 - Deja installe ou erreur
-          ) else (
-            echo ✓ VC++ x64 installe
-          )
-          
           vc_redist.x86.exe /install /quiet /norestart 2>nul
-          if %errorlevel% neq 0 (
-            echo   Installation VC++ x86 - Deja installe ou erreur
-          ) else (
-            echo ✓ VC++ x86 installe
-          )
-          
-          echo.
-          echo ✓ Installation terminee!
-          echo.
-          echo Demarrage de MediCore...
-          timeout /t 2 >nul
-          
-          REM Check if app exists
-          if not exist medicore_app.exe (
-            color 4F
-            echo.
-            echo ❌ ERREUR: medicore_app.exe introuvable!
-            echo.
-            pause
-            exit
-          )
-          
           start "" medicore_app.exe
           exit
-          "@ | Out-File -FilePath "medicore_app/build/package/DEMARRER.bat" -Encoding UTF8
+          "@ | Out-File -FilePath "medicore_app/build/package_64bit/DEMARRER.bat" -Encoding UTF8
+          
+          # 32-BIT LAUNCHER
+          @"
+          @echo off
+          chcp 65001 >nul
+          echo Installation...
+          vc_redist.x86.exe /install /quiet /norestart 2>nul
+          start "" MediCore.exe
+          exit
+          "@ | Out-File -FilePath "medicore_app/build/package_32bit/DEMARRER.bat" -Encoding UTF8
           
           # Create README
           @"
@@ -238,14 +203,37 @@ jobs:
                           MediCore v1.0 - 2025
                   https://github.com/ilyesthen/medicore
           ═══════════════════════════════════════════════════════════════
-          "@ | Out-File -FilePath "medicore_app/build/package/LISEZ-MOI.txt" -Encoding UTF8
+          "@ | Out-File -FilePath "medicore_app/build/package_64bit/LISEZ-MOI.txt" -Encoding UTF8
           
-          # Create ZIP
-          Compress-Archive -Path "medicore_app/build/package/*" -DestinationPath "medicore_app/build/MediCore-Windows.zip" -Force
+          # 32-BIT README
+          @"
+          MediCore 32-bit (Windows 7/8/10/11)
+          ===================================
+          
+          Cette version fonctionne sur Windows 32-bit!
+          
+          INSTALLATION:
+          1. Double-clic sur DEMARRER.bat
+          2. L'app s'ouvre dans votre navigateur
+          
+          NOTE: Cette version utilise votre navigateur web.
+          Performance légèrement inférieure à la version 64-bit native.
+          
+          "@ | Out-File -FilePath "medicore_app/build/package_32bit/LISEZ-MOI.txt" -Encoding UTF8
+          
+          # Create ZIPs
+          Compress-Archive -Path "medicore_app/build/package_64bit/*" -DestinationPath "medicore_app/build/MediCore-Windows-64bit.zip" -Force
+          Compress-Archive -Path "medicore_app/build/package_32bit/*" -DestinationPath "medicore_app/build/MediCore-Windows-32bit.zip" -Force
         shell: powershell
 
-      - name: Upload Package
+      - name: Upload 64-bit Package
         uses: actions/upload-artifact@v4
         with:
-          name: MediCore-Windows
-          path: medicore_app/build/MediCore-Windows.zip
+          name: MediCore-Windows-64bit
+          path: medicore_app/build/MediCore-Windows-64bit.zip
+
+      - name: Upload 32-bit Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: MediCore-Windows-32bit
+          path: medicore_app/build/MediCore-Windows-32bit.zip
