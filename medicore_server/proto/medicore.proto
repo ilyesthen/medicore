@@ -1,0 +1,381 @@
+syntax = "proto3";
+
+package medicore;
+
+option go_package = "medicore/proto";
+
+// ==================== COMMON MESSAGES ====================
+
+message Empty {}
+
+message IntId {
+  int32 id = 1;
+}
+
+message IntCode {
+  int32 code = 1;
+}
+
+message StringQuery {
+  string query = 1;
+}
+
+message DateRange {
+  string start = 1; // ISO8601
+  string end = 2;   // ISO8601
+}
+
+// ==================== USER MESSAGES ====================
+
+message User {
+  int32 id = 1;
+  string username = 2;
+  string password_hash = 3;
+  string full_name = 4;
+  string role = 5;
+  optional int32 room_id = 6;
+}
+
+message UserList {
+  repeated User users = 1;
+}
+
+message CreateUserRequest {
+  string username = 1;
+  string password_hash = 2;
+  string full_name = 3;
+  string role = 4;
+  optional int32 room_id = 5;
+}
+
+message UsernameRequest {
+  string username = 1;
+}
+
+// ==================== ROOM MESSAGES ====================
+
+message Room {
+  int32 id = 1;
+  string name = 2;
+  string type = 3;
+  optional int32 doctor_id = 4;
+}
+
+message RoomList {
+  repeated Room rooms = 1;
+}
+
+message CreateRoomRequest {
+  string name = 1;
+  string type = 2;
+  optional int32 doctor_id = 3;
+}
+
+// ==================== PATIENT MESSAGES ====================
+
+message Patient {
+  int32 code = 1;
+  string first_name = 2;
+  string last_name = 3;
+  optional string date_of_birth = 4;
+  optional string phone = 5;
+  optional string address = 6;
+  optional string insurance = 7;
+  optional string notes = 8;
+}
+
+message PatientList {
+  repeated Patient patients = 1;
+}
+
+message CreatePatientRequest {
+  int32 code = 1;
+  string first_name = 2;
+  string last_name = 3;
+  optional string date_of_birth = 4;
+  optional string phone = 5;
+  optional string address = 6;
+  optional string insurance = 7;
+  optional string notes = 8;
+}
+
+// ==================== MESSAGE MESSAGES ====================
+
+message Message {
+  int32 id = 1;
+  int32 sender_id = 2;
+  int32 recipient_id = 3;
+  string content = 4;
+  string created_at = 5;
+  bool is_read = 6;
+  optional int32 patient_code = 7;
+  optional string patient_name = 8;
+}
+
+message MessageList {
+  repeated Message messages = 1;
+}
+
+message CreateMessageRequest {
+  int32 sender_id = 1;
+  int32 recipient_id = 2;
+  string content = 3;
+  optional int32 patient_code = 4;
+  optional string patient_name = 5;
+}
+
+message UserIdRequest {
+  int32 user_id = 1;
+}
+
+// ==================== WAITING PATIENT MESSAGES ====================
+
+message WaitingPatient {
+  int32 id = 1;
+  int32 patient_code = 2;
+  string patient_name = 3;
+  string arrival_time = 4;
+  optional int32 room_id = 5;
+  optional int32 patient_age = 6;
+  bool is_urgent = 7;
+  bool is_dilatation = 8;
+  optional string dilatation_type = 9;
+}
+
+message WaitingPatientList {
+  repeated WaitingPatient patients = 1;
+}
+
+message CreateWaitingPatientRequest {
+  int32 patient_code = 1;
+  string patient_name = 2;
+  optional int32 room_id = 3;
+  optional int32 patient_age = 4;
+  bool is_urgent = 5;
+  bool is_dilatation = 6;
+  optional string dilatation_type = 7;
+}
+
+message RoomIdRequest {
+  int32 room_id = 1;
+}
+
+// ==================== VISIT MESSAGES ====================
+
+message Visit {
+  int32 id = 1;
+  int32 patient_code = 2;
+  int32 user_id = 3;
+  string visit_date = 4;
+  optional string notes = 5;
+  optional string diagnosis = 6;
+}
+
+message VisitList {
+  repeated Visit visits = 1;
+}
+
+message CreateVisitRequest {
+  int32 patient_code = 1;
+  int32 user_id = 2;
+  optional string notes = 3;
+  optional string diagnosis = 4;
+}
+
+message PatientCodeRequest {
+  int32 patient_code = 1;
+}
+
+// ==================== MEDICAL ACT MESSAGES ====================
+
+message MedicalAct {
+  int32 id = 1;
+  string code = 2;
+  string name = 3;
+  double price = 4;
+}
+
+message MedicalActList {
+  repeated MedicalAct acts = 1;
+}
+
+// ==================== ORDONNANCE MESSAGES ====================
+
+message Ordonnance {
+  int32 id = 1;
+  int32 patient_code = 2;
+  int32 user_id = 3;
+  string date = 4;
+  optional string notes = 5;
+}
+
+message OrdonnanceList {
+  repeated Ordonnance ordonnances = 1;
+}
+
+message CreateOrdonnanceRequest {
+  int32 patient_code = 1;
+  int32 user_id = 2;
+  optional string notes = 3;
+}
+
+// ==================== MEDICATION MESSAGES ====================
+
+message Medication {
+  int32 id = 1;
+  int32 ordonnance_id = 2;
+  string name = 3;
+  string dosage = 4;
+  string frequency = 5;
+  string duration = 6;
+}
+
+message MedicationList {
+  repeated Medication medications = 1;
+}
+
+message CreateMedicationRequest {
+  int32 ordonnance_id = 1;
+  string name = 2;
+  string dosage = 3;
+  string frequency = 4;
+  string duration = 5;
+}
+
+message OrdonnanceIdRequest {
+  int32 ordonnance_id = 1;
+}
+
+// ==================== PAYMENT MESSAGES ====================
+
+message Payment {
+  int32 id = 1;
+  int32 patient_code = 2;
+  double amount = 3;
+  string date = 4;
+  string payment_method = 5;
+  optional string notes = 6;
+}
+
+message PaymentList {
+  repeated Payment payments = 1;
+}
+
+message CreatePaymentRequest {
+  int32 patient_code = 1;
+  double amount = 2;
+  string payment_method = 3;
+  optional string notes = 4;
+}
+
+// ==================== TEMPLATE MESSAGES ====================
+
+message Template {
+  int32 id = 1;
+  string name = 2;
+  string content = 3;
+  string type = 4;
+}
+
+message TemplateList {
+  repeated Template templates = 1;
+}
+
+message CreateTemplateRequest {
+  string name = 1;
+  string content = 2;
+  string type = 3;
+}
+
+// ==================== MESSAGE TEMPLATE MESSAGES ====================
+
+message MessageTemplate {
+  int32 id = 1;
+  string name = 2;
+  string content = 3;
+}
+
+message MessageTemplateList {
+  repeated MessageTemplate templates = 1;
+}
+
+// ==================== SERVICE DEFINITION ====================
+
+service MediCoreService {
+  // Users
+  rpc GetAllUsers(Empty) returns (UserList);
+  rpc GetUserById(IntId) returns (User);
+  rpc GetUserByUsername(UsernameRequest) returns (User);
+  rpc CreateUser(CreateUserRequest) returns (IntId);
+  rpc UpdateUser(User) returns (Empty);
+  rpc DeleteUser(IntId) returns (Empty);
+  
+  // Rooms
+  rpc GetAllRooms(Empty) returns (RoomList);
+  rpc GetRoomById(IntId) returns (Room);
+  rpc CreateRoom(CreateRoomRequest) returns (IntId);
+  rpc UpdateRoom(Room) returns (Empty);
+  rpc DeleteRoom(IntId) returns (Empty);
+  
+  // Patients
+  rpc GetAllPatients(Empty) returns (PatientList);
+  rpc GetPatientByCode(PatientCodeRequest) returns (Patient);
+  rpc SearchPatients(StringQuery) returns (PatientList);
+  rpc CreatePatient(CreatePatientRequest) returns (IntId);
+  rpc UpdatePatient(Patient) returns (Empty);
+  rpc DeletePatient(PatientCodeRequest) returns (Empty);
+  
+  // Messages
+  rpc GetMessagesByRecipient(UserIdRequest) returns (MessageList);
+  rpc GetUnreadMessages(UserIdRequest) returns (MessageList);
+  rpc CreateMessage(CreateMessageRequest) returns (IntId);
+  rpc MarkMessageAsRead(IntId) returns (Empty);
+  rpc DeleteMessage(IntId) returns (Empty);
+  
+  // Waiting Patients
+  rpc GetWaitingPatients(Empty) returns (WaitingPatientList);
+  rpc GetWaitingPatientsByRoom(RoomIdRequest) returns (WaitingPatientList);
+  rpc AddWaitingPatient(CreateWaitingPatientRequest) returns (IntId);
+  rpc UpdateWaitingPatient(WaitingPatient) returns (Empty);
+  rpc RemoveWaitingPatient(IntId) returns (Empty);
+  rpc ClearWaitingRoom(Empty) returns (Empty);
+  
+  // Visits
+  rpc GetVisitsByPatient(PatientCodeRequest) returns (VisitList);
+  rpc GetVisitsByDoctor(UserIdRequest) returns (VisitList);
+  rpc GetTodayVisits(Empty) returns (VisitList);
+  rpc CreateVisit(CreateVisitRequest) returns (IntId);
+  rpc UpdateVisit(Visit) returns (Empty);
+  
+  // Medical Acts
+  rpc GetAllMedicalActs(Empty) returns (MedicalActList);
+  rpc GetMedicalActById(IntId) returns (MedicalAct);
+  
+  // Ordonnances
+  rpc GetOrdonnancesByPatient(PatientCodeRequest) returns (OrdonnanceList);
+  rpc CreateOrdonnance(CreateOrdonnanceRequest) returns (IntId);
+  rpc UpdateOrdonnance(Ordonnance) returns (Empty);
+  rpc DeleteOrdonnance(IntId) returns (Empty);
+  
+  // Medications
+  rpc GetMedicationsByOrdonnance(OrdonnanceIdRequest) returns (MedicationList);
+  rpc CreateMedication(CreateMedicationRequest) returns (IntId);
+  rpc DeleteMedication(IntId) returns (Empty);
+  
+  // Payments
+  rpc GetPaymentsByPatient(PatientCodeRequest) returns (PaymentList);
+  rpc GetPaymentsByDateRange(DateRange) returns (PaymentList);
+  rpc CreatePayment(CreatePaymentRequest) returns (IntId);
+  rpc UpdatePayment(Payment) returns (Empty);
+  
+  // Templates
+  rpc GetAllTemplates(Empty) returns (TemplateList);
+  rpc GetTemplateById(IntId) returns (Template);
+  rpc CreateTemplate(CreateTemplateRequest) returns (IntId);
+  rpc UpdateTemplate(Template) returns (Empty);
+  rpc DeleteTemplate(IntId) returns (Empty);
+  
+  // Message Templates
+  rpc GetAllMessageTemplates(Empty) returns (MessageTemplateList);
+  rpc GetMessageTemplateById(IntId) returns (MessageTemplate);
+}
