@@ -5,9 +5,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/services/admin_broadcast_service.dart';
 import '../../../core/theme/medicore_colors.dart';
+import '../../../core/api/grpc_client.dart';
 
 /// Setup Wizard - Choose Admin (with database) or Client (connects to Admin)
 class SetupWizard extends StatefulWidget {
@@ -344,10 +346,22 @@ class _SetupWizardState extends State<SetupWizard> {
       // Get local IP
       final ip = await _getLocalIP();
       
-      // Save config
+      // Save config to file
       final config = {'mode': 'admin', 'ip': ip, 'date': DateTime.now().toIso8601String()};
       final configFile = File(p.join(appDir.path, 'medicore_config.txt'));
       await configFile.writeAsString(jsonEncode(config));
+      
+      // Save to SharedPreferences (for GrpcClientConfig)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_server', true);  // ADMIN MODE
+      await prefs.setString('server_ip', ip);
+      
+      // Configure gRPC server
+      GrpcClientConfig.setServerMode(true);
+      GrpcClientConfig.setServerHost(ip);
+      
+      print('✓ Admin configured at $ip');
+      print('✓ gRPC server mode enabled');
       
       // Start persistent broadcast service
       await AdminBroadcastService.instance.start(ip);
@@ -379,7 +393,7 @@ class _SetupWizardState extends State<SetupWizard> {
     setState(() { _isWorking = true; _status = 'Connexion à ${server.name}...'; });
     
     try {
-      // Save config (no need to test gRPC connection, broadcast confirms admin exists)
+      // Save config to file
       final appDir = await getApplicationSupportDirectory();
       if (!await appDir.exists()) await appDir.create(recursive: true);
       
@@ -392,7 +406,17 @@ class _SetupWizardState extends State<SetupWizard> {
       final configFile = File(p.join(appDir.path, 'medicore_config.txt'));
       await configFile.writeAsString(jsonEncode(config));
       
+      // Save to SharedPreferences (for GrpcClientConfig)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_server', false);  // CLIENT MODE
+      await prefs.setString('server_ip', server.ip);
+      
+      // Configure gRPC client
+      GrpcClientConfig.setServerMode(false);
+      GrpcClientConfig.setServerHost(server.ip);
+      
       print('✓ Client configured: ${server.name} at ${server.ip}');
+      print('✓ gRPC client mode enabled, connecting to ${server.ip}:50051');
       
       setState(() => _status = '✓ Connecté à ${server.name}');
       
