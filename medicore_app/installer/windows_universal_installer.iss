@@ -56,6 +56,11 @@ Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; S
 Filename: "{tmp}\vc_redist.x86.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installation des composants Visual C++ (32-bit)..."; Flags: waituntilterminated; Check: VCRedist86Needed
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
+[UninstallDelete]
+; Clean up AppData folder on uninstall so setup is fresh on reinstall
+Type: filesandordirs; Name: "{userappdata}\medicore_app"
+Type: filesandordirs; Name: "{localappdata}\medicore_app"
+
 [Code]
 function VCRedist64Needed(): Boolean;
 var
@@ -112,5 +117,27 @@ begin
       '  * Redémarrez l''ordinateur après l''installation' + #13#10 + #13#10 +
       'Support: https://github.com/ilyesthen/medicore' + #13#10, 
       False);
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  AppDataPath: String;
+  LocalAppDataPath: String;
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    // Clean up configuration and database files
+    AppDataPath := ExpandConstant('{userappdata}\medicore_app');
+    LocalAppDataPath := ExpandConstant('{localappdata}\medicore_app');
+    
+    // Show message about data cleanup
+    MsgBox('MediCore a été désinstallé.' + #13#10 + #13#10 +
+           'Les données de configuration et la base de données ont été supprimées.' + #13#10 +
+           'La prochaine installation sera une configuration complète.' + #13#10 + #13#10 +
+           'Dossiers nettoyés:' + #13#10 +
+           '• ' + AppDataPath + #13#10 +
+           '• ' + LocalAppDataPath,
+           mbInformation, MB_OK);
   end;
 end;
