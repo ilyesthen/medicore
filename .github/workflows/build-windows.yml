@@ -23,6 +23,10 @@ jobs:
         working-directory: medicore_app
         run: flutter pub get
 
+      - name: Enable Web Support
+        working-directory: medicore_app
+        run: flutter create . --platforms=web
+
       - name: Build Windows 64-bit (Native)
         working-directory: medicore_app
         run: flutter build windows --release
