@@ -19,13 +19,50 @@ import 'src/features/auth/presentation/room_selection_wrapper.dart';
 import 'src/features/dashboard/presentation/admin_dashboard.dart';
 import 'src/features/setup/presentation/setup_wizard.dart';
 
-/// Check if setup has been completed by looking for config file
+/// Check if setup has been completed
+/// Returns true ONLY if config exists AND database exists (for admin) or server IP is saved (for client)
 Future<bool> _isSetupComplete() async {
   try {
     final appDir = await getApplicationSupportDirectory();
     final configFile = File(p.join(appDir.path, 'medicore_config.txt'));
-    return configFile.existsSync();
+    final dbFile = File(p.join(appDir.path, 'medicore.db'));
+    
+    // Config must exist
+    if (!configFile.existsSync()) {
+      print('❌ Setup incomplete: No config file');
+      return false;
+    }
+    
+    // Parse config
+    final config = jsonDecode(await configFile.readAsString());
+    final mode = config['mode'];
+    
+    if (mode == 'admin') {
+      // ADMIN: Must have database file
+      if (!dbFile.existsSync()) {
+        print('❌ Setup incomplete: Admin mode but no database');
+        // Clean up invalid config
+        await configFile.delete();
+        return false;
+      }
+      print('✓ Setup complete: ADMIN mode with database');
+      return true;
+    } else if (mode == 'client') {
+      // CLIENT: Must have server IP
+      if (config['serverIp'] == null || config['serverIp'].toString().isEmpty) {
+        print('❌ Setup incomplete: Client mode but no server IP');
+        await configFile.delete();
+        return false;
+      }
+      print('✓ Setup complete: CLIENT mode, server: ${config['serverIp']}');
+      return true;
+    } else {
+      print('❌ Setup incomplete: Invalid mode: $mode');
+      await configFile.delete();
+      return false;
+    }
   } catch (e) {
+    print('❌ Setup check error: $e');
     return false;
   }
 }

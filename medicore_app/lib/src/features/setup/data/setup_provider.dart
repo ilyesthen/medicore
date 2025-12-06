@@ -52,20 +52,28 @@ class SetupNotifier extends StateNotifier<SetupState> {
       final serverIP = prefs.getString('server_ip');
       final serverName = prefs.getString('server_name');
       
-      // Also check if database actually exists with data
-      bool dbHasData = false;
-      try {
-        final db = AppDatabase.instance;
-        final users = await db.select(db.users).get();
-        dbHasData = users.isNotEmpty;
-        print('SetupProvider: Database has ${users.length} users');
-      } catch (e) {
-        print('SetupProvider: Could not read database: $e');
-      }
+      // For ADMIN: Also check if database actually exists with data
+      // For CLIENT: Just check if server IP is set
+      bool isComplete = prefComplete;
       
-      // Setup is complete only if BOTH preference is set AND database has data
-      final isComplete = prefComplete && dbHasData;
-      print('SetupProvider: prefComplete=$prefComplete, dbHasData=$dbHasData, isComplete=$isComplete');
+      if (isServer) {
+        // ADMIN MODE: Verify database has data
+        bool dbHasData = false;
+        try {
+          final db = AppDatabase.instance;
+          final users = await db.select(db.users).get();
+          dbHasData = users.isNotEmpty;
+          print('✓ SetupProvider: ADMIN mode - Database has ${users.length} users');
+        } catch (e) {
+          print('❌ SetupProvider: ADMIN mode - Could not read database: $e');
+        }
+        isComplete = prefComplete && dbHasData;
+        print('SetupProvider: ADMIN - prefComplete=$prefComplete, dbHasData=$dbHasData, isComplete=$isComplete');
+      } else {
+        // CLIENT MODE: Just verify server IP exists
+        isComplete = prefComplete && serverIP != null && serverIP.isNotEmpty;
+        print('✓ SetupProvider: CLIENT mode - Server: $serverIP, isComplete=$isComplete');
+      }
 
       state = SetupState(
         isSetupComplete: isComplete,
