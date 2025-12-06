@@ -23,6 +23,20 @@ jobs:
         working-directory: medicore_app
         run: flutter pub get
 
+      - name: Install protoc and Dart plugin
+        run: |
+          choco install protoc -y
+          flutter pub global activate protoc_plugin
+        shell: powershell
+
+      - name: Generate Dart proto files
+        working-directory: medicore_server
+        run: |
+          $env:PATH = "$env:USERPROFILE\AppData\Local\Pub\Cache\bin;$env:PATH"
+          protoc --dart_out=grpc:../medicore_app/lib/src/core/generated --proto_path=. proto/medicore.proto
+          Write-Host "✅ Proto files generated"
+        shell: powershell
+
       - name: Build Windows x64 Release
         working-directory: medicore_app
         run: flutter build windows --release
