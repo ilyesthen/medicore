@@ -1,0 +1,3 @@
+# Generated proto files
+*.pb.go
+*_grpc.pb.go
