@@ -46,26 +46,94 @@ jobs:
           Copy-Item "medicore_app/installer/vcredist/vc_redist.x64.exe" "medicore_app/build/package/"
           Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "medicore_app/build/package/"
           
-          # Create DEMARRER.bat (French for START)
+          # Create smart launcher that detects 32-bit vs 64-bit
           @"
           @echo off
           chcp 65001 >nul
+          cls
+          
+          REM Check if running on 32-bit or 64-bit Windows
+          if defined PROCESSOR_ARCHITEW6432 goto :64bit
+          if "%PROCESSOR_ARCHITECTURE%"=="AMD64" goto :64bit
+          if "%PROCESSOR_ARCHITECTURE%"=="x86_64" goto :64bit
+          
+          REM 32-bit Windows detected - show error
+          :32bit
+          color 4F
+          cls
+          echo.
+          echo ╔═══════════════════════════════════════════════════════════════╗
+          echo ║                    ⚠️  ERREUR SYSTEME  ⚠️                    ║
+          echo ╚═══════════════════════════════════════════════════════════════╝
+          echo.
+          echo  MediCore necessite Windows 64-bit
+          echo.
+          echo  Votre ordinateur utilise Windows 32-bit (x86)
+          echo  Cette version ne peut PAS executer MediCore
+          echo.
+          echo  ═══════════════════════════════════════════════════════════════
+          echo  POURQUOI?
+          echo  ═══════════════════════════════════════════════════════════════
+          echo.
+          echo  La technologie Flutter ne supporte QUE le 64-bit sur Windows
+          echo  Ce n'est pas un bug - c'est une limitation technique
+          echo.
+          echo  ═══════════════════════════════════════════════════════════════
+          echo  SOLUTIONS:
+          echo  ═══════════════════════════════════════════════════════════════
+          echo.
+          echo  1. Utiliser un autre ordinateur avec Windows 64-bit
+          echo  2. Mettre a niveau vers Windows 64-bit
+          echo  3. Acheter un PC moderne (tous sont 64-bit depuis 2010)
+          echo.
+          echo  Pour verifier: Ordinateur -^> Proprietes
+          echo                 Cherchez "Type du systeme"
+          echo.
+          pause
+          exit
+          
+          REM 64-bit Windows - proceed with installation
+          :64bit
           cls
           echo.
           echo ╔═══════════════════════════════════════════════════════╗
           echo ║              MEDICORE - DEMARRAGE RAPIDE              ║
           echo ╚═══════════════════════════════════════════════════════╝
           echo.
-          echo Installation automatique des composants...
+          echo ✓ Windows 64-bit detecte - Compatible!
           echo.
+          echo Installation des composants requis...
           
-          vc_redist.x64.exe /install /quiet /norestart
-          vc_redist.x86.exe /install /quiet /norestart
+          vc_redist.x64.exe /install /quiet /norestart 2>nul
+          if %errorlevel% neq 0 (
+            echo   Installation VC++ x64 - Deja installe ou erreur
+          ) else (
+            echo ✓ VC++ x64 installe
+          )
           
-          echo ✓ Installation terminée!
+          vc_redist.x86.exe /install /quiet /norestart 2>nul
+          if %errorlevel% neq 0 (
+            echo   Installation VC++ x86 - Deja installe ou erreur
+          ) else (
+            echo ✓ VC++ x86 installe
+          )
+          
           echo.
-          echo Démarrage de MediCore...
+          echo ✓ Installation terminee!
+          echo.
+          echo Demarrage de MediCore...
           timeout /t 2 >nul
+          
+          REM Check if app exists
+          if not exist medicore_app.exe (
+            color 4F
+            echo.
+            echo ❌ ERREUR: medicore_app.exe introuvable!
+            echo.
+            pause
+            exit
+          )
+          
           start "" medicore_app.exe
           exit
           "@ | Out-File -FilePath "medicore_app/build/package/DEMARRER.bat" -Encoding UTF8
