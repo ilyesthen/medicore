@@ -1,4 +1,4 @@
-name: Build MediCore Windows Universal Installer
+name: Build MediCore Windows
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
         working-directory: medicore_app
         run: flutter pub get
 
-      - name: Build Windows x64 Release
+      - name: Build Windows Release
         working-directory: medicore_app
         run: flutter build windows --release
 
@@ -34,55 +34,141 @@ jobs:
           Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x86.exe" -OutFile "medicore_app/installer/vcredist/vc_redist.x86.exe"
         shell: powershell
 
-      - name: Install Inno Setup
-        run: |
-          choco install innosetup -y
-        shell: powershell
-
-      - name: Build Universal Installer
-        run: |
-          New-Item -ItemType Directory -Force -Path "medicore_app/build/installer"
-          $env:PATH = "C:\Program Files (x86)\Inno Setup 6;$env:PATH"
-          iscc "medicore_app/installer/windows_universal_installer.iss"
-        shell: powershell
-
-      - name: Create Portable ZIP (no installer)
+      - name: Create Simple Package
         run: |
           $buildPath = "medicore_app/build/windows/x64/runner/Release"
-          Copy-Item "medicore_app/installer/vcredist/vc_redist.x64.exe" "$buildPath/"
-          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "$buildPath/"
+          New-Item -ItemType Directory -Force -Path "medicore_app/build/package"
           
+          # Copy all app files
+          Copy-Item -Path "$buildPath/*" -Destination "medicore_app/build/package/" -Recurse -Force
+          
+          # Copy VC++ redistributables
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x64.exe" "medicore_app/build/package/"
+          Copy-Item "medicore_app/installer/vcredist/vc_redist.x86.exe" "medicore_app/build/package/"
+          
+          # Create INSTALL.bat
           @"
-          MediCore - Portable Version
-          ============================
+          @echo off
+          echo ========================================
+          echo MediCore Installation
+          echo ========================================
+          echo.
+          echo Installing required components...
+          echo.
           
-          INSTALLATION:
-          1. Extract all files to a folder
-          2. Run vc_redist.x64.exe (only once, ever)
-          3. If error persists, run vc_redist.x86.exe too
-          4. Run medicore_app.exe
+          REM Install VC++ Redistributables silently
+          vc_redist.x64.exe /install /quiet /norestart
+          if exist vc_redist.x86.exe vc_redist.x86.exe /install /quiet /norestart
           
-          FIRST USE:
-          - Choose ADMIN on main computer (with database)
-          - Choose CLIENT on other computers
-          - Clients auto-detect admin on network
+          echo.
+          echo Installation complete!
+          echo Starting MediCore...
+          echo.
+          start medicore_app.exe
+          "@ | Out-File -FilePath "medicore_app/build/package/INSTALL.bat" -Encoding ASCII
           
-          This is the portable version. No installation required!
-          Works on Windows 7, 8, 8.1, 10, 11 (64-bit)
-          "@ | Out-File -FilePath "$buildPath/README.txt" -Encoding UTF8
+          # Create README
+          @"
+          ╔══════════════════════════════════════════════════════════════╗
+          ║                    MEDICORE - INSTALLATION                   ║
+          ║          Système de Gestion Médicale pour Cabinet           ║
+          ╚══════════════════════════════════════════════════════════════╝
           
-          New-Item -ItemType Directory -Force -Path "medicore_app/build/installer"
-          Compress-Archive -Path "$buildPath/*" -DestinationPath "medicore_app/build/installer/MediCore-Portable.zip" -Force
+          ⚠️  IMPORTANT - LISEZ CECI D'ABORD ⚠️
+          ========================================
+          
+          SI WINDOWS BLOQUE L'APPLICATION:
+          --------------------------------
+          1. Windows peut afficher "Windows a protégé votre PC"
+          2. Cliquez sur "Informations complémentaires"
+          3. Puis cliquez "Exécuter quand même"
+          
+          C'EST NORMAL! L'application n'est pas signée numériquement.
+          Elle est 100% sûre.
+          
+          SI ANTIVIRUS BLOQUE (Avira, Avast, etc.):
+          -----------------------------------------
+          1. Ouvrez votre antivirus
+          2. Ajoutez le dossier MediCore aux EXCLUSIONS
+          3. Redémarrez l'installation
+          
+          
+          📥 INSTALLATION RAPIDE:
+          ======================
+          
+          Méthode 1 - AUTOMATIQUE (Recommandé):
+          -------------------------------------
+          ➜ Double-cliquez sur: INSTALL.bat
+          ➜ Cliquez "Oui" si Windows demande l'autorisation
+          ➜ L'application démarre automatiquement
+          
+          Méthod 2 - MANUELLE:
+          -------------------
+          1. Double-cliquez vc_redist.x64.exe → Installez
+          2. Double-cliquez vc_redist.x86.exe → Installez (si nécessaire)
+          3. Double-cliquez medicore_app.exe
+          
+          
+          🚀 PREMIÈRE UTILISATION:
+          ========================
+          
+          L'application vous demandera de choisir:
+          
+          🖥️  ADMIN (Ordinateur Principal):
+              ✓ Choisissez ceci sur UN SEUL ordinateur
+              ✓ Importez votre base de données (.db)
+              ✓ Les autres ordinateurs se connecteront à celui-ci
+          
+          💻 CLIENT (Autres Ordinateurs):
+              ✓ Choisissez ceci sur tous les autres postes
+              ✓ L'Admin sera détecté automatiquement
+              ✓ Cliquez dessus pour vous connecter
+          
+          
+          🔧 DÉPANNAGE:
+          =============
+          
+          ❌ "MSVCP140.dll manquant":
+             → Exécutez INSTALL.bat en tant qu'administrateur
+             → OU installez les deux vc_redist manuellement
+          
+          ❌ Le CLIENT ne trouve pas l'ADMIN:
+             → Vérifiez que les deux PC sont sur le même réseau WiFi/LAN
+             → Désactivez temporairement le pare-feu pour tester
+             → Sur l'Admin, autorisez medicore_app.exe dans le pare-feu
+          
+          ❌ Windows SmartScreen bloque:
+             → Normal! Cliquez "Informations complémentaires"
+             → Puis "Exécuter quand même"
+          
+          ❌ Antivirus bloque (fausse alerte):
+             → Ajoutez le dossier aux exclusions de l'antivirus
+             → OU désactivez temporairement l'antivirus
+          
+          
+          💡 CONFIGURATION SYSTÈME:
+          =========================
+          Compatible: Windows 7, 8, 8.1, 10, 11 (64-bit)
+          Réseau: WiFi ou câble Ethernet
+          Port utilisé: 50051 (TCP/UDP)
+          
+          
+          📧 SUPPORT:
+          ===========
+          GitHub: https://github.com/ilyesthen/medicore
+          
+          
+          ═══════════════════════════════════════════════════════════════
+                          MediCore v1.0 - 2025
+          ═══════════════════════════════════════════════════════════════
+          "@ | Out-File -FilePath "medicore_app/build/package/LISEZ-MOI.txt" -Encoding UTF8
+          
+          # Create ZIP
+          Compress-Archive -Path "medicore_app/build/package/*" -DestinationPath "medicore_app/build/MediCore-Windows.zip" -Force
         shell: powershell
 
-      - name: Upload Universal Installer
+      - name: Upload Package
         uses: actions/upload-artifact@v4
         with:
-          name: MediCore-Setup-Universal
-          path: medicore_app/build/installer/MediCore-Setup-Universal.exe
-
-      - name: Upload Portable ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: MediCore-Portable
-          path: medicore_app/build/installer/MediCore-Portable.zip
+          name: MediCore-Windows
+          path: medicore_app/build/MediCore-Windows.zip
