@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"medicore-server/internal/models"
+	"medicore/internal/models"
 )
 
 // UsersRepository handles database operations for users

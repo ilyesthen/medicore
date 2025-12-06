@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"medicore-server/internal/models"
+	"medicore/internal/models"
 )
 
 // TemplatesRepository handles database operations for templates

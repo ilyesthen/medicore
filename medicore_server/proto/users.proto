@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package medicore.users;
 
-option go_package = "medicore-server/proto/users";
+option go_package = "medicore/proto";
 
 // User message
 message User {
