@@ -38,6 +38,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 ; Install the 64-bit version on 64-bit Windows
 Source: "..\build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion; Check: Is64BitInstallMode
+Source: "..\build\windows\x64\runner\Release\medicore_server.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: Is64BitInstallMode
 Source: "..\build\windows\x64\runner\Release\*.dll"; DestDir: "{app}"; Flags: ignoreversion; Check: Is64BitInstallMode
 Source: "..\build\windows\x64\runner\Release\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: Is64BitInstallMode
 
@@ -54,6 +55,12 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 ; Install VC++ Redistributables silently
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installation des composants Visual C++ (64-bit)..."; Flags: waituntilterminated; Check: Is64BitInstallMode and VCRedist64Needed
 Filename: "{tmp}\vc_redist.x86.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installation des composants Visual C++ (32-bit)..."; Flags: waituntilterminated; Check: VCRedist86Needed
+; Add firewall rules for LAN connectivity
+Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""MediCore App"" dir=in action=allow program=""{app}\medicore_app.exe"" enable=yes"; Flags: runhidden waituntilterminated; StatusMsg: "Configuration du pare-feu..."
+Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""MediCore Server"" dir=in action=allow program=""{app}\medicore_server.exe"" enable=yes"; Flags: runhidden waituntilterminated
+Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""MediCore REST API"" dir=in action=allow protocol=tcp localport=50052 enable=yes"; Flags: runhidden waituntilterminated
+Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""MediCore Discovery"" dir=in action=allow protocol=udp localport=45678 enable=yes"; Flags: runhidden waituntilterminated
+Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""MediCore Test Port"" dir=in action=allow protocol=tcp localport=50051 enable=yes"; Flags: runhidden waituntilterminated
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
