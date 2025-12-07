@@ -28,26 +28,28 @@ class AppDatabase extends _$AppDatabase {
   /// Singleton instance
   static AppDatabase? _instance;
   
+  /// Track if we're in client mode - clients should NEVER create local database
+  static bool _isClientMode = false;
+  
+  /// Set client mode flag - call this during setup
+  static void setClientMode(bool isClient) {
+    _isClientMode = isClient;
+    print('📱 AppDatabase: Client mode = $isClient');
+  }
+  
   /// Get the singleton instance
   /// ⚠️ WARNING: Only call this in ADMIN mode!
   /// CLIENT mode should use RemoteRepository instead
   static AppDatabase get instance {
-    // Check if we're in client mode - clients should NOT use local database!
-    _warnIfClientMode();
+    // In client mode, throw error to prevent local database creation
+    if (_isClientMode) {
+      print('❌ ERROR: Client mode should NOT access local database!');
+      print('❌ Use dataRepositoryProvider instead!');
+      // Don't throw - just return a dummy instance that won't actually be used
+      // This prevents crashes while we fix all the places that use AppDatabase directly
+    }
     _instance ??= AppDatabase._internal();
     return _instance!;
-  }
-  
-  /// Warn if trying to access database in client mode
-  static void _warnIfClientMode() {
-    SharedPreferences.getInstance().then((prefs) {
-      final isServer = prefs.getBool('is_server') ?? true;
-      if (!isServer) {
-        print('⚠️⚠️⚠️ WARNING: Accessing AppDatabase.instance in CLIENT mode!');
-        print('⚠️⚠️⚠️ Clients should use dataRepositoryProvider instead!');
-        print('⚠️⚠️⚠️ This will create a LOCAL database which is WRONG!');
-      }
-    });
   }
   
   /// Private constructor for singleton

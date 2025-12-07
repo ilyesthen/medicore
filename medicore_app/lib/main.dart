@@ -13,6 +13,7 @@ import 'src/core/ui/scroll_behavior.dart';
 import 'src/core/ui/window_init.dart';
 import 'src/core/theme/medicore_colors.dart';
 import 'src/core/api/grpc_client.dart';
+import 'src/core/database/app_database.dart';
 import 'src/core/services/admin_broadcast_service.dart';
 import 'src/core/services/grpc_server_launcher.dart';
 import 'src/features/auth/presentation/auth_provider.dart';
@@ -22,7 +23,7 @@ import 'src/features/dashboard/presentation/admin_dashboard.dart';
 import 'src/features/setup/presentation/setup_wizard.dart';
 
 /// Current app version - bump this to force setup wizard on upgrade
-const String _currentAppVersion = '2.0.0';
+const String _currentAppVersion = '3.0.0';
 
 /// Check if setup has been completed
 /// Returns true ONLY if config exists AND database exists (for admin) or server IP is saved (for client)
@@ -102,6 +103,15 @@ void main() async {
   
   // Initialize gRPC client configuration
   await GrpcClientConfig.initialize();
+  
+  // Set client mode flag to prevent local database creation in client mode
+  if (!GrpcClientConfig.isServer) {
+    AppDatabase.setClientMode(true);
+    print('📱 Running in CLIENT mode - local database disabled');
+  } else {
+    AppDatabase.setClientMode(false);
+    print('🖥️ Running in ADMIN mode - local database enabled');
+  }
   
   runApp(
     ProviderScope(

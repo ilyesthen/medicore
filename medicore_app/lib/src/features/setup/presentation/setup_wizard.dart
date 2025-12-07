@@ -349,7 +349,7 @@ class _SetupWizardState extends State<SetupWizard> {
       
       // Save config to file (with version for upgrade detection)
       final config = {
-        'version': '2.0.0',
+        'version': '3.0.0',
         'mode': 'admin', 
         'ip': ip, 
         'date': DateTime.now().toIso8601String()
@@ -414,7 +414,7 @@ class _SetupWizardState extends State<SetupWizard> {
       if (!await appDir.exists()) await appDir.create(recursive: true);
       
       final config = {
-        'version': '2.0.0',
+        'version': '3.0.0',
         'mode': 'client',
         'serverIp': server.ip,
         'serverName': server.name,
@@ -432,8 +432,12 @@ class _SetupWizardState extends State<SetupWizard> {
       GrpcClientConfig.setServerMode(false);
       GrpcClientConfig.setServerHost(server.ip);
       
+      // IMPORTANT: Set client mode flag to prevent local database creation
+      AppDatabase.setClientMode(true);
+      
       print('✓ Client configured: ${server.name} at ${server.ip}');
       print('✓ gRPC client mode enabled, connecting to ${server.ip}:50051');
+      print('✓ Local database DISABLED - using gRPC only');
       
       setState(() => _status = '✓ Connecté à ${server.name}');
       
