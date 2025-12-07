@@ -3,18 +3,14 @@ import '../database/app_database.dart';
 import '../api/grpc_client.dart';
 import 'data_repository.dart';
 import 'local_repository.dart';
-import 'remote_repository.dart';
+// import 'remote_repository.dart'; // TODO: Enable when proto generation is fixed
 
 /// Provider for the data repository
-/// Returns LocalRepository if in admin mode, RemoteRepository if in client mode
+/// TODO: When gRPC proto is properly generated, use RemoteRepository for client mode
+/// For now, both modes use LocalRepository (database will be synced separately)
 final dataRepositoryProvider = Provider<DataRepository>((ref) {
-  if (GrpcClientConfig.isServer) {
-    // ADMIN MODE: Use local database
-    print('✓ Using LOCAL repository (Admin mode)');
-    return LocalRepository(AppDatabase.instance);
-  } else {
-    // CLIENT MODE: Use gRPC to connect to admin
-    print('✓ Using REMOTE repository (Client mode - connecting to ${GrpcClientConfig.serverHost}:50051)');
-    return RemoteRepository();
-  }
+  // Both admin and client use local database for now
+  // gRPC sync will be implemented when proto generation is fixed
+  print('✓ Using LOCAL repository');
+  return LocalRepository(AppDatabase.instance);
 });
