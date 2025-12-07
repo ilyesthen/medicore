@@ -150,14 +150,18 @@ func findDatabase() string {
 	var searchPaths []string
 
 	if runtime.GOOS == "windows" {
-		// Windows: Check AppData\Roaming\medicore_app
+		// Windows: Check AppData\Roaming\com.example\medicore_app (Flutter's path)
 		appData := os.Getenv("APPDATA")
 		if appData != "" {
+			// Primary: Flutter uses com.example\medicore_app
+			searchPaths = append(searchPaths, filepath.Join(appData, "com.example", "medicore_app", "medicore.db"))
+			// Fallback: direct medicore_app folder
 			searchPaths = append(searchPaths, filepath.Join(appData, "medicore_app", "medicore.db"))
 		}
 		// Also check Local AppData
 		localAppData := os.Getenv("LOCALAPPDATA")
 		if localAppData != "" {
+			searchPaths = append(searchPaths, filepath.Join(localAppData, "com.example", "medicore_app", "medicore.db"))
 			searchPaths = append(searchPaths, filepath.Join(localAppData, "medicore_app", "medicore.db"))
 		}
 	} else if runtime.GOOS == "darwin" {

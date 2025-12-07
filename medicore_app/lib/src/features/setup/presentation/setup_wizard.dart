@@ -349,7 +349,7 @@ class _SetupWizardState extends State<SetupWizard> {
       
       // Save config to file (with version for upgrade detection)
       final config = {
-        'version': '3.3.0',
+        'version': '3.4.0',
         'mode': 'admin', 
         'ip': ip, 
         'date': DateTime.now().toIso8601String()
@@ -449,7 +449,7 @@ class _SetupWizardState extends State<SetupWizard> {
       if (!await appDir.exists()) await appDir.create(recursive: true);
       
       final config = {
-        'version': '3.3.0',
+        'version': '3.4.0',
         'mode': 'client',
         'serverIp': server.ip,
         'serverName': server.name,

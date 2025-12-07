@@ -25,7 +25,7 @@ import 'src/features/dashboard/presentation/admin_dashboard.dart';
 import 'src/features/setup/presentation/setup_wizard.dart';
 
 /// Current app version - bump this to force setup wizard on upgrade
-const String _currentAppVersion = '3.3.0';
+const String _currentAppVersion = '3.4.0';
 
 /// Check if setup has been completed
 /// Returns true ONLY if config exists AND database exists (for admin) or server IP is saved (for client)
