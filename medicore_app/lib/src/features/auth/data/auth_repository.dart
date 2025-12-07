@@ -1,10 +1,11 @@
-import '../../users/data/users_repository.dart';
 import '../../users/data/models/user_model.dart';
+import '../../users/presentation/users_provider.dart';
 
 /// Authentication Repository
 /// Handles login/logout with user system
+/// Works with both local (admin) and remote (client) repositories
 class AuthRepository {
-  final UsersRepository _usersRepository;
+  final IUsersRepository _usersRepository;
   
   User? _currentUser;
   

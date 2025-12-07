@@ -13,6 +13,7 @@ import 'src/core/ui/scroll_behavior.dart';
 import 'src/core/ui/window_init.dart';
 import 'src/core/theme/medicore_colors.dart';
 import 'src/core/api/grpc_client.dart';
+import 'src/core/api/medicore_client.dart';
 import 'src/core/database/app_database.dart';
 import 'src/core/services/admin_broadcast_service.dart';
 import 'src/core/services/grpc_server_launcher.dart';
@@ -23,7 +24,7 @@ import 'src/features/dashboard/presentation/admin_dashboard.dart';
 import 'src/features/setup/presentation/setup_wizard.dart';
 
 /// Current app version - bump this to force setup wizard on upgrade
-const String _currentAppVersion = '3.1.0';
+const String _currentAppVersion = '3.2.0';
 
 /// Check if setup has been completed
 /// Returns true ONLY if config exists AND database exists (for admin) or server IP is saved (for client)
@@ -108,6 +109,18 @@ void main() async {
   if (!GrpcClientConfig.isServer) {
     AppDatabase.setClientMode(true);
     print('📱 Running in CLIENT mode - local database disabled');
+    
+    // Initialize MediCoreClient to connect to admin server
+    print('🔌 Connecting to admin server: ${GrpcClientConfig.serverHost}');
+    await MediCoreClient.instance.initialize(
+      host: GrpcClientConfig.serverHost,
+    );
+    
+    if (MediCoreClient.instance.isConnected) {
+      print('✅ Connected to admin server');
+    } else {
+      print('⚠️ Could not connect to admin server - will retry on demand');
+    }
   } else {
     AppDatabase.setClientMode(false);
     print('🖥️ Running in ADMIN mode - local database enabled');

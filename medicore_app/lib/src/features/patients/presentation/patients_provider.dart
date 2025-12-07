@@ -1,10 +1,169 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/api/remote_patients_repository.dart';
 import '../data/patients_repository.dart';
 
-/// Patients repository provider
-final patientsRepositoryProvider = Provider<PatientsRepository>((ref) {
-  return PatientsRepository();
+/// Abstract interface for patient operations
+/// Allows switching between local (admin) and remote (client) implementations
+abstract class IPatientsRepository {
+  Stream<List<Patient>> watchAllPatients();
+  Future<Patient?> getPatientByCode(int code);
+  Stream<List<Patient>> searchPatients(String query);
+  Future<Patient> createPatient({
+    required String firstName,
+    required String lastName,
+    int? age,
+    DateTime? dateOfBirth,
+    String? address,
+    String? phoneNumber,
+    String? otherInfo,
+  });
+  Future<void> updatePatient({
+    required int code,
+    required String firstName,
+    required String lastName,
+    int? age,
+    DateTime? dateOfBirth,
+    String? address,
+    String? phoneNumber,
+    String? otherInfo,
+  });
+  Future<void> deletePatient(int code);
+  Future<int> getPatientCount();
+}
+
+/// Local patients adapter
+class LocalPatientsAdapter implements IPatientsRepository {
+  final PatientsRepository _local;
+  LocalPatientsAdapter(this._local);
+  
+  @override
+  Stream<List<Patient>> watchAllPatients() => _local.watchAllPatients();
+  
+  @override
+  Future<Patient?> getPatientByCode(int code) => _local.getPatientByCode(code);
+  
+  @override
+  Stream<List<Patient>> searchPatients(String query) => _local.searchPatients(query);
+  
+  @override
+  Future<Patient> createPatient({
+    required String firstName,
+    required String lastName,
+    int? age,
+    DateTime? dateOfBirth,
+    String? address,
+    String? phoneNumber,
+    String? otherInfo,
+  }) => _local.createPatient(
+    firstName: firstName,
+    lastName: lastName,
+    age: age,
+    dateOfBirth: dateOfBirth,
+    address: address,
+    phoneNumber: phoneNumber,
+    otherInfo: otherInfo,
+  );
+  
+  @override
+  Future<void> updatePatient({
+    required int code,
+    required String firstName,
+    required String lastName,
+    int? age,
+    DateTime? dateOfBirth,
+    String? address,
+    String? phoneNumber,
+    String? otherInfo,
+  }) => _local.updatePatient(
+    code: code,
+    firstName: firstName,
+    lastName: lastName,
+    age: age,
+    dateOfBirth: dateOfBirth,
+    address: address,
+    phoneNumber: phoneNumber,
+    otherInfo: otherInfo,
+  );
+  
+  @override
+  Future<void> deletePatient(int code) => _local.deletePatient(code);
+  
+  @override
+  Future<int> getPatientCount() => _local.getPatientCount();
+}
+
+/// Remote patients adapter
+class RemotePatientsAdapter implements IPatientsRepository {
+  final RemotePatientsRepository _remote;
+  RemotePatientsAdapter(this._remote);
+  
+  @override
+  Stream<List<Patient>> watchAllPatients() => _remote.watchAllPatients();
+  
+  @override
+  Future<Patient?> getPatientByCode(int code) => _remote.getPatientByCode(code);
+  
+  @override
+  Stream<List<Patient>> searchPatients(String query) => _remote.searchPatients(query);
+  
+  @override
+  Future<Patient> createPatient({
+    required String firstName,
+    required String lastName,
+    int? age,
+    DateTime? dateOfBirth,
+    String? address,
+    String? phoneNumber,
+    String? otherInfo,
+  }) => _remote.createPatient(
+    firstName: firstName,
+    lastName: lastName,
+    age: age,
+    dateOfBirth: dateOfBirth,
+    address: address,
+    phoneNumber: phoneNumber,
+    otherInfo: otherInfo,
+  );
+  
+  @override
+  Future<void> updatePatient({
+    required int code,
+    required String firstName,
+    required String lastName,
+    int? age,
+    DateTime? dateOfBirth,
+    String? address,
+    String? phoneNumber,
+    String? otherInfo,
+  }) => _remote.updatePatient(
+    code: code,
+    firstName: firstName,
+    lastName: lastName,
+    age: age,
+    dateOfBirth: dateOfBirth,
+    address: address,
+    phoneNumber: phoneNumber,
+    otherInfo: otherInfo,
+  );
+  
+  @override
+  Future<void> deletePatient(int code) => _remote.deletePatient(code);
+  
+  @override
+  Future<int> getPatientCount() => _remote.getPatientCount();
+}
+
+/// Patients repository provider - switches between local and remote
+final patientsRepositoryProvider = Provider<IPatientsRepository>((ref) {
+  if (GrpcClientConfig.isServer) {
+    print('✓ [PatientsRepository] Using LOCAL database (Admin mode)');
+    return LocalPatientsAdapter(PatientsRepository());
+  } else {
+    print('✓ [PatientsRepository] Using REMOTE API (Client mode)');
+    return RemotePatientsAdapter(RemotePatientsRepository());
+  }
 });
 
 /// All patients stream provider

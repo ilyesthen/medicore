@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"google.golang.org/grpc"
 
+	"medicore/internal/api"
 	"medicore/internal/service"
 	pb "medicore/proto"
 )
@@ -18,7 +20,9 @@ import (
 const (
 	// Listen on all interfaces (0.0.0.0) so LAN clients can connect
 	listenAddr = "0.0.0.0:50051"
+	restAddr   = "0.0.0.0:50052"
 	port       = 50051
+	restPort   = 50052
 )
 
 func main() {
@@ -74,15 +78,28 @@ func main() {
 		log.Fatalf("❌ Failed to listen on %s: %v", listenAddr, err)
 	}
 
+	// Start REST API server in background for Flutter clients
+	go func() {
+		restHandler := api.NewRESTHandler(db)
+		mux := http.NewServeMux()
+		restHandler.SetupRoutes(mux)
+
+		log.Printf("🌐 REST API server starting on %s", restAddr)
+		if err := http.ListenAndServe(restAddr, mux); err != nil {
+			log.Printf("⚠️ REST API server error: %v", err)
+		}
+	}()
+
 	log.Println("")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	log.Println("✅ gRPC SERVER READY FOR LAN CONNECTIONS")
+	log.Println("✅ MEDICORE SERVER READY FOR LAN CONNECTIONS")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	log.Printf("🌐 Listening on: %s", listenAddr)
-	log.Printf("🔗 LAN Address:  %s:%d", localIP, port)
-	log.Printf("💻 Computer:     %s", getHostname())
+	log.Printf("🔌 gRPC Server: %s:%d", localIP, port)
+	log.Printf("🌐 REST API:    %s:%d", localIP, restPort)
+	log.Printf("💻 Computer:    %s", getHostname())
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	log.Println("📡 Clients can now connect from any PC on the same network")
+	log.Println("📡 Flutter clients connect via REST API (port 50052)")
+	log.Println("📡 gRPC clients connect via gRPC (port 50051)")
 	log.Println("")
 
 	if err := grpcServer.Serve(lis); err != nil {

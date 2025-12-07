@@ -1,10 +1,267 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/api/remote_waiting_queue_repository.dart';
 import '../data/waiting_queue_repository.dart';
 
-/// Provider for waiting queue repository
-final waitingQueueRepositoryProvider = Provider<WaitingQueueRepository>((ref) {
-  return WaitingQueueRepository(AppDatabase());
+/// Abstract interface for waiting queue operations
+abstract class IWaitingQueueRepository {
+  Future<int> addToQueue({
+    required int patientCode,
+    required String patientFirstName,
+    required String patientLastName,
+    DateTime? patientBirthDate,
+    int? patientAge,
+    required String roomId,
+    required String roomName,
+    required String motif,
+    required String sentByUserId,
+    required String sentByUserName,
+    bool isUrgent,
+  });
+  Future<int> addToDilatation({
+    required int patientCode,
+    required String patientFirstName,
+    required String patientLastName,
+    DateTime? patientBirthDate,
+    int? patientAge,
+    required String roomId,
+    required String roomName,
+    required String dilatationType,
+    required String sentByUserId,
+    required String sentByUserName,
+  });
+  Stream<List<WaitingPatient>> watchWaitingPatientsForRoom(String roomId);
+  Stream<List<WaitingPatient>> watchUrgentPatientsForRoom(String roomId);
+  Stream<List<WaitingPatient>> watchDilatationPatientsForRoom(String roomId);
+  Stream<List<WaitingPatient>> watchDilatationPatientsForRooms(List<String> roomIds);
+  Stream<int> watchWaitingCountForRoom(String roomId);
+  Stream<int> watchUrgentCountForRoom(String roomId);
+  Stream<int> watchDilatationCountForRoom(String roomId);
+  Stream<int> watchTotalDilatationCount(List<String> roomIds);
+  Future<void> toggleChecked(int id);
+  Future<void> removeFromQueue(int id);
+  Future<void> removeByPatientCode(int patientCode);
+  Future<void> markDilatationsAsNotified(List<String> roomIds);
+}
+
+/// Local waiting queue adapter
+class LocalWaitingQueueAdapter implements IWaitingQueueRepository {
+  final WaitingQueueRepository _local;
+  LocalWaitingQueueAdapter(this._local);
+  
+  @override
+  Future<int> addToQueue({
+    required int patientCode,
+    required String patientFirstName,
+    required String patientLastName,
+    DateTime? patientBirthDate,
+    int? patientAge,
+    required String roomId,
+    required String roomName,
+    required String motif,
+    required String sentByUserId,
+    required String sentByUserName,
+    bool isUrgent = false,
+  }) => _local.addToQueue(
+    patientCode: patientCode,
+    patientFirstName: patientFirstName,
+    patientLastName: patientLastName,
+    patientBirthDate: patientBirthDate,
+    patientAge: patientAge,
+    roomId: roomId,
+    roomName: roomName,
+    motif: motif,
+    sentByUserId: sentByUserId,
+    sentByUserName: sentByUserName,
+    isUrgent: isUrgent,
+  );
+  
+  @override
+  Future<int> addToDilatation({
+    required int patientCode,
+    required String patientFirstName,
+    required String patientLastName,
+    DateTime? patientBirthDate,
+    int? patientAge,
+    required String roomId,
+    required String roomName,
+    required String dilatationType,
+    required String sentByUserId,
+    required String sentByUserName,
+  }) => _local.addToDilatation(
+    patientCode: patientCode,
+    patientFirstName: patientFirstName,
+    patientLastName: patientLastName,
+    patientBirthDate: patientBirthDate,
+    patientAge: patientAge,
+    roomId: roomId,
+    roomName: roomName,
+    dilatationType: dilatationType,
+    sentByUserId: sentByUserId,
+    sentByUserName: sentByUserName,
+  );
+  
+  @override
+  Stream<List<WaitingPatient>> watchWaitingPatientsForRoom(String roomId) => 
+    _local.watchWaitingPatientsForRoom(roomId);
+  
+  @override
+  Stream<List<WaitingPatient>> watchUrgentPatientsForRoom(String roomId) => 
+    _local.watchUrgentPatientsForRoom(roomId);
+  
+  @override
+  Stream<List<WaitingPatient>> watchDilatationPatientsForRoom(String roomId) => 
+    _local.watchDilatationPatientsForRoom(roomId);
+  
+  @override
+  Stream<List<WaitingPatient>> watchDilatationPatientsForRooms(List<String> roomIds) => 
+    _local.watchDilatationPatientsForRooms(roomIds);
+  
+  @override
+  Stream<int> watchWaitingCountForRoom(String roomId) => 
+    _local.watchWaitingCountForRoom(roomId);
+  
+  @override
+  Stream<int> watchUrgentCountForRoom(String roomId) => 
+    _local.watchUrgentCountForRoom(roomId);
+  
+  @override
+  Stream<int> watchDilatationCountForRoom(String roomId) => 
+    _local.watchDilatationCountForRoom(roomId);
+  
+  @override
+  Stream<int> watchTotalDilatationCount(List<String> roomIds) => 
+    _local.watchTotalDilatationCount(roomIds);
+  
+  @override
+  Future<void> toggleChecked(int id) => _local.toggleChecked(id);
+  
+  @override
+  Future<void> removeFromQueue(int id) => _local.removeFromQueue(id);
+  
+  @override
+  Future<void> removeByPatientCode(int patientCode) => 
+    _local.removeByPatientCode(patientCode);
+  
+  @override
+  Future<void> markDilatationsAsNotified(List<String> roomIds) => 
+    _local.markDilatationsAsNotified(roomIds);
+}
+
+/// Remote waiting queue adapter
+class RemoteWaitingQueueAdapter implements IWaitingQueueRepository {
+  final RemoteWaitingQueueRepository _remote;
+  RemoteWaitingQueueAdapter(this._remote);
+  
+  @override
+  Future<int> addToQueue({
+    required int patientCode,
+    required String patientFirstName,
+    required String patientLastName,
+    DateTime? patientBirthDate,
+    int? patientAge,
+    required String roomId,
+    required String roomName,
+    required String motif,
+    required String sentByUserId,
+    required String sentByUserName,
+    bool isUrgent = false,
+  }) => _remote.addToQueue(
+    patientCode: patientCode,
+    patientFirstName: patientFirstName,
+    patientLastName: patientLastName,
+    patientBirthDate: patientBirthDate,
+    patientAge: patientAge,
+    roomId: roomId,
+    roomName: roomName,
+    motif: motif,
+    sentByUserId: sentByUserId,
+    sentByUserName: sentByUserName,
+    isUrgent: isUrgent,
+  );
+  
+  @override
+  Future<int> addToDilatation({
+    required int patientCode,
+    required String patientFirstName,
+    required String patientLastName,
+    DateTime? patientBirthDate,
+    int? patientAge,
+    required String roomId,
+    required String roomName,
+    required String dilatationType,
+    required String sentByUserId,
+    required String sentByUserName,
+  }) => _remote.addToDilatation(
+    patientCode: patientCode,
+    patientFirstName: patientFirstName,
+    patientLastName: patientLastName,
+    patientBirthDate: patientBirthDate,
+    patientAge: patientAge,
+    roomId: roomId,
+    roomName: roomName,
+    dilatationType: dilatationType,
+    sentByUserId: sentByUserId,
+    sentByUserName: sentByUserName,
+  );
+  
+  @override
+  Stream<List<WaitingPatient>> watchWaitingPatientsForRoom(String roomId) => 
+    _remote.watchWaitingPatientsForRoom(roomId);
+  
+  @override
+  Stream<List<WaitingPatient>> watchUrgentPatientsForRoom(String roomId) => 
+    _remote.watchUrgentPatientsForRoom(roomId);
+  
+  @override
+  Stream<List<WaitingPatient>> watchDilatationPatientsForRoom(String roomId) => 
+    _remote.watchDilatationPatientsForRoom(roomId);
+  
+  @override
+  Stream<List<WaitingPatient>> watchDilatationPatientsForRooms(List<String> roomIds) => 
+    _remote.watchDilatationPatientsForRooms(roomIds);
+  
+  @override
+  Stream<int> watchWaitingCountForRoom(String roomId) => 
+    _remote.watchWaitingCountForRoom(roomId);
+  
+  @override
+  Stream<int> watchUrgentCountForRoom(String roomId) => 
+    _remote.watchUrgentCountForRoom(roomId);
+  
+  @override
+  Stream<int> watchDilatationCountForRoom(String roomId) => 
+    _remote.watchDilatationCountForRoom(roomId);
+  
+  @override
+  Stream<int> watchTotalDilatationCount(List<String> roomIds) => 
+    _remote.watchTotalDilatationCount(roomIds);
+  
+  @override
+  Future<void> toggleChecked(int id) => _remote.toggleChecked(id);
+  
+  @override
+  Future<void> removeFromQueue(int id) => _remote.removeFromQueue(id);
+  
+  @override
+  Future<void> removeByPatientCode(int patientCode) => 
+    _remote.removeByPatientCode(patientCode);
+  
+  @override
+  Future<void> markDilatationsAsNotified(List<String> roomIds) => 
+    _remote.markDilatationsAsNotified(roomIds);
+}
+
+/// Waiting queue repository provider - switches between local and remote
+final waitingQueueRepositoryProvider = Provider<IWaitingQueueRepository>((ref) {
+  if (GrpcClientConfig.isServer) {
+    print('✓ [WaitingQueueRepository] Using LOCAL database (Admin mode)');
+    return LocalWaitingQueueAdapter(WaitingQueueRepository(AppDatabase.instance));
+  } else {
+    print('✓ [WaitingQueueRepository] Using REMOTE API (Client mode)');
+    return RemoteWaitingQueueAdapter(RemoteWaitingQueueRepository());
+  }
 });
 
 /// Provider for waiting count for a specific room (non-urgent)

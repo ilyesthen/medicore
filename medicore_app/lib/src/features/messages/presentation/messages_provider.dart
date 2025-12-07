@@ -1,12 +1,165 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/api/remote_messages_repository.dart';
 import '../data/messages_repository.dart';
 import '../data/message_templates_repository.dart';
 
-/// Messages repository provider
-final messagesRepositoryProvider = Provider<MessagesRepository>((ref) {
-  return MessagesRepository();
+/// Abstract interface for message operations
+abstract class IMessagesRepository {
+  Future<Message> sendMessage({
+    required String roomId,
+    required String senderId,
+    required String senderName,
+    required String senderRole,
+    required String content,
+    required String direction,
+    int? patientCode,
+    String? patientName,
+  });
+  Stream<List<Message>> watchUnreadMessagesForNurse(List<String> roomIds);
+  Stream<List<Message>> watchUnreadMessagesForDoctor(String roomId);
+  Stream<List<Message>> watchMessagesForRoom(String roomId);
+  Future<void> markAsRead(int messageId);
+  Future<void> markAllAsReadForNurse(List<String> roomIds);
+  Future<void> markAllAsReadForDoctor(String roomId);
+  Future<int> getUnreadCountForNurse(List<String> roomIds);
+  Future<int> getUnreadCountForDoctor(String roomId);
+  Future<void> deleteMessage(int id);
+}
+
+/// Local messages adapter
+class LocalMessagesAdapter implements IMessagesRepository {
+  final MessagesRepository _local;
+  LocalMessagesAdapter(this._local);
+  
+  @override
+  Future<Message> sendMessage({
+    required String roomId,
+    required String senderId,
+    required String senderName,
+    required String senderRole,
+    required String content,
+    required String direction,
+    int? patientCode,
+    String? patientName,
+  }) => _local.sendMessage(
+    roomId: roomId,
+    senderId: senderId,
+    senderName: senderName,
+    senderRole: senderRole,
+    content: content,
+    direction: direction,
+    patientCode: patientCode,
+    patientName: patientName,
+  );
+  
+  @override
+  Stream<List<Message>> watchUnreadMessagesForNurse(List<String> roomIds) => 
+    _local.watchUnreadMessagesForNurse(roomIds);
+  
+  @override
+  Stream<List<Message>> watchUnreadMessagesForDoctor(String roomId) => 
+    _local.watchUnreadMessagesForDoctor(roomId);
+  
+  @override
+  Stream<List<Message>> watchMessagesForRoom(String roomId) => 
+    _local.watchMessagesForRoom(roomId);
+  
+  @override
+  Future<void> markAsRead(int messageId) => _local.markAsRead(messageId);
+  
+  @override
+  Future<void> markAllAsReadForNurse(List<String> roomIds) => 
+    _local.markAllAsReadForNurse(roomIds);
+  
+  @override
+  Future<void> markAllAsReadForDoctor(String roomId) => 
+    _local.markAllAsReadForDoctor(roomId);
+  
+  @override
+  Future<int> getUnreadCountForNurse(List<String> roomIds) => 
+    _local.getUnreadCountForNurse(roomIds);
+  
+  @override
+  Future<int> getUnreadCountForDoctor(String roomId) => 
+    _local.getUnreadCountForDoctor(roomId);
+  
+  @override
+  Future<void> deleteMessage(int id) => _local.deleteMessage(id);
+}
+
+/// Remote messages adapter
+class RemoteMessagesAdapter implements IMessagesRepository {
+  final RemoteMessagesRepository _remote;
+  RemoteMessagesAdapter(this._remote);
+  
+  @override
+  Future<Message> sendMessage({
+    required String roomId,
+    required String senderId,
+    required String senderName,
+    required String senderRole,
+    required String content,
+    required String direction,
+    int? patientCode,
+    String? patientName,
+  }) => _remote.sendMessage(
+    roomId: roomId,
+    senderId: senderId,
+    senderName: senderName,
+    senderRole: senderRole,
+    content: content,
+    direction: direction,
+    patientCode: patientCode,
+    patientName: patientName,
+  );
+  
+  @override
+  Stream<List<Message>> watchUnreadMessagesForNurse(List<String> roomIds) => 
+    _remote.watchUnreadMessagesForNurse(roomIds);
+  
+  @override
+  Stream<List<Message>> watchUnreadMessagesForDoctor(String roomId) => 
+    _remote.watchUnreadMessagesForDoctor(roomId);
+  
+  @override
+  Stream<List<Message>> watchMessagesForRoom(String roomId) => 
+    _remote.watchMessagesForRoom(roomId);
+  
+  @override
+  Future<void> markAsRead(int messageId) => _remote.markAsRead(messageId);
+  
+  @override
+  Future<void> markAllAsReadForNurse(List<String> roomIds) => 
+    _remote.markAllAsReadForNurse(roomIds);
+  
+  @override
+  Future<void> markAllAsReadForDoctor(String roomId) => 
+    _remote.markAllAsReadForDoctor(roomId);
+  
+  @override
+  Future<int> getUnreadCountForNurse(List<String> roomIds) => 
+    _remote.getUnreadCountForNurse(roomIds);
+  
+  @override
+  Future<int> getUnreadCountForDoctor(String roomId) => 
+    _remote.getUnreadCountForDoctor(roomId);
+  
+  @override
+  Future<void> deleteMessage(int id) => _remote.deleteMessage(id);
+}
+
+/// Messages repository provider - switches between local and remote
+final messagesRepositoryProvider = Provider<IMessagesRepository>((ref) {
+  if (GrpcClientConfig.isServer) {
+    print('✓ [MessagesRepository] Using LOCAL database (Admin mode)');
+    return LocalMessagesAdapter(MessagesRepository());
+  } else {
+    print('✓ [MessagesRepository] Using REMOTE API (Client mode)');
+    return RemoteMessagesAdapter(RemoteMessagesRepository());
+  }
 });
 
 /// Message templates repository provider

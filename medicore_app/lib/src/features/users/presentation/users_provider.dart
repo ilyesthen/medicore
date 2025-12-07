@@ -2,12 +2,119 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/users_repository.dart';
 import '../data/models/user_model.dart';
 import '../data/models/template_model.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/api/medicore_client.dart';
+import '../../../core/api/remote_users_repository.dart';
 
 export '../data/users_repository.dart';
 
-/// Users repository provider - Global singleton
-final usersRepositoryProvider = Provider<UsersRepository>((ref) {
-  return UsersRepository();
+/// Abstract interface for user operations
+/// Allows switching between local (admin) and remote (client) implementations
+abstract class IUsersRepository {
+  Future<List<User>> getAllUsers();
+  Future<User?> getUserById(String id);
+  Future<User?> getUserByName(String name);
+  Future<User> createUser({
+    required String name,
+    required String role,
+    required String password,
+    double? percentage,
+    bool isTemplateUser = false,
+  });
+  Future<User> updateUser(User user);
+  Future<void> deleteUser(String id);
+}
+
+/// Local repository adapter - wraps UsersRepository to implement IUsersRepository
+class LocalUsersAdapter implements IUsersRepository {
+  final UsersRepository _local;
+  LocalUsersAdapter(this._local);
+  
+  @override
+  Future<List<User>> getAllUsers() => _local.getAllUsers();
+  
+  @override
+  Future<User?> getUserById(String id) => _local.getUserById(id);
+  
+  @override
+  Future<User?> getUserByName(String name) => _local.getUserByName(name);
+  
+  @override
+  Future<User> createUser({
+    required String name,
+    required String role,
+    required String password,
+    double? percentage,
+    bool isTemplateUser = false,
+  }) => _local.createUser(
+    name: name,
+    role: role,
+    password: password,
+    percentage: percentage,
+    isTemplateUser: isTemplateUser,
+  );
+  
+  @override
+  Future<User> updateUser(User user) => _local.updateUser(user);
+  
+  @override
+  Future<void> deleteUser(String id) => _local.deleteUser(id);
+}
+
+/// Remote repository adapter - wraps RemoteUsersRepository to implement IUsersRepository
+class RemoteUsersAdapter implements IUsersRepository {
+  final RemoteUsersRepository _remote;
+  RemoteUsersAdapter(this._remote);
+  
+  @override
+  Future<List<User>> getAllUsers() => _remote.getAllUsers();
+  
+  @override
+  Future<User?> getUserById(String id) => _remote.getUserById(id);
+  
+  @override
+  Future<User?> getUserByName(String name) => _remote.getUserByName(name);
+  
+  @override
+  Future<User> createUser({
+    required String name,
+    required String role,
+    required String password,
+    double? percentage,
+    bool isTemplateUser = false,
+  }) => _remote.createUser(
+    name: name,
+    role: role,
+    password: password,
+    percentage: percentage,
+    isTemplateUser: isTemplateUser,
+  );
+  
+  @override
+  Future<User> updateUser(User user) => _remote.updateUser(user);
+  
+  @override
+  Future<void> deleteUser(String id) => _remote.deleteUser(id);
+}
+
+/// Users repository provider - Switches between local and remote based on mode
+/// ADMIN mode: Uses local SQLite database
+/// CLIENT mode: Uses REST API to communicate with admin server
+final usersRepositoryProvider = Provider<IUsersRepository>((ref) {
+  if (GrpcClientConfig.isServer) {
+    // ADMIN MODE: Use local database
+    print('✓ [UsersRepository] Using LOCAL database (Admin mode)');
+    return LocalUsersAdapter(UsersRepository());
+  } else {
+    // CLIENT MODE: Use remote REST API
+    print('✓ [UsersRepository] Using REMOTE API (Client mode)');
+    
+    // Initialize client with server host if not already done
+    final serverHost = GrpcClientConfig.serverHost;
+    MediCoreClient.instance.initialize(host: serverHost);
+    
+    return RemoteUsersAdapter(RemoteUsersRepository());
+  }
 });
 
 /// All users provider
@@ -17,7 +124,7 @@ final usersListProvider = StateNotifierProvider<UsersNotifier, List<User>>((ref)
 
 /// Users notifier
 class UsersNotifier extends StateNotifier<List<User>> {
-  final UsersRepository _repository;
+  final IUsersRepository _repository;
   
   UsersNotifier(this._repository) : super([]) {
     _init();
@@ -68,9 +175,11 @@ class UsersNotifier extends StateNotifier<List<User>> {
   }
 }
 
-/// All templates provider
+/// All templates provider (only available in ADMIN mode)
+/// Templates are only used for admin functions, so they always use local database
 final templatesListProvider = StateNotifierProvider<TemplatesNotifier, List<UserTemplate>>((ref) {
-  return TemplatesNotifier(ref.read(usersRepositoryProvider));
+  // Templates only work in admin mode - always use local repository
+  return TemplatesNotifier(UsersRepository());
 });
 
 /// Templates notifier

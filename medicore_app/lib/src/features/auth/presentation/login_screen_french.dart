@@ -58,9 +58,10 @@ class _LoginScreenFrenchState extends ConsumerState<LoginScreenFrench> {
         return;
       }
       
-      // Create user from template
+      // Create user from template (admin-only feature)
       try {
-        final usersRepo = ref.read(usersRepositoryProvider);
+        // Templates only work in admin mode - use local repository directly
+        final usersRepo = UsersRepository();
         final newUser = await usersRepo.createUserFromTemplate(
           templateId: _selectedTemplate!.id,
           userName: name,
