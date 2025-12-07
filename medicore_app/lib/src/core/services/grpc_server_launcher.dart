@@ -71,23 +71,35 @@ class GrpcServerLauncher {
       final exePath = Platform.resolvedExecutable;
       final appDir = p.dirname(exePath);
       
-      // Look for medicore-server.exe in same directory as Flutter app
-      final serverInAppDir = p.join(appDir, 'medicore-server.exe');
+      // Look for medicore_server.exe in same directory as Flutter app
+      final serverInAppDir = p.join(appDir, 'medicore_server.exe');
       if (await File(serverInAppDir).exists()) {
         return serverInAppDir;
       }
       
+      // Also try with hyphen for backwards compatibility
+      final serverInAppDirAlt = p.join(appDir, 'medicore-server.exe');
+      if (await File(serverInAppDirAlt).exists()) {
+        return serverInAppDirAlt;
+      }
+      
       // Look in subdirectory
-      final serverInBin = p.join(appDir, 'bin', 'medicore-server.exe');
+      final serverInBin = p.join(appDir, 'bin', 'medicore_server.exe');
       if (await File(serverInBin).exists()) {
         return serverInBin;
       }
       
       // Look in server subdirectory
-      final serverInServer = p.join(appDir, 'server', 'medicore-server.exe');
+      final serverInServer = p.join(appDir, 'server', 'medicore_server.exe');
       if (await File(serverInServer).exists()) {
         return serverInServer;
       }
+      
+      print('⚠️ Searched paths:');
+      print('   - $serverInAppDir');
+      print('   - $serverInAppDirAlt');
+      print('   - $serverInBin');
+      print('   - $serverInServer');
     } else if (Platform.isMacOS) {
       // macOS: Check in app bundle
       final exePath = Platform.resolvedExecutable;
