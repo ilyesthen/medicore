@@ -49,6 +49,8 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/GetAllRooms", cors(h.GetAllRooms))
 	mux.HandleFunc("/api/GetRoomById", cors(h.GetRoomById))
 	mux.HandleFunc("/api/CreateRoom", cors(h.CreateRoom))
+	mux.HandleFunc("/api/UpdateRoom", cors(h.UpdateRoom))
+	mux.HandleFunc("/api/DeleteRoom", cors(h.DeleteRoom))
 
 	// Patient endpoints
 	mux.HandleFunc("/api/GetAllPatients", cors(h.GetAllPatients))
@@ -324,6 +326,38 @@ func (h *RESTHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 
 	id, _ := result.LastInsertId()
 	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateRoom(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	_, err := h.db.Exec(`UPDATE rooms SET name = ?, updated_at = datetime('now') WHERE id = ?`, req["name"], req["id"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	_, err := h.db.Exec(`DELETE FROM rooms WHERE id = ?`, req["id"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{})
 }
 
 // ==================== PATIENT HANDLERS ====================
