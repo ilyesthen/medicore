@@ -78,11 +78,24 @@ class TemplatesNotifier extends StateNotifier<List<UserTemplate>> {
   final UsersRepository _repository;
   
   TemplatesNotifier(this._repository) : super([]) {
-    loadTemplates();
+    _init();
+  }
+  
+  Future<void> _init() async {
+    try {
+      await loadTemplates();
+    } catch (e) {
+      print('❌ TemplatesNotifier init error: $e');
+    }
   }
   
   Future<void> loadTemplates() async {
-    state = await _repository.getAllTemplates();
+    try {
+      state = await _repository.getAllTemplates();
+    } catch (e) {
+      print('❌ loadTemplates error: $e');
+      state = [];
+    }
   }
   
   Future<void> createTemplate({
