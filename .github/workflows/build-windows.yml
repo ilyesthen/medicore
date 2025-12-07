@@ -30,9 +30,18 @@ jobs:
         working-directory: medicore_app
         run: flutter build windows --release
 
-      # Go gRPC server build disabled for now
-      # TODO: Re-enable when gRPC sync is properly implemented
-      # For now, admin and client both use local SQLite database
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Go gRPC/REST Server
+        working-directory: medicore_server
+        run: |
+          go mod tidy
+          $env:CGO_ENABLED = "1"
+          go build -o ../medicore_app/build/windows/x64/runner/Release/medicore_server.exe ./cmd/server/main.go
+        shell: powershell
 
       - name: Download VC++ Redistributables
         run: |
