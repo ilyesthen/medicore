@@ -1,14 +1,22 @@
 import '../../users/data/users_repository.dart';
 import '../../users/data/models/user_model.dart';
+import '../../../core/repository/data_repository.dart';
+import '../../../core/api/grpc_client.dart';
 
 /// Authentication Repository
 /// Handles login/logout with user system
+/// Works in both admin mode (local DB) and client mode (gRPC)
 class AuthRepository {
-  final UsersRepository _usersRepository;
+  final UsersRepository? _usersRepository;
+  final DataRepository? _dataRepository;
   
   User? _currentUser;
   
-  AuthRepository(this._usersRepository);
+  /// Constructor for admin mode (uses local UsersRepository)
+  AuthRepository(this._usersRepository) : _dataRepository = null;
+  
+  /// Constructor for client mode (uses DataRepository via gRPC)
+  AuthRepository.withDataRepository(this._dataRepository) : _usersRepository = null;
   
   /// Check if user is logged in
   bool get isAuthenticated => _currentUser != null;
@@ -21,20 +29,42 @@ class AuthRepository {
   
   /// Login with username and password
   Future<AuthResult> login(String username, String password) async {
-    // Try to find user by name
-    final user = await _usersRepository.getUserByName(username);
-    
-    if (user == null) {
-      return AuthResult.failure('Nom d\'utilisateur ou mot de passe incorrect');
+    try {
+      User? user;
+      
+      if (_dataRepository != null) {
+        // CLIENT MODE: Use gRPC via DataRepository
+        print('🔐 Login via gRPC (client mode)...');
+        final dbUser = await _dataRepository!.getUserByUsername(username);
+        if (dbUser != null) {
+          user = User(
+            id: dbUser.id.toString(),
+            name: dbUser.fullName,
+            role: dbUser.role,
+            password: dbUser.passwordHash,  // Will compare hash
+          );
+        }
+      } else if (_usersRepository != null) {
+        // ADMIN MODE: Use local database
+        print('🔐 Login via local DB (admin mode)...');
+        user = await _usersRepository!.getUserByName(username);
+      }
+      
+      if (user == null) {
+        return AuthResult.failure('Nom d\'utilisateur ou mot de passe incorrect');
+      }
+      
+      // Check password
+      if (user.password != password) {
+        return AuthResult.failure('Nom d\'utilisateur ou mot de passe incorrect');
+      }
+      
+      _currentUser = user;
+      return AuthResult.success(user);
+    } catch (e) {
+      print('❌ Login error: $e');
+      return AuthResult.failure('Erreur de connexion: $e');
     }
-    
-    // Check password
-    if (user.password != password) {
-      return AuthResult.failure('Nom d\'utilisateur ou mot de passe incorrect');
-    }
-    
-    _currentUser = user;
-    return AuthResult.success(user);
   }
   
   /// Logout current user

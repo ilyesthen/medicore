@@ -4,12 +4,23 @@ import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';
 import '../../../core/database/app_database.dart' show Room;
 import '../../../core/constants/app_constants.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/repository/repository_provider.dart';
 import '../../rooms/presentation/room_presence_provider.dart';
 import '../../users/data/nurse_preferences_repository.dart';
 
 /// Auth repository provider
+/// Uses local DB in admin mode, gRPC in client mode
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.read(usersRepositoryProvider));
+  if (GrpcClientConfig.isServer) {
+    // ADMIN MODE: Use local UsersRepository
+    print('✓ AuthRepository using LOCAL database');
+    return AuthRepository(ref.read(usersRepositoryProvider));
+  } else {
+    // CLIENT MODE: Use gRPC via DataRepository
+    print('✓ AuthRepository using gRPC (remote)');
+    return AuthRepository.withDataRepository(ref.read(dataRepositoryProvider));
+  }
 });
 
 /// Auth state provider
