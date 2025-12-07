@@ -2,79 +2,181 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-/// Service that continuously broadcasts admin server presence on LAN
+/// LAN Discovery Protocol Constants
+class LANDiscovery {
+  static const int broadcastPort = 45678;
+  static const int discoveryPort = 45677;
+  static const int grpcPort = 50051;
+  static const String discoverRequest = 'MEDICORE_DISCOVER';
+  static const String discoverResponse = 'MEDICORE_SERVER';
+}
+
+/// Service that broadcasts admin presence AND responds to discovery requests
+/// Based on enterprise LAN discovery pattern:
+/// - Admin broadcasts presence periodically (so clients can passively discover)
+/// - Admin listens for discovery requests and responds (so clients can actively discover)
 class AdminBroadcastService {
   static AdminBroadcastService? _instance;
   static AdminBroadcastService get instance => _instance ??= AdminBroadcastService._();
   
   AdminBroadcastService._();
   
-  RawDatagramSocket? _socket;
-  Timer? _timer;
+  RawDatagramSocket? _broadcastSocket;
+  RawDatagramSocket? _discoveryResponderSocket;
+  Timer? _broadcastTimer;
   String? _currentIP;
+  String? _computerName;
   bool _isRunning = false;
   
-  /// Start broadcasting admin server presence
+  /// Start admin services: broadcasting + discovery responder
   Future<void> start(String ip) async {
     if (_isRunning && _currentIP == ip) {
-      print('✓ Broadcast already running for $ip');
+      print('✓ Admin services already running for $ip');
       return;
     }
     
-    await stop(); // Stop any existing broadcast
+    await stop();
+    
+    _currentIP = ip;
+    _computerName = Platform.localHostname;
     
     try {
-      _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-      _socket!.broadcastEnabled = true;
-      _currentIP = ip;
+      // 1. Start the discovery responder (listens for client requests)
+      await _startDiscoveryResponder();
       
-      final message = jsonEncode({
-        'type': 'medicore',
-        'name': 'MediCore Admin',
-        'ip': ip,
-      });
-      
-      final bytes = utf8.encode(message);
-      final broadcastAddr = InternetAddress('255.255.255.255');
-      const port = 45678;
-      
-      // Send immediately
-      _socket!.send(bytes, broadcastAddr, port);
-      print('✓ Started broadcasting MediCore Admin at $ip');
-      
-      // Then broadcast every second
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        try {
-          _socket?.send(bytes, broadcastAddr, port);
-        } catch (e) {
-          print('Broadcast error: $e');
-        }
-      });
+      // 2. Start periodic broadcasting (passive discovery)
+      await _startBroadcasting();
       
       _isRunning = true;
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('✅ ADMIN LAN SERVICES STARTED');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('📡 Broadcasting on port ${LANDiscovery.broadcastPort}');
+      print('🔍 Discovery responder on port ${LANDiscovery.discoveryPort}');
+      print('🌐 gRPC server on port ${LANDiscovery.grpcPort}');
+      print('💻 Computer: $_computerName');
+      print('🔗 IP Address: $ip');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e) {
-      print('Failed to start broadcast: $e');
+      print('❌ Failed to start admin services: $e');
       await stop();
     }
   }
   
-  /// Stop broadcasting
-  Future<void> stop() async {
-    _timer?.cancel();
-    _timer = null;
+  /// Start listening for discovery requests and respond
+  Future<void> _startDiscoveryResponder() async {
+    _discoveryResponderSocket = await RawDatagramSocket.bind(
+      InternetAddress.anyIPv4,
+      LANDiscovery.discoveryPort,
+      reuseAddress: true,
+    );
     
-    _socket?.close();
-    _socket = null;
+    _discoveryResponderSocket!.listen((event) {
+      if (event == RawSocketEvent.read) {
+        final datagram = _discoveryResponderSocket!.receive();
+        if (datagram != null) {
+          _handleDiscoveryRequest(datagram);
+        }
+      }
+    });
     
-    _currentIP = null;
-    _isRunning = false;
-    
-    print('✓ Broadcast stopped');
+    print('🔍 Discovery responder listening on port ${LANDiscovery.discoveryPort}');
   }
   
-  /// Check if broadcasting
+  /// Handle incoming discovery request from a client
+  void _handleDiscoveryRequest(Datagram datagram) {
+    try {
+      final message = utf8.decode(datagram.data);
+      
+      if (message == LANDiscovery.discoverRequest) {
+        print('📡 Discovery request from ${datagram.address.address}');
+        
+        // Build response with server info
+        final response = jsonEncode({
+          'type': LANDiscovery.discoverResponse,
+          'name': 'MediCore Admin',
+          'computerName': _computerName,
+          'ip': _currentIP,
+          'port': LANDiscovery.grpcPort,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        
+        // Send response back to the requesting client
+        _discoveryResponderSocket!.send(
+          utf8.encode(response),
+          datagram.address,
+          datagram.port,
+        );
+        
+        print('✅ Sent discovery response to ${datagram.address.address}');
+      }
+    } catch (e) {
+      print('⚠️ Error handling discovery request: $e');
+    }
+  }
+  
+  /// Start periodic broadcasting for passive discovery
+  Future<void> _startBroadcasting() async {
+    _broadcastSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+    _broadcastSocket!.broadcastEnabled = true;
+    
+    // Broadcast message
+    final message = jsonEncode({
+      'type': 'medicore',
+      'name': 'MediCore Admin',
+      'computerName': _computerName,
+      'ip': _currentIP,
+      'port': LANDiscovery.grpcPort,
+    });
+    final bytes = utf8.encode(message);
+    
+    // Send immediately
+    _broadcastSocket!.send(
+      bytes,
+      InternetAddress('255.255.255.255'),
+      LANDiscovery.broadcastPort,
+    );
+    
+    // Then broadcast every 2 seconds
+    _broadcastTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      try {
+        _broadcastSocket?.send(
+          bytes,
+          InternetAddress('255.255.255.255'),
+          LANDiscovery.broadcastPort,
+        );
+      } catch (e) {
+        // Ignore broadcast errors
+      }
+    });
+    
+    print('📢 Broadcasting presence every 2 seconds');
+  }
+  
+  /// Stop all admin services
+  Future<void> stop() async {
+    _broadcastTimer?.cancel();
+    _broadcastTimer = null;
+    
+    _broadcastSocket?.close();
+    _broadcastSocket = null;
+    
+    _discoveryResponderSocket?.close();
+    _discoveryResponderSocket = null;
+    
+    _currentIP = null;
+    _computerName = null;
+    _isRunning = false;
+    
+    print('✓ Admin services stopped');
+  }
+  
+  /// Check if running
   bool get isRunning => _isRunning;
   
-  /// Get current broadcast IP
+  /// Get current IP
   String? get currentIP => _currentIP;
+  
+  /// Get computer name
+  String? get computerName => _computerName;
 }

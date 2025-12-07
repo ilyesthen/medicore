@@ -16,11 +16,16 @@ import (
 )
 
 const (
-	port = ":50051"
+	// Listen on all interfaces (0.0.0.0) so LAN clients can connect
+	listenAddr = "0.0.0.0:50051"
+	port       = 50051
 )
 
 func main() {
+	log.Println("")
+	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	log.Println("🚀 MediCore gRPC Server Starting...")
+	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Find the SQLite database
 	dbPath := findDatabase()
@@ -28,14 +33,18 @@ func main() {
 		log.Fatal("❌ Could not find medicore.db. Make sure the admin has imported a database.")
 	}
 
-	log.Printf("📊 Connecting to SQLite database: %s", dbPath)
+	log.Printf("📊 Database: %s", dbPath)
 
-	// Connect to SQLite
-	db, err := sql.Open("sqlite3", dbPath+"?cache=shared&mode=ro")
+	// Connect to SQLite with read-write mode for proper functionality
+	db, err := sql.Open("sqlite3", dbPath+"?cache=shared&_journal_mode=WAL")
 	if err != nil {
 		log.Fatalf("❌ Failed to open database: %v", err)
 	}
 	defer db.Close()
+
+	// Configure connection pool for LAN access
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
 
 	// Test connection
 	if err := db.Ping(); err != nil {
@@ -44,8 +53,11 @@ func main() {
 
 	log.Println("✅ Database connected successfully")
 
-	// Create gRPC server
-	grpcServer := grpc.NewServer()
+	// Create gRPC server with options for LAN performance
+	grpcServer := grpc.NewServer(
+		grpc.MaxRecvMsgSize(50*1024*1024), // 50MB max message size
+		grpc.MaxSendMsgSize(50*1024*1024),
+	)
 
 	// Register the unified MediCore service
 	mediCoreService := service.NewMediCoreService(db)
@@ -53,19 +65,69 @@ func main() {
 
 	log.Println("✅ MediCoreService registered")
 
-	// Start listening
-	lis, err := net.Listen("tcp", port)
+	// Get local IP for display
+	localIP := getLocalIP()
+
+	// Start listening on all interfaces for LAN access
+	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		log.Fatalf("❌ Failed to listen on %s: %v", port, err)
+		log.Fatalf("❌ Failed to listen on %s: %v", listenAddr, err)
 	}
 
-	log.Printf("🎯 gRPC Server listening on %s", port)
-	log.Println("📡 Ready to accept client connections from LAN")
+	log.Println("")
+	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Println("✅ gRPC SERVER READY FOR LAN CONNECTIONS")
+	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Printf("🌐 Listening on: %s", listenAddr)
+	log.Printf("🔗 LAN Address:  %s:%d", localIP, port)
+	log.Printf("💻 Computer:     %s", getHostname())
+	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Println("📡 Clients can now connect from any PC on the same network")
 	log.Println("")
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("❌ Failed to serve: %v", err)
 	}
+}
+
+// getLocalIP returns the local IP address for LAN
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1"
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				ip := ipnet.IP.String()
+				// Prefer LAN addresses
+				if len(ip) > 3 && (ip[:3] == "192" || ip[:3] == "10." || ip[:4] == "172.") {
+					return ip
+				}
+			}
+		}
+	}
+
+	// Fallback: return first non-loopback IPv4
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+
+	return "127.0.0.1"
+}
+
+// getHostname returns the computer hostname
+func getHostname() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "Unknown"
+	}
+	return hostname
 }
 
 // findDatabase locates the medicore.db file

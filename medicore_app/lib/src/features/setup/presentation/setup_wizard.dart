@@ -406,10 +406,45 @@ class _SetupWizardState extends State<SetupWizard> {
   }
 
   Future<void> _connectToServer(_ServerInfo server) async {
-    setState(() { _isWorking = true; _status = 'Connexion à ${server.name}...'; });
+    setState(() { _isWorking = true; _status = 'Vérification de la connexion...'; });
     
     try {
-      // Save config to file
+      // === Step 1: Verify connection to gRPC server ===
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('🔗 CONNECTING TO SERVER: ${server.ip}');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      setState(() => _status = 'Test de connexion au serveur...');
+      
+      bool canConnect = false;
+      try {
+        final socket = await Socket.connect(
+          server.ip,
+          _grpcPort,
+          timeout: const Duration(seconds: 5),
+        );
+        socket.destroy();
+        canConnect = true;
+        print('✅ TCP connection to gRPC port successful');
+      } catch (e) {
+        print('❌ Cannot connect to gRPC port: $e');
+      }
+      
+      if (!canConnect) {
+        setState(() {
+          _isWorking = false;
+          _status = 'Erreur: Impossible de se connecter au serveur.\n\n'
+              'Vérifiez que:\n'
+              '• Le PC Admin est allumé\n'
+              '• MediCore est lancé sur le PC Admin\n'
+              '• Les deux PCs sont sur le même réseau';
+        });
+        return;
+      }
+      
+      // === Step 2: Save configuration ===
+      setState(() => _status = 'Sauvegarde de la configuration...');
+      
       final appDir = await getApplicationSupportDirectory();
       if (!await appDir.exists()) await appDir.create(recursive: true);
       
@@ -418,26 +453,29 @@ class _SetupWizardState extends State<SetupWizard> {
         'mode': 'client',
         'serverIp': server.ip,
         'serverName': server.name,
-        'date': DateTime.now().toIso8601String()
+        'connectedAt': DateTime.now().toIso8601String(),
       };
       final configFile = File(p.join(appDir.path, 'medicore_config.txt'));
       await configFile.writeAsString(jsonEncode(config));
       
-      // Save to SharedPreferences (for GrpcClientConfig)
+      // === Step 3: Configure gRPC client ===
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_server', false);  // CLIENT MODE
+      await prefs.setBool('is_server', false);
       await prefs.setString('server_ip', server.ip);
       
-      // Configure gRPC client
       GrpcClientConfig.setServerMode(false);
       GrpcClientConfig.setServerHost(server.ip);
       
-      // IMPORTANT: Set client mode flag to prevent local database creation
+      // Prevent local database creation in client mode
       AppDatabase.setClientMode(true);
       
-      print('✓ Client configured: ${server.name} at ${server.ip}');
-      print('✓ gRPC client mode enabled, connecting to ${server.ip}:50051');
-      print('✓ Local database DISABLED - using gRPC only');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('✅ CLIENT MODE CONFIGURED');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('📡 Server: ${server.name}');
+      print('🔗 IP: ${server.ip}:$_grpcPort');
+      print('💾 Local database: DISABLED');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
       
       setState(() => _status = '✓ Connecté à ${server.name}');
       
@@ -445,6 +483,7 @@ class _SetupWizardState extends State<SetupWizard> {
       if (mounted) widget.onComplete();
       
     } catch (e) {
+      print('❌ Connection error: $e');
       setState(() { _isWorking = false; _status = 'Erreur: $e'; });
     }
   }
@@ -487,75 +526,190 @@ class _SetupWizardState extends State<SetupWizard> {
     });
   }
 
+  /// Discovery constants (must match AdminBroadcastService)
+  static const int _broadcastPort = 45678;
+  static const int _discoveryPort = 45677;
+  static const int _grpcPort = 50051;
+  static const String _discoverRequest = 'MEDICORE_DISCOVER';
+  static const String _discoverResponse = 'MEDICORE_SERVER';
+
+  /// Enterprise-grade server discovery using multiple methods:
+  /// 1. Active discovery: Send MEDICORE_DISCOVER request, wait for response
+  /// 2. Passive discovery: Listen for admin broadcast on port 45678
+  /// 3. Fallback: Scan subnet for gRPC port 50051
   Future<List<_ServerInfo>> _discoverServers() async {
     final servers = <_ServerInfo>[];
     final seen = <String>{};
     
+    void addServer(String name, String ip, String? computerName) {
+      if (!seen.contains(ip)) {
+        seen.add(ip);
+        final displayName = computerName != null ? '$name ($computerName)' : name;
+        servers.add(_ServerInfo(displayName, ip));
+        if (mounted) setState(() {
+          _foundServers = List.from(servers);
+          _status = '${servers.length} serveur(s) trouvé(s)!';
+        });
+      }
+    }
+    
     try {
-      // Listen for UDP broadcasts
-      final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 45678, reuseAddress: true);
-      socket.broadcastEnabled = true;
+      print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('🔍 STARTING SERVER DISCOVERY');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      socket.listen((event) {
-        if (event == RawSocketEvent.read) {
-          final dg = socket.receive();
-          if (dg != null) {
-            try {
-              final data = jsonDecode(utf8.decode(dg.data));
-              if (data['type'] == 'medicore' && !seen.contains(data['ip'])) {
-                seen.add(data['ip']);
-                servers.add(_ServerInfo(data['name'], data['ip']));
-                if (mounted) setState(() {
-                  _foundServers = List.from(servers);
-                  _status = '${servers.length} serveur(s) trouvé(s)...';
-                });
-              }
-            } catch (_) {}
+      // === METHOD 1: Active Discovery (Request/Response) ===
+      if (mounted) setState(() => _status = 'Envoi de requête de découverte...');
+      print('📡 Method 1: Sending active discovery request...');
+      
+      RawDatagramSocket? activeSocket;
+      try {
+        activeSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+        activeSocket.broadcastEnabled = true;
+        
+        // Listen for responses
+        activeSocket.listen((event) {
+          if (event == RawSocketEvent.read) {
+            final dg = activeSocket!.receive();
+            if (dg != null) {
+              try {
+                final data = jsonDecode(utf8.decode(dg.data));
+                if (data['type'] == _discoverResponse) {
+                  print('✅ Active discovery response from ${dg.address.address}');
+                  addServer(
+                    data['name'] ?? 'MediCore Admin',
+                    data['ip'] ?? dg.address.address,
+                    data['computerName'],
+                  );
+                }
+              } catch (_) {}
+            }
+          }
+        });
+        
+        // Send discovery request to broadcast
+        activeSocket.send(
+          utf8.encode(_discoverRequest),
+          InternetAddress('255.255.255.255'),
+          _discoveryPort,
+        );
+        
+        // Also try subnet-specific broadcast
+        final localIP = await _getLocalIP();
+        if (localIP != '127.0.0.1') {
+          final parts = localIP.split('.');
+          if (parts.length == 4) {
+            final subnetBroadcast = '${parts[0]}.${parts[1]}.${parts[2]}.255';
+            activeSocket.send(
+              utf8.encode(_discoverRequest),
+              InternetAddress(subnetBroadcast),
+              _discoveryPort,
+            );
+            print('📤 Sent to $subnetBroadcast:$_discoveryPort');
           }
         }
-      });
-      
-      // Get local IP and subnet
-      final localIP = await _getLocalIP();
-      final subnet = localIP.substring(0, localIP.lastIndexOf('.'));
-      
-      if (mounted) setState(() => _status = 'Scan réseau $subnet.0/24...');
-      
-      // Scan local subnet with longer timeout
-      int scanned = 0;
-      for (int i = 1; i <= 254; i++) {
-        final ip = '$subnet.$i';
-        if (ip == localIP || seen.contains(ip)) continue;
         
-        Socket.connect(ip, 50051, timeout: const Duration(milliseconds: 500))
-            .then((s) {
-              s.destroy();
-              if (!seen.contains(ip)) {
-                seen.add(ip);
-                servers.add(_ServerInfo('MediCore Admin', ip));
-                if (mounted) setState(() {
-                  _foundServers = List.from(servers);
-                  _status = '${servers.length} serveur(s) trouvé(s)!';
-                });
-              }
-            })
-            .catchError((_) {});
+        // Wait for responses
+        await Future.delayed(const Duration(seconds: 2));
+      } catch (e) {
+        print('⚠️ Active discovery error: $e');
+      }
+      
+      // === METHOD 2: Passive Discovery (Listen for Broadcasts) ===
+      if (mounted) setState(() => _status = 'Écoute des diffusions...');
+      print('📻 Method 2: Listening for passive broadcasts...');
+      
+      RawDatagramSocket? passiveSocket;
+      try {
+        passiveSocket = await RawDatagramSocket.bind(
+          InternetAddress.anyIPv4,
+          _broadcastPort,
+          reuseAddress: true,
+        );
+        passiveSocket.broadcastEnabled = true;
         
-        scanned++;
-        if (scanned % 50 == 0 && mounted) {
-          setState(() => _status = 'Scan en cours... $scanned/254');
-          await Future.delayed(const Duration(milliseconds: 100));
+        passiveSocket.listen((event) {
+          if (event == RawSocketEvent.read) {
+            final dg = passiveSocket!.receive();
+            if (dg != null) {
+              try {
+                final data = jsonDecode(utf8.decode(dg.data));
+                if (data['type'] == 'medicore' && data['ip'] != null) {
+                  print('✅ Passive broadcast from ${dg.address.address}');
+                  addServer(
+                    data['name'] ?? 'MediCore Admin',
+                    data['ip'],
+                    data['computerName'],
+                  );
+                }
+              } catch (_) {}
+            }
+          }
+        });
+        
+        // Wait for broadcasts
+        await Future.delayed(const Duration(seconds: 3));
+      } catch (e) {
+        print('⚠️ Passive discovery error: $e');
+      }
+      
+      // === METHOD 3: Fallback - Subnet Port Scan ===
+      if (servers.isEmpty) {
+        print('🔎 Method 3: Fallback subnet scan...');
+        final localIP = await _getLocalIP();
+        
+        if (localIP != '127.0.0.1') {
+          final subnet = localIP.substring(0, localIP.lastIndexOf('.'));
+          if (mounted) setState(() => _status = 'Scan $subnet.0/24...');
+          
+          // Scan common IPs first (1-10, then gateway-like addresses)
+          final priorityIPs = [
+            ...List.generate(10, (i) => '$subnet.${i + 1}'),
+            '$subnet.100', '$subnet.101', '$subnet.200', '$subnet.254',
+          ];
+          
+          for (final ip in priorityIPs) {
+            if (ip == localIP || seen.contains(ip)) continue;
+            try {
+              final socket = await Socket.connect(ip, _grpcPort, 
+                  timeout: const Duration(milliseconds: 300));
+              socket.destroy();
+              print('✅ Found gRPC server at $ip');
+              addServer('MediCore Admin', ip, null);
+            } catch (_) {}
+          }
+          
+          // If still nothing, do full scan
+          if (servers.isEmpty) {
+            if (mounted) setState(() => _status = 'Scan complet en cours...');
+            for (int i = 1; i <= 254; i++) {
+              final ip = '$subnet.$i';
+              if (ip == localIP || seen.contains(ip)) continue;
+              
+              Socket.connect(ip, _grpcPort, timeout: const Duration(milliseconds: 200))
+                  .then((s) {
+                    s.destroy();
+                    print('✅ Found gRPC server at $ip (scan)');
+                    addServer('MediCore Admin', ip, null);
+                  })
+                  .catchError((_) {});
+            }
+            await Future.delayed(const Duration(seconds: 3));
+          }
         }
       }
       
-      // Wait up to 10 seconds for all responses
-      if (mounted) setState(() => _status = 'Attente des réponses...');
-      await Future.delayed(const Duration(seconds: 10));
-      socket.close();
+      // Cleanup
+      activeSocket?.close();
+      passiveSocket?.close();
+      
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      print('✅ Discovery complete: ${servers.length} server(s) found');
+      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
       
       return servers;
     } catch (e) {
-      print('Discovery error: $e');
+      print('❌ Discovery error: $e');
     }
     return servers;
   }
