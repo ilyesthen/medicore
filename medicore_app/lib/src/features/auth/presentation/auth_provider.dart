@@ -74,28 +74,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> login(String username, String password) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     
-    final result = await _repository.login(username, password);
-    
-    if (result.success && result.user != null) {
-      final requiresRoom = result.user!.role == 'Médecin' || 
-                           AppConstants.assistantRoles.contains(result.user!.role);
+    try {
+      final result = await _repository.login(username, password);
       
-      // Mark nurse as active for room exclusivity
-      if (result.user!.role == 'Infirmière' || result.user!.role == 'Infirmier') {
-        final prefsRepo = NursePreferencesRepository();
-        await prefsRepo.markNurseActive(result.user!.id);
+      if (result.success && result.user != null) {
+        final requiresRoom = result.user!.role == 'Médecin' || 
+                             AppConstants.assistantRoles.contains(result.user!.role);
+        
+        // Mark nurse as active for room exclusivity
+        if (result.user!.role == 'Infirmière' || result.user!.role == 'Infirmier') {
+          try {
+            final prefsRepo = NursePreferencesRepository();
+            await prefsRepo.markNurseActive(result.user!.id);
+          } catch (e) {
+            print('⚠️ Failed to mark nurse active: $e');
+          }
+        }
+        
+        state = state.copyWith(
+          isAuthenticated: true,
+          user: result.user,
+          needsRoomSelection: requiresRoom,
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: result.errorMessage ?? 'Connexion échouée',
+        );
       }
-      
-      state = state.copyWith(
-        isAuthenticated: true,
-        user: result.user,
-        needsRoomSelection: requiresRoom,
-        isLoading: false,
-      );
-    } else {
+    } catch (e) {
+      print('❌ Login error: $e');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: result.errorMessage,
+        errorMessage: 'Erreur de connexion: $e',
       );
     }
   }
