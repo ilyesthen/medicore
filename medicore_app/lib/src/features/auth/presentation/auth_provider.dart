@@ -4,18 +4,11 @@ import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';
 import '../../../core/database/app_database.dart' show Room;
 import '../../../core/constants/app_constants.dart';
-import '../../../core/api/grpc_client.dart';
-import '../../../core/repository/repository_provider.dart';
 import '../../rooms/presentation/room_presence_provider.dart';
 import '../../users/data/nurse_preferences_repository.dart';
 
 /// Auth repository provider
-/// TODO: When gRPC proto is properly generated, use remote repository for client mode
-/// For now, both modes use local database (client will sync later)
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  // Both admin and client use local database for now
-  // gRPC sync will be implemented when proto generation is fixed
-  print('✓ AuthRepository using LOCAL database');
   return AuthRepository(ref.read(usersRepositoryProvider));
 });
 
