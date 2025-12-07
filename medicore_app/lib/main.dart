@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
@@ -87,7 +88,9 @@ Future<bool> _isSetupComplete() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  Intl.defaultLocale = 'fr';
+  // Initialize French locale for date formatting
+  await initializeDateFormatting('fr_FR', null);
+  Intl.defaultLocale = 'fr_FR';
   
   // Check if setup is needed
   final setupDone = await _isSetupComplete();
