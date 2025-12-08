@@ -1,6 +1,10 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:drift/drift.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/api/medicore_client.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Repository for patient data operations
 class PatientsRepository {
@@ -56,6 +60,12 @@ class PatientsRepository {
   /// - Today's patients first (newest code first for easy access)
   /// - Then all other patients (oldest code first)
   Stream<List<Patient>> watchAllPatients() async* {
+    // Client mode: use remote with polling
+    if (!GrpcClientConfig.isServer) {
+      yield* _watchPatientsRemote();
+      return;
+    }
+    
     await for (final _ in _db.select(_db.patients).watch()) {
       // Get today's date range
       final now = DateTime.now();
@@ -80,9 +90,60 @@ class PatientsRepository {
       yield [...todayPatients, ...otherPatients];
     }
   }
+  
+  /// Remote polling stream for patients
+  Stream<List<Patient>> _watchPatientsRemote() async* {
+    // Initial fetch
+    yield await _fetchPatientsRemote();
+    
+    // Poll every 5 seconds
+    await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+      yield await _fetchPatientsRemote();
+    }
+  }
+  
+  /// Fetch patients from remote server
+  Future<List<Patient>> _fetchPatientsRemote() async {
+    try {
+      final response = await MediCoreClient.instance.getAllPatients();
+      return response.patients.map(_grpcPatientToLocal).toList();
+    } catch (e) {
+      print('❌ [PatientsRepository] Remote fetch failed: $e');
+      return [];
+    }
+  }
+  
+  /// Convert GrpcPatient to local Patient model
+  Patient _grpcPatientToLocal(GrpcPatient grpc) {
+    return Patient(
+      code: grpc.code,
+      barcode: grpc.barcode ?? '',
+      createdAt: DateTime.now(),
+      firstName: grpc.firstName,
+      lastName: grpc.lastName,
+      age: grpc.age,
+      dateOfBirth: grpc.dateOfBirth != null ? DateTime.tryParse(grpc.dateOfBirth!) : null,
+      address: grpc.address,
+      phoneNumber: grpc.phone,
+      otherInfo: grpc.notes,
+      updatedAt: DateTime.now(),
+      needsSync: false,
+    );
+  }
 
   /// Get patient by code
   Future<Patient?> getPatientByCode(int code) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final grpcPatient = await MediCoreClient.instance.getPatientByCode(code);
+        return grpcPatient != null ? _grpcPatientToLocal(grpcPatient) : null;
+      } catch (e) {
+        print('❌ [PatientsRepository] Remote getPatientByCode failed: $e');
+        return null;
+      }
+    }
+    
     return await (_db.select(_db.patients)
           ..where((p) => p.code.equals(code)))
         .getSingleOrNull();
@@ -93,6 +154,18 @@ class PatientsRepository {
   Stream<List<Patient>> searchPatients(String query) async* {
     if (query.isEmpty) {
       yield* watchAllPatients();
+      return;
+    }
+    
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final response = await MediCoreClient.instance.searchPatients(query);
+        yield response.patients.map(_grpcPatientToLocal).toList();
+      } catch (e) {
+        print('❌ [PatientsRepository] Remote searchPatients failed: $e');
+        yield [];
+      }
       return;
     }
 
@@ -188,6 +261,39 @@ class PatientsRepository {
     String? phoneNumber,
     String? otherInfo,
   }) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final request = CreatePatientRequest(
+          code: 0, // Server will assign
+          firstName: firstName,
+          lastName: lastName,
+          age: age,
+          dateOfBirth: dateOfBirth?.toIso8601String(),
+          address: address,
+          phone: phoneNumber,
+        );
+        final code = await MediCoreClient.instance.createPatient(request);
+        return Patient(
+          code: code,
+          barcode: '',
+          createdAt: DateTime.now(),
+          firstName: firstName,
+          lastName: lastName,
+          age: age,
+          dateOfBirth: dateOfBirth,
+          address: address,
+          phoneNumber: phoneNumber,
+          otherInfo: otherInfo,
+          updatedAt: DateTime.now(),
+          needsSync: false,
+        );
+      } catch (e) {
+        print('❌ [PatientsRepository] Remote createPatient failed: $e');
+        rethrow;
+      }
+    }
+    
     final code = await _getNextPatientCode();
     final barcode = await _generateUniqueBarcode();
     final now = DateTime.now();
@@ -225,6 +331,26 @@ class PatientsRepository {
     String? phoneNumber,
     String? otherInfo,
   }) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final patient = GrpcPatient(
+          code: code,
+          firstName: firstName,
+          lastName: lastName,
+          age: age,
+          dateOfBirth: dateOfBirth?.toIso8601String(),
+          address: address,
+          phone: phoneNumber,
+        );
+        await MediCoreClient.instance.updatePatient(patient);
+        return;
+      } catch (e) {
+        print('❌ [PatientsRepository] Remote updatePatient failed: $e');
+        rethrow;
+      }
+    }
+    
     // Calculate age from date of birth if provided
     final finalAge = dateOfBirth != null ? _calculateAge(dateOfBirth) : age;
 
@@ -248,6 +374,17 @@ class PatientsRepository {
 
   /// Delete patient
   Future<void> deletePatient(int code) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.deletePatient(code);
+        return;
+      } catch (e) {
+        print('❌ [PatientsRepository] Remote deletePatient failed: $e');
+        rethrow;
+      }
+    }
+    
     await (_db.delete(_db.patients)
           ..where((p) => p.code.equals(code)))
         .go();
@@ -266,6 +403,39 @@ class PatientsRepository {
     String? phoneNumber,
     String? otherInfo,
   }) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.importPatient({
+          'code': code,
+          'first_name': firstName,
+          'last_name': lastName,
+          'age': age,
+          'date_of_birth': dateOfBirth?.toIso8601String(),
+          'address': address,
+          'phone': phoneNumber,
+          'other_info': otherInfo,
+        });
+        return Patient(
+          code: code,
+          barcode: barcode,
+          createdAt: createdAt,
+          firstName: firstName,
+          lastName: lastName,
+          age: age,
+          dateOfBirth: dateOfBirth,
+          address: address,
+          phoneNumber: phoneNumber,
+          otherInfo: otherInfo,
+          updatedAt: createdAt,
+          needsSync: false,
+        );
+      } catch (e) {
+        print('❌ [PatientsRepository] Remote importPatient failed: $e');
+        rethrow;
+      }
+    }
+    
     // Check if patient with this code already exists
     final existing = await getPatientByCode(code);
     if (existing != null) {
@@ -305,6 +475,17 @@ class PatientsRepository {
 
   /// Get total patient count
   Future<int> getPatientCount() async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final response = await MediCoreClient.instance.getAllPatients();
+        return response.patients.length;
+      } catch (e) {
+        print('❌ [PatientsRepository] Remote getPatientCount failed: $e');
+        return 0;
+      }
+    }
+    
     final count = await _db.patients.count().getSingleOrNull();
     return count ?? 0;
   }

@@ -1,4 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/api/medicore_client.dart';
 
 /// Repository for storing nurse room preferences and tracking room usage
 class NursePreferencesRepository {
@@ -8,6 +10,15 @@ class NursePreferencesRepository {
   /// Get the room preferences for a nurse
   /// Returns a list of 3 room IDs (or nulls) representing which rooms to show in each box
   Future<List<String?>> getNurseRoomPreferences(String nurseId) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        return await MediCoreClient.instance.getNurseRoomPreferences(nurseId);
+      } catch (e) {
+        print('❌ [NursePreferencesRepository] Remote getNurseRoomPreferences failed: $e');
+        return [null, null, null];
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final room1 = prefs.getString('${_keyPrefix}${nurseId}_box1');
     final room2 = prefs.getString('${_keyPrefix}${nurseId}_box2');
@@ -17,6 +28,21 @@ class NursePreferencesRepository {
 
   /// Get all room IDs currently in use by any nurse
   Future<Set<String>> getRoomsInUse() async {
+    // Client mode: get active nurses from remote and then their preferences
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final activeNurses = await MediCoreClient.instance.getActiveNurses();
+        final roomsInUse = <String>{};
+        for (final nurseId in activeNurses) {
+          final rooms = await getNurseRoomPreferences(nurseId);
+          roomsInUse.addAll(rooms.whereType<String>());
+        }
+        return roomsInUse;
+      } catch (e) {
+        print('❌ [NursePreferencesRepository] Remote getRoomsInUse failed: $e');
+        return {};
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final activeNurses = prefs.getStringList(_activeNursesKey) ?? [];
     final roomsInUse = <String>{};
@@ -31,6 +57,16 @@ class NursePreferencesRepository {
 
   /// Mark a nurse as active (logged in)
   Future<void> markNurseActive(String nurseId) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.markNurseActive(nurseId);
+        return;
+      } catch (e) {
+        print('❌ [NursePreferencesRepository] Remote markNurseActive failed: $e');
+        return;
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final activeNurses = prefs.getStringList(_activeNursesKey) ?? [];
     if (!activeNurses.contains(nurseId)) {
@@ -41,6 +77,16 @@ class NursePreferencesRepository {
 
   /// Mark a nurse as inactive (logged out)
   Future<void> markNurseInactive(String nurseId) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.markNurseInactive(nurseId);
+        return;
+      } catch (e) {
+        print('❌ [NursePreferencesRepository] Remote markNurseInactive failed: $e');
+        return;
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final activeNurses = prefs.getStringList(_activeNursesKey) ?? [];
     activeNurses.remove(nurseId);
@@ -54,6 +100,17 @@ class NursePreferencesRepository {
   ) async {
     if (roomIds.length != 3) {
       throw ArgumentError('Must provide exactly 3 room IDs');
+    }
+
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.saveNurseRoomPreferences(nurseId, roomIds);
+        return;
+      } catch (e) {
+        print('❌ [NursePreferencesRepository] Remote saveNurseRoomPreferences failed: $e');
+        return;
+      }
     }
 
     final prefs = await SharedPreferences.getInstance();
@@ -70,6 +127,16 @@ class NursePreferencesRepository {
 
   /// Clear preferences for a nurse
   Future<void> clearNurseRoomPreferences(String nurseId) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.clearNurseRoomPreferences(nurseId);
+        return;
+      } catch (e) {
+        print('❌ [NursePreferencesRepository] Remote clearNurseRoomPreferences failed: $e');
+        return;
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('${_keyPrefix}${nurseId}_box1');
     await prefs.remove('${_keyPrefix}${nurseId}_box2');

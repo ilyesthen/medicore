@@ -44,6 +44,15 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/CreateUser", cors(h.CreateUser))
 	mux.HandleFunc("/api/UpdateUser", cors(h.UpdateUser))
 	mux.HandleFunc("/api/DeleteUser", cors(h.DeleteUser))
+	mux.HandleFunc("/api/GetTemplateUsers", cors(h.GetTemplateUsers))
+	mux.HandleFunc("/api/GetPermanentUsers", cors(h.GetPermanentUsers))
+
+	// User template endpoints
+	mux.HandleFunc("/api/GetAllUserTemplates", cors(h.GetAllUserTemplates))
+	mux.HandleFunc("/api/CreateUserTemplate", cors(h.CreateUserTemplate))
+	mux.HandleFunc("/api/UpdateUserTemplate", cors(h.UpdateUserTemplate))
+	mux.HandleFunc("/api/DeleteUserTemplate", cors(h.DeleteUserTemplate))
+	mux.HandleFunc("/api/CreateUserFromTemplate", cors(h.CreateUserFromTemplate))
 
 	// Room endpoints
 	mux.HandleFunc("/api/GetAllRooms", cors(h.GetAllRooms))
@@ -64,16 +73,83 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/GetMessagesByRoom", cors(h.GetMessagesByRoom))
 	mux.HandleFunc("/api/CreateMessage", cors(h.CreateMessage))
 	mux.HandleFunc("/api/DeleteMessage", cors(h.DeleteMessage))
+	mux.HandleFunc("/api/MarkMessageAsRead", cors(h.MarkMessageAsRead))
+	mux.HandleFunc("/api/MarkAllMessagesAsRead", cors(h.MarkAllMessagesAsRead))
+
+	// Message template endpoints
+	mux.HandleFunc("/api/GetAllMessageTemplates", cors(h.GetAllMessageTemplates))
+	mux.HandleFunc("/api/CreateMessageTemplate", cors(h.CreateMessageTemplate))
+	mux.HandleFunc("/api/UpdateMessageTemplate", cors(h.UpdateMessageTemplate))
+	mux.HandleFunc("/api/DeleteMessageTemplate", cors(h.DeleteMessageTemplate))
 
 	// Waiting patient endpoints
 	mux.HandleFunc("/api/GetWaitingPatientsByRoom", cors(h.GetWaitingPatientsByRoom))
 	mux.HandleFunc("/api/AddWaitingPatient", cors(h.AddWaitingPatient))
 	mux.HandleFunc("/api/UpdateWaitingPatient", cors(h.UpdateWaitingPatient))
 	mux.HandleFunc("/api/RemoveWaitingPatient", cors(h.RemoveWaitingPatient))
+	mux.HandleFunc("/api/RemoveWaitingPatientByCode", cors(h.RemoveWaitingPatientByCode))
+	mux.HandleFunc("/api/MarkDilatationsAsNotified", cors(h.MarkDilatationsAsNotified))
 
 	// Medical act endpoints
 	mux.HandleFunc("/api/GetAllMedicalActs", cors(h.GetAllMedicalActs))
 	mux.HandleFunc("/api/GetMedicalActById", cors(h.GetMedicalActById))
+	mux.HandleFunc("/api/CreateMedicalAct", cors(h.CreateMedicalAct))
+	mux.HandleFunc("/api/UpdateMedicalAct", cors(h.UpdateMedicalAct))
+	mux.HandleFunc("/api/DeleteMedicalAct", cors(h.DeleteMedicalAct))
+	mux.HandleFunc("/api/ReorderMedicalActs", cors(h.ReorderMedicalActs))
+
+	// Visit endpoints
+	mux.HandleFunc("/api/GetVisitsForPatient", cors(h.GetVisitsForPatient))
+	mux.HandleFunc("/api/GetVisitById", cors(h.GetVisitById))
+	mux.HandleFunc("/api/CreateVisit", cors(h.CreateVisit))
+	mux.HandleFunc("/api/UpdateVisit", cors(h.UpdateVisit))
+	mux.HandleFunc("/api/DeleteVisit", cors(h.DeleteVisit))
+
+	// Ordonnance/Document endpoints
+	mux.HandleFunc("/api/GetOrdonnancesForPatient", cors(h.GetOrdonnancesForPatient))
+	mux.HandleFunc("/api/CreateOrdonnance", cors(h.CreateOrdonnance))
+	mux.HandleFunc("/api/UpdateOrdonnance", cors(h.UpdateOrdonnance))
+	mux.HandleFunc("/api/DeleteOrdonnance", cors(h.DeleteOrdonnance))
+
+	// Payment endpoints
+	mux.HandleFunc("/api/GetPaymentsForPatient", cors(h.GetPaymentsForPatient))
+	mux.HandleFunc("/api/GetPaymentsForVisit", cors(h.GetPaymentsForVisit))
+	mux.HandleFunc("/api/GetPaymentsByUserAndDate", cors(h.GetPaymentsByUserAndDate))
+	mux.HandleFunc("/api/CreatePayment", cors(h.CreatePayment))
+	mux.HandleFunc("/api/UpdatePayment", cors(h.UpdatePayment))
+	mux.HandleFunc("/api/DeletePayment", cors(h.DeletePayment))
+	mux.HandleFunc("/api/GetPaymentById", cors(h.GetPaymentById))
+	mux.HandleFunc("/api/GetAllPaymentsByUser", cors(h.GetAllPaymentsByUser))
+	mux.HandleFunc("/api/DeletePaymentsByPatientAndDate", cors(h.DeletePaymentsByPatientAndDate))
+	mux.HandleFunc("/api/CountPaymentsByPatientAndDate", cors(h.CountPaymentsByPatientAndDate))
+	mux.HandleFunc("/api/GetMaxPaymentId", cors(h.GetMaxPaymentId))
+
+	// Medication endpoints
+	mux.HandleFunc("/api/GetAllMedications", cors(h.GetAllMedications))
+	mux.HandleFunc("/api/SearchMedications", cors(h.SearchMedications))
+	mux.HandleFunc("/api/GetMedicationById", cors(h.GetMedicationById))
+	mux.HandleFunc("/api/GetMedicationCount", cors(h.GetMedicationCount))
+	mux.HandleFunc("/api/IncrementMedicationUsage", cors(h.IncrementMedicationUsage))
+	mux.HandleFunc("/api/SetMedicationUsageCount", cors(h.SetMedicationUsageCount))
+
+	// Visit additional endpoints
+	mux.HandleFunc("/api/GetTotalVisitCount", cors(h.GetTotalVisitCount))
+	mux.HandleFunc("/api/ClearAllVisits", cors(h.ClearAllVisits))
+	mux.HandleFunc("/api/InsertVisits", cors(h.InsertVisits))
+
+	// Message additional endpoints
+	mux.HandleFunc("/api/GetMessageById", cors(h.GetMessageById))
+
+	// Patient additional endpoints
+	mux.HandleFunc("/api/ImportPatient", cors(h.ImportPatient))
+
+	// Nurse preferences endpoints
+	mux.HandleFunc("/api/GetNurseRoomPreferences", cors(h.GetNurseRoomPreferences))
+	mux.HandleFunc("/api/SaveNurseRoomPreferences", cors(h.SaveNurseRoomPreferences))
+	mux.HandleFunc("/api/ClearNurseRoomPreferences", cors(h.ClearNurseRoomPreferences))
+	mux.HandleFunc("/api/GetActiveNurses", cors(h.GetActiveNurses))
+	mux.HandleFunc("/api/MarkNurseActive", cors(h.MarkNurseActive))
+	mux.HandleFunc("/api/MarkNurseInactive", cors(h.MarkNurseInactive))
 
 	log.Println("📡 REST API endpoints registered")
 }
@@ -263,6 +339,213 @@ func (h *RESTHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, map[string]interface{}{})
 }
 
+func (h *RESTHandler) GetTemplateUsers(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(`
+		SELECT id, name, role, password_hash, percentage, is_template_user 
+		FROM users WHERE deleted_at IS NULL AND is_template_user = 1
+	`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	users := []map[string]interface{}{}
+	for rows.Next() {
+		var id, name, role, passwordHash string
+		var percentage sql.NullFloat64
+		var isTemplateUser bool
+
+		if err := rows.Scan(&id, &name, &role, &passwordHash, &percentage, &isTemplateUser); err != nil {
+			continue
+		}
+
+		user := map[string]interface{}{
+			"id":               id,
+			"username":         name,
+			"full_name":        name,
+			"role":             role,
+			"password_hash":    passwordHash,
+			"is_template_user": isTemplateUser,
+		}
+		if percentage.Valid {
+			user["percentage"] = percentage.Float64
+		}
+		users = append(users, user)
+	}
+
+	respondJSON(w, map[string]interface{}{"users": users})
+}
+
+func (h *RESTHandler) GetPermanentUsers(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(`
+		SELECT id, name, role, password_hash, percentage, is_template_user 
+		FROM users WHERE deleted_at IS NULL AND is_template_user = 0 AND id != 'admin'
+	`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	users := []map[string]interface{}{}
+	for rows.Next() {
+		var id, name, role, passwordHash string
+		var percentage sql.NullFloat64
+		var isTemplateUser bool
+
+		if err := rows.Scan(&id, &name, &role, &passwordHash, &percentage, &isTemplateUser); err != nil {
+			continue
+		}
+
+		user := map[string]interface{}{
+			"id":               id,
+			"username":         name,
+			"full_name":        name,
+			"role":             role,
+			"password_hash":    passwordHash,
+			"is_template_user": isTemplateUser,
+		}
+		if percentage.Valid {
+			user["percentage"] = percentage.Float64
+		}
+		users = append(users, user)
+	}
+
+	respondJSON(w, map[string]interface{}{"users": users})
+}
+
+// ==================== USER TEMPLATE HANDLERS ====================
+
+func (h *RESTHandler) GetAllUserTemplates(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(`SELECT id, role, password_hash, percentage, created_at FROM templates WHERE deleted_at IS NULL`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	templates := []map[string]interface{}{}
+	for rows.Next() {
+		var id, role, passwordHash, createdAt string
+		var percentage float64
+
+		if err := rows.Scan(&id, &role, &passwordHash, &percentage, &createdAt); err != nil {
+			continue
+		}
+
+		templates = append(templates, map[string]interface{}{
+			"id":            id,
+			"role":          role,
+			"password_hash": passwordHash,
+			"percentage":    percentage,
+			"created_at":    createdAt,
+		})
+	}
+
+	respondJSON(w, map[string]interface{}{"templates": templates})
+}
+
+func (h *RESTHandler) CreateUserTemplate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := req["id"].(string)
+	role := req["role"].(string)
+	passwordHash := req["password_hash"].(string)
+	percentage := req["percentage"].(float64)
+
+	_, err := h.db.Exec(`
+		INSERT INTO templates (id, role, password_hash, percentage, created_at, updated_at, needs_sync)
+		VALUES (?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+	`, id, role, passwordHash, percentage)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateUserTemplate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := req["id"].(string)
+	role := req["role"].(string)
+	passwordHash := req["password_hash"].(string)
+	percentage := req["percentage"].(float64)
+
+	_, err := h.db.Exec(`UPDATE templates SET role = ?, password_hash = ?, percentage = ?, updated_at = datetime('now') WHERE id = ?`,
+		role, passwordHash, percentage, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) DeleteUserTemplate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := req["id"].(string)
+	_, err := h.db.Exec(`UPDATE templates SET deleted_at = datetime('now') WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) CreateUserFromTemplate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	templateId := req["template_id"].(string)
+	userName := req["user_name"].(string)
+
+	// Get template
+	row := h.db.QueryRow(`SELECT role, password_hash, percentage FROM templates WHERE id = ? AND deleted_at IS NULL`, templateId)
+	var role, passwordHash string
+	var percentage float64
+	if err := row.Scan(&role, &passwordHash, &percentage); err != nil {
+		respondError(w, 404, "Template not found")
+		return
+	}
+
+	// Create user with generated ID
+	userId := req["user_id"].(string)
+	_, err := h.db.Exec(`
+		INSERT INTO users (id, name, role, password_hash, percentage, is_template_user, created_at, updated_at, needs_sync)
+		VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), 1)
+	`, userId, userName, role, passwordHash, percentage)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{
+		"id":            userId,
+		"username":      userName,
+		"full_name":     userName,
+		"role":          role,
+		"password_hash": passwordHash,
+		"percentage":    percentage,
+	})
+}
+
 // ==================== ROOM HANDLERS ====================
 
 func (h *RESTHandler) GetAllRooms(w http.ResponseWriter, r *http.Request) {
@@ -365,7 +648,7 @@ func (h *RESTHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 func (h *RESTHandler) GetAllPatients(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.db.Query(`
 		SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, other_info, created_at
-		FROM patients ORDER BY code DESC LIMIT 1000
+		FROM patients ORDER BY code DESC
 	`)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -643,6 +926,140 @@ func (h *RESTHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, map[string]interface{}{})
 }
 
+func (h *RESTHandler) MarkMessageAsRead(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`UPDATE messages SET is_read = 1 WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) MarkAllMessagesAsRead(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	roomId := req["room_id"].(string)
+	direction := req["direction"].(string)
+
+	_, err := h.db.Exec(`UPDATE messages SET is_read = 1 WHERE room_id = ? AND direction = ? AND is_read = 0`, roomId, direction)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{})
+}
+
+// ==================== MESSAGE TEMPLATE HANDLERS ====================
+
+func (h *RESTHandler) GetAllMessageTemplates(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(`SELECT id, content, display_order, created_at, created_by FROM message_templates ORDER BY display_order`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	templates := []map[string]interface{}{}
+	for rows.Next() {
+		var id, displayOrder int
+		var content, createdAt string
+		var createdBy sql.NullString
+
+		if err := rows.Scan(&id, &content, &displayOrder, &createdAt, &createdBy); err != nil {
+			continue
+		}
+
+		t := map[string]interface{}{
+			"id":            id,
+			"content":       content,
+			"display_order": displayOrder,
+			"created_at":    createdAt,
+		}
+		if createdBy.Valid {
+			t["created_by"] = createdBy.String
+		}
+		templates = append(templates, t)
+	}
+
+	respondJSON(w, map[string]interface{}{"templates": templates})
+}
+
+func (h *RESTHandler) CreateMessageTemplate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	content := req["content"].(string)
+	createdBy := ""
+	if cb, ok := req["created_by"].(string); ok {
+		createdBy = cb
+	}
+
+	// Get max display order
+	var maxOrder int
+	h.db.QueryRow(`SELECT COALESCE(MAX(display_order), 0) FROM message_templates`).Scan(&maxOrder)
+
+	result, err := h.db.Exec(`
+		INSERT INTO message_templates (content, display_order, created_at, created_by)
+		VALUES (?, ?, datetime('now'), ?)
+	`, content, maxOrder+1, createdBy)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	id, _ := result.LastInsertId()
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateMessageTemplate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	content := req["content"].(string)
+
+	_, err := h.db.Exec(`UPDATE message_templates SET content = ? WHERE id = ?`, content, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) DeleteMessageTemplate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`DELETE FROM message_templates WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
 // ==================== WAITING PATIENT HANDLERS ====================
 
 func (h *RESTHandler) GetWaitingPatientsByRoom(w http.ResponseWriter, r *http.Request) {
@@ -767,6 +1184,42 @@ func (h *RESTHandler) RemoveWaitingPatient(w http.ResponseWriter, r *http.Reques
 	respondJSON(w, map[string]interface{}{})
 }
 
+func (h *RESTHandler) RemoveWaitingPatientByCode(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	patientCode := int(req["patient_code"].(float64))
+	_, err := h.db.Exec(`UPDATE waiting_patients SET is_active = 0 WHERE patient_code = ? AND is_active = 1`, patientCode)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) MarkDilatationsAsNotified(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	roomIds := req["room_ids"].([]interface{})
+	for _, roomId := range roomIds {
+		_, err := h.db.Exec(`UPDATE waiting_patients SET is_notified = 1 WHERE room_id = ? AND is_dilatation = 1 AND is_active = 1`, roomId.(string))
+		if err != nil {
+			respondError(w, 500, err.Error())
+			return
+		}
+	}
+
+	respondJSON(w, map[string]interface{}{})
+}
+
 // ==================== MEDICAL ACT HANDLERS ====================
 
 func (h *RESTHandler) GetAllMedicalActs(w http.ResponseWriter, r *http.Request) {
@@ -823,6 +1276,1098 @@ func (h *RESTHandler) GetMedicalActById(w http.ResponseWriter, r *http.Request) 
 		"fee_amount":    feeAmount,
 		"display_order": displayOrder,
 	})
+}
+
+func (h *RESTHandler) CreateMedicalAct(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	name := req["name"].(string)
+	feeAmount := int(req["fee_amount"].(float64))
+
+	// Get max display order
+	var maxOrder int
+	h.db.QueryRow(`SELECT COALESCE(MAX(display_order), 0) FROM medical_acts`).Scan(&maxOrder)
+
+	result, err := h.db.Exec(`
+		INSERT INTO medical_acts (name, fee_amount, display_order, is_active, created_at, updated_at)
+		VALUES (?, ?, ?, 1, datetime('now'), datetime('now'))
+	`, name, feeAmount, maxOrder+1)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	id, _ := result.LastInsertId()
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateMedicalAct(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	name := req["name"].(string)
+	feeAmount := int(req["fee_amount"].(float64))
+
+	_, err := h.db.Exec(`UPDATE medical_acts SET name = ?, fee_amount = ?, updated_at = datetime('now') WHERE id = ?`,
+		name, feeAmount, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) DeleteMedicalAct(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`UPDATE medical_acts SET is_active = 0, updated_at = datetime('now') WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) ReorderMedicalActs(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	ids := req["ids"].([]interface{})
+	for i, idVal := range ids {
+		id := int(idVal.(float64))
+		h.db.Exec(`UPDATE medical_acts SET display_order = ?, updated_at = datetime('now') WHERE id = ?`, i+1, id)
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+// ==================== VISIT HANDLERS ====================
+
+func (h *RESTHandler) GetVisitsForPatient(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	patientCode := int(req["patient_code"].(float64))
+	rows, err := h.db.Query(`
+		SELECT id, patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct,
+			   od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_toc,
+			   og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_toc,
+			   addition, dip, created_at
+		FROM visits WHERE patient_code = ? AND is_active = 1 ORDER BY visit_date DESC
+	`, patientCode)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	visits := []map[string]interface{}{}
+	for rows.Next() {
+		var id, patientCode, visitSequence int
+		var visitDate, createdAt string
+		var doctorName, motif, diagnosis, conduct sql.NullString
+		var odSv, odAv, odSphere, odCylinder, odAxis, odVl, odK1, odK2, odToc sql.NullString
+		var ogSv, ogAv, ogSphere, ogCylinder, ogAxis, ogVl, ogK1, ogK2, ogToc sql.NullString
+		var addition, dip sql.NullString
+
+		if err := rows.Scan(&id, &patientCode, &visitSequence, &visitDate, &doctorName, &motif, &diagnosis, &conduct,
+			&odSv, &odAv, &odSphere, &odCylinder, &odAxis, &odVl, &odK1, &odK2, &odToc,
+			&ogSv, &ogAv, &ogSphere, &ogCylinder, &ogAxis, &ogVl, &ogK1, &ogK2, &ogToc,
+			&addition, &dip, &createdAt); err != nil {
+			continue
+		}
+
+		visit := map[string]interface{}{
+			"id":             id,
+			"patient_code":   patientCode,
+			"visit_sequence": visitSequence,
+			"visit_date":     visitDate,
+			"created_at":     createdAt,
+		}
+		if doctorName.Valid {
+			visit["doctor_name"] = doctorName.String
+		}
+		if motif.Valid {
+			visit["motif"] = motif.String
+		}
+		if diagnosis.Valid {
+			visit["diagnosis"] = diagnosis.String
+		}
+		if conduct.Valid {
+			visit["conduct"] = conduct.String
+		}
+		if odSv.Valid {
+			visit["od_sv"] = odSv.String
+		}
+		if odAv.Valid {
+			visit["od_av"] = odAv.String
+		}
+		if odSphere.Valid {
+			visit["od_sphere"] = odSphere.String
+		}
+		if odCylinder.Valid {
+			visit["od_cylinder"] = odCylinder.String
+		}
+		if odAxis.Valid {
+			visit["od_axis"] = odAxis.String
+		}
+		if odToc.Valid {
+			visit["od_toc"] = odToc.String
+		}
+		if ogSv.Valid {
+			visit["og_sv"] = ogSv.String
+		}
+		if ogAv.Valid {
+			visit["og_av"] = ogAv.String
+		}
+		if ogSphere.Valid {
+			visit["og_sphere"] = ogSphere.String
+		}
+		if ogCylinder.Valid {
+			visit["og_cylinder"] = ogCylinder.String
+		}
+		if ogAxis.Valid {
+			visit["og_axis"] = ogAxis.String
+		}
+		if ogToc.Valid {
+			visit["og_toc"] = ogToc.String
+		}
+		if addition.Valid {
+			visit["addition"] = addition.String
+		}
+		if dip.Valid {
+			visit["dip"] = dip.String
+		}
+
+		visits = append(visits, visit)
+	}
+
+	respondJSON(w, map[string]interface{}{"visits": visits})
+}
+
+func (h *RESTHandler) GetVisitById(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	id := int(req["id"].(float64))
+	row := h.db.QueryRow(`SELECT id, patient_code, visit_date, doctor_name FROM visits WHERE id = ?`, id)
+
+	var visitId, patientCode int
+	var visitDate string
+	var doctorName sql.NullString
+	if err := row.Scan(&visitId, &patientCode, &visitDate, &doctorName); err != nil {
+		respondJSON(w, map[string]interface{}{})
+		return
+	}
+	respondJSON(w, map[string]interface{}{"id": visitId, "patient_code": patientCode, "visit_date": visitDate, "doctor_name": doctorName.String})
+}
+
+func (h *RESTHandler) CreateVisit(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	result, err := h.db.Exec(`
+		INSERT INTO visits (patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct, created_at, updated_at, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+	`, req["patient_code"], req["visit_sequence"], req["visit_date"], req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	id, _ := result.LastInsertId()
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateVisit(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	_, err := h.db.Exec(`UPDATE visits SET doctor_name = ?, motif = ?, diagnosis = ?, conduct = ?, updated_at = datetime('now') WHERE id = ?`,
+		req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"], req["id"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) DeleteVisit(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	_, err := h.db.Exec(`UPDATE visits SET is_active = 0 WHERE id = ?`, req["id"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+// ==================== ORDONNANCE HANDLERS ====================
+
+func (h *RESTHandler) GetOrdonnancesForPatient(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	patientCode := int(req["patient_code"].(float64))
+	rows, err := h.db.Query(`
+		SELECT id, patient_code, sequence, document_date, doctor_name, report_title, referred_by,
+			   type1, content1, type2, content2, type3, content3
+		FROM ordonnances WHERE patient_code = ? ORDER BY document_date DESC, id DESC
+	`, patientCode)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	ordonnances := []map[string]interface{}{}
+	for rows.Next() {
+		var id, patientCode, sequence int
+		var documentDate, doctorName, reportTitle, referredBy sql.NullString
+		var type1, content1, type2, content2, type3, content3 sql.NullString
+
+		if err := rows.Scan(&id, &patientCode, &sequence, &documentDate, &doctorName, &reportTitle, &referredBy,
+			&type1, &content1, &type2, &content2, &type3, &content3); err != nil {
+			continue
+		}
+
+		ord := map[string]interface{}{
+			"id":           id,
+			"patient_code": patientCode,
+			"sequence":     sequence,
+		}
+		if documentDate.Valid {
+			ord["document_date"] = documentDate.String
+		}
+		if doctorName.Valid {
+			ord["doctor_name"] = doctorName.String
+		}
+		if reportTitle.Valid {
+			ord["report_title"] = reportTitle.String
+		}
+		if referredBy.Valid {
+			ord["referred_by"] = referredBy.String
+		}
+		if type1.Valid {
+			ord["type1"] = type1.String
+		}
+		if content1.Valid {
+			ord["content1"] = content1.String
+		}
+		if type2.Valid {
+			ord["type2"] = type2.String
+		}
+		if content2.Valid {
+			ord["content2"] = content2.String
+		}
+		if type3.Valid {
+			ord["type3"] = type3.String
+		}
+		if content3.Valid {
+			ord["content3"] = content3.String
+		}
+
+		ordonnances = append(ordonnances, ord)
+	}
+
+	respondJSON(w, map[string]interface{}{"ordonnances": ordonnances})
+}
+
+func (h *RESTHandler) CreateOrdonnance(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	result, err := h.db.Exec(`
+		INSERT INTO ordonnances (patient_code, sequence, document_date, doctor_name, report_title, type1, content1)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, req["patient_code"], req["sequence"], req["document_date"], req["doctor_name"], req["report_title"], req["type1"], req["content1"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	id, _ := result.LastInsertId()
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateOrdonnance(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	_, err := h.db.Exec(`UPDATE ordonnances SET content1 = ?, type1 = ? WHERE id = ?`, req["content1"], req["type1"], req["id"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) DeleteOrdonnance(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	_, err := h.db.Exec(`DELETE FROM ordonnances WHERE id = ?`, req["id"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+// ==================== PAYMENT HANDLERS ====================
+
+func (h *RESTHandler) GetPaymentsForPatient(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	patientCode := int(req["patient_code"].(float64))
+	rows, err := h.db.Query(`
+		SELECT id, patient_code, visit_id, amount, payment_date, payment_method, medical_act_id, notes
+		FROM payments WHERE patient_code = ? ORDER BY payment_date DESC
+	`, patientCode)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	payments := []map[string]interface{}{}
+	for rows.Next() {
+		var id, patientCode int
+		var visitId, medicalActId sql.NullInt64
+		var amount int
+		var paymentDate, paymentMethod sql.NullString
+		var notes sql.NullString
+
+		if err := rows.Scan(&id, &patientCode, &visitId, &amount, &paymentDate, &paymentMethod, &medicalActId, &notes); err != nil {
+			continue
+		}
+
+		payment := map[string]interface{}{
+			"id":           id,
+			"patient_code": patientCode,
+			"amount":       amount,
+		}
+		if visitId.Valid {
+			payment["visit_id"] = visitId.Int64
+		}
+		if paymentDate.Valid {
+			payment["payment_date"] = paymentDate.String
+		}
+		if paymentMethod.Valid {
+			payment["payment_method"] = paymentMethod.String
+		}
+		if medicalActId.Valid {
+			payment["medical_act_id"] = medicalActId.Int64
+		}
+		if notes.Valid {
+			payment["notes"] = notes.String
+		}
+
+		payments = append(payments, payment)
+	}
+
+	respondJSON(w, map[string]interface{}{"payments": payments})
+}
+
+func (h *RESTHandler) GetPaymentsForVisit(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	visitId := int(req["visit_id"].(float64))
+	rows, err := h.db.Query(`SELECT id, patient_code, amount, payment_date FROM payments WHERE visit_id = ?`, visitId)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	payments := []map[string]interface{}{}
+	for rows.Next() {
+		var id, patientCode, amount int
+		var paymentDate sql.NullString
+		if err := rows.Scan(&id, &patientCode, &amount, &paymentDate); err != nil {
+			continue
+		}
+		payments = append(payments, map[string]interface{}{"id": id, "patient_code": patientCode, "amount": amount, "payment_date": paymentDate.String})
+	}
+	respondJSON(w, map[string]interface{}{"payments": payments})
+}
+
+func (h *RESTHandler) GetPaymentsByUserAndDate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	userName := req["user_name"].(string)
+	dateStr := req["date"].(string) // Format: YYYY-MM-DD
+
+	rows, err := h.db.Query(`
+		SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name,
+			   patient_code, patient_first_name, patient_last_name, payment_time, is_active
+		FROM payments 
+		WHERE user_name = ? AND date(payment_time) = ? AND is_active = 1
+		ORDER BY payment_time ASC
+	`, userName, dateStr)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	payments := []map[string]interface{}{}
+	for rows.Next() {
+		var id, medicalActId, amount, patientCode int
+		var medicalActName, userId, userName, patientFirstName, patientLastName string
+		var paymentTime sql.NullString
+		var isActive bool
+
+		if err := rows.Scan(&id, &medicalActId, &medicalActName, &amount, &userId, &userName,
+			&patientCode, &patientFirstName, &patientLastName, &paymentTime, &isActive); err != nil {
+			continue
+		}
+
+		payments = append(payments, map[string]interface{}{
+			"id":                 id,
+			"medical_act_id":     medicalActId,
+			"medical_act_name":   medicalActName,
+			"amount":             amount,
+			"user_id":            userId,
+			"user_name":          userName,
+			"patient_code":       patientCode,
+			"patient_first_name": patientFirstName,
+			"patient_last_name":  patientLastName,
+			"payment_time":       paymentTime.String,
+			"is_active":          isActive,
+		})
+	}
+
+	respondJSON(w, map[string]interface{}{"payments": payments})
+}
+
+func (h *RESTHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	result, err := h.db.Exec(`
+		INSERT INTO payments (patient_code, visit_id, amount, payment_date, payment_method, medical_act_id, notes, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+	`, req["patient_code"], req["visit_id"], req["amount"], req["payment_date"], req["payment_method"], req["medical_act_id"], req["notes"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	id, _ := result.LastInsertId()
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdatePayment(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	_, err := h.db.Exec(`UPDATE payments SET amount = ?, payment_method = ?, notes = ? WHERE id = ?`,
+		req["amount"], req["payment_method"], req["notes"], req["id"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) DeletePayment(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+	_, err := h.db.Exec(`DELETE FROM payments WHERE id = ?`, req["id"])
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+// ==================== MEDICATION HANDLERS ====================
+
+func (h *RESTHandler) GetAllMedications(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(`SELECT id, original_id, code, prescription, usage_count, nature FROM medications ORDER BY usage_count DESC`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	medications := []map[string]interface{}{}
+	for rows.Next() {
+		var id int
+		var originalId sql.NullInt64
+		var code, prescription string
+		var usageCount int
+		var nature sql.NullString
+		if err := rows.Scan(&id, &originalId, &code, &prescription, &usageCount, &nature); err != nil {
+			continue
+		}
+		med := map[string]interface{}{
+			"id":           id,
+			"name":         code,
+			"code":         code,
+			"prescription": prescription,
+			"usage_count":  usageCount,
+		}
+		if originalId.Valid {
+			med["original_id"] = originalId.Int64
+		}
+		if nature.Valid {
+			med["nature"] = nature.String
+		}
+		medications = append(medications, med)
+	}
+	respondJSON(w, map[string]interface{}{"medications": medications})
+}
+
+func (h *RESTHandler) SearchMedications(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	query := "%" + req["query"].(string) + "%"
+	rows, err := h.db.Query(`SELECT id, original_id, code, prescription, usage_count, nature FROM medications WHERE code LIKE ? ORDER BY usage_count DESC LIMIT 50`, query)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	medications := []map[string]interface{}{}
+	for rows.Next() {
+		var id int
+		var originalId sql.NullInt64
+		var code, prescription string
+		var usageCount int
+		var nature sql.NullString
+		if err := rows.Scan(&id, &originalId, &code, &prescription, &usageCount, &nature); err != nil {
+			continue
+		}
+		med := map[string]interface{}{
+			"id":           id,
+			"name":         code,
+			"code":         code,
+			"prescription": prescription,
+			"usage_count":  usageCount,
+		}
+		if originalId.Valid {
+			med["original_id"] = originalId.Int64
+		}
+		if nature.Valid {
+			med["nature"] = nature.String
+		}
+		medications = append(medications, med)
+	}
+	respondJSON(w, map[string]interface{}{"medications": medications})
+}
+
+// ==================== ADDITIONAL PAYMENT HANDLERS ====================
+
+func (h *RESTHandler) GetPaymentById(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	row := h.db.QueryRow(`SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name, patient_code, patient_first_name, patient_last_name, payment_time FROM payments WHERE id = ? AND is_active = 1`, id)
+
+	var paymentId, medicalActId, amount, patientCode int
+	var medicalActName, userId, userName, patientFirstName, patientLastName, paymentTime string
+
+	if err := row.Scan(&paymentId, &medicalActId, &medicalActName, &amount, &userId, &userName, &patientCode, &patientFirstName, &patientLastName, &paymentTime); err != nil {
+		respondJSON(w, map[string]interface{}{})
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{
+		"id":                 paymentId,
+		"medical_act_id":     medicalActId,
+		"medical_act_name":   medicalActName,
+		"amount":             amount,
+		"user_id":            userId,
+		"user_name":          userName,
+		"patient_code":       patientCode,
+		"patient_first_name": patientFirstName,
+		"patient_last_name":  patientLastName,
+		"payment_time":       paymentTime,
+	})
+}
+
+func (h *RESTHandler) GetAllPaymentsByUser(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	userName := req["user_name"].(string)
+	rows, err := h.db.Query(`SELECT id, medical_act_id, medical_act_name, amount, patient_code, patient_first_name, patient_last_name, payment_time FROM payments WHERE user_name = ? AND is_active = 1 ORDER BY payment_time DESC`, userName)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	payments := []map[string]interface{}{}
+	for rows.Next() {
+		var id, medicalActId, amount, patientCode int
+		var medicalActName, patientFirstName, patientLastName, paymentTime string
+		if err := rows.Scan(&id, &medicalActId, &medicalActName, &amount, &patientCode, &patientFirstName, &patientLastName, &paymentTime); err != nil {
+			continue
+		}
+		payments = append(payments, map[string]interface{}{
+			"id":                 id,
+			"medical_act_id":     medicalActId,
+			"medical_act_name":   medicalActName,
+			"amount":             amount,
+			"patient_code":       patientCode,
+			"patient_first_name": patientFirstName,
+			"patient_last_name":  patientLastName,
+			"payment_time":       paymentTime,
+		})
+	}
+	respondJSON(w, map[string]interface{}{"payments": payments})
+}
+
+func (h *RESTHandler) DeletePaymentsByPatientAndDate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	patientCode := int(req["patient_code"].(float64))
+	dateStr := req["date"].(string)
+
+	result, err := h.db.Exec(`UPDATE payments SET is_active = 0, updated_at = datetime('now') WHERE patient_code = ? AND date(payment_time) = ?`, patientCode, dateStr)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	count, _ := result.RowsAffected()
+	respondJSON(w, map[string]interface{}{"deleted": count})
+}
+
+func (h *RESTHandler) CountPaymentsByPatientAndDate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	patientCode := int(req["patient_code"].(float64))
+	dateStr := req["date"].(string)
+
+	var count int
+	h.db.QueryRow(`SELECT COUNT(*) FROM payments WHERE patient_code = ? AND date(payment_time) = ? AND is_active = 1`, patientCode, dateStr).Scan(&count)
+	respondJSON(w, map[string]interface{}{"count": count})
+}
+
+func (h *RESTHandler) GetMaxPaymentId(w http.ResponseWriter, r *http.Request) {
+	var maxId int
+	h.db.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM payments`).Scan(&maxId)
+	respondJSON(w, map[string]interface{}{"max_id": maxId})
+}
+
+// ==================== ADDITIONAL MEDICATION HANDLERS ====================
+
+func (h *RESTHandler) GetMedicationById(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	row := h.db.QueryRow(`SELECT id, original_id, code, prescription, usage_count, nature FROM medications WHERE id = ?`, id)
+
+	var medId int
+	var originalId sql.NullInt64
+	var code, prescription string
+	var usageCount int
+	var nature sql.NullString
+
+	if err := row.Scan(&medId, &originalId, &code, &prescription, &usageCount, &nature); err != nil {
+		respondJSON(w, map[string]interface{}{})
+		return
+	}
+
+	med := map[string]interface{}{
+		"id":           medId,
+		"code":         code,
+		"name":         code,
+		"prescription": prescription,
+		"usage_count":  usageCount,
+	}
+	if originalId.Valid {
+		med["original_id"] = originalId.Int64
+	}
+	if nature.Valid {
+		med["nature"] = nature.String
+	}
+	respondJSON(w, med)
+}
+
+func (h *RESTHandler) GetMedicationCount(w http.ResponseWriter, r *http.Request) {
+	var count int
+	h.db.QueryRow(`SELECT COUNT(*) FROM medications`).Scan(&count)
+	respondJSON(w, map[string]interface{}{"count": count})
+}
+
+func (h *RESTHandler) IncrementMedicationUsage(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`UPDATE medications SET usage_count = usage_count + 1, updated_at = datetime('now') WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) SetMedicationUsageCount(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	count := int(req["count"].(float64))
+	_, err := h.db.Exec(`UPDATE medications SET usage_count = ?, updated_at = datetime('now') WHERE id = ?`, count, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
+// ==================== ADDITIONAL VISIT HANDLERS ====================
+
+func (h *RESTHandler) GetTotalVisitCount(w http.ResponseWriter, r *http.Request) {
+	var count int
+	h.db.QueryRow(`SELECT COUNT(*) FROM visits WHERE is_active = 1`).Scan(&count)
+	respondJSON(w, map[string]interface{}{"count": count})
+}
+
+func (h *RESTHandler) ClearAllVisits(w http.ResponseWriter, r *http.Request) {
+	result, err := h.db.Exec(`DELETE FROM visits`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	count, _ := result.RowsAffected()
+	respondJSON(w, map[string]interface{}{"deleted": count})
+}
+
+func (h *RESTHandler) InsertVisits(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	visits := req["visits"].([]interface{})
+	insertedCount := 0
+
+	for _, v := range visits {
+		visit := v.(map[string]interface{})
+		_, err := h.db.Exec(`
+			INSERT INTO visits (patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct, is_active, created_at, updated_at, needs_sync)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), 1)
+		`,
+			int(visit["patient_code"].(float64)),
+			int(visit["visit_sequence"].(float64)),
+			visit["visit_date"],
+			visit["doctor_name"],
+			visit["motif"],
+			visit["diagnosis"],
+			visit["conduct"],
+		)
+		if err == nil {
+			insertedCount++
+		}
+	}
+
+	respondJSON(w, map[string]interface{}{"inserted": insertedCount})
+}
+
+// ==================== ADDITIONAL MESSAGE HANDLERS ====================
+
+func (h *RESTHandler) GetMessageById(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	row := h.db.QueryRow(`SELECT id, room_id, sender_id, sender_name, sender_role, content, direction, is_read, sent_at, patient_code, patient_name FROM messages WHERE id = ?`, id)
+
+	var msgId int
+	var roomId, senderId, senderName, senderRole, content, direction, sentAt string
+	var isRead bool
+	var patientCode sql.NullInt64
+	var patientName sql.NullString
+
+	if err := row.Scan(&msgId, &roomId, &senderId, &senderName, &senderRole, &content, &direction, &isRead, &sentAt, &patientCode, &patientName); err != nil {
+		respondJSON(w, map[string]interface{}{})
+		return
+	}
+
+	msg := map[string]interface{}{
+		"id":          msgId,
+		"room_id":     roomId,
+		"sender_id":   senderId,
+		"sender_name": senderName,
+		"sender_role": senderRole,
+		"content":     content,
+		"direction":   direction,
+		"is_read":     isRead,
+		"sent_at":     sentAt,
+	}
+	if patientCode.Valid {
+		msg["patient_code"] = patientCode.Int64
+	}
+	if patientName.Valid {
+		msg["patient_name"] = patientName.String
+	}
+	respondJSON(w, msg)
+}
+
+// ==================== ADDITIONAL PATIENT HANDLERS ====================
+
+func (h *RESTHandler) ImportPatient(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	code := int(req["code"].(float64))
+	firstName := req["first_name"].(string)
+	lastName := req["last_name"].(string)
+
+	var age interface{}
+	var dateOfBirth, address, phone, otherInfo interface{}
+
+	if v, ok := req["age"]; ok && v != nil {
+		age = int(v.(float64))
+	}
+	if v, ok := req["date_of_birth"]; ok {
+		dateOfBirth = v
+	}
+	if v, ok := req["address"]; ok {
+		address = v
+	}
+	if v, ok := req["phone"]; ok {
+		phone = v
+	}
+	if v, ok := req["other_info"]; ok {
+		otherInfo = v
+	}
+
+	_, err := h.db.Exec(`
+		INSERT INTO patients (code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, other_info, created_at, updated_at, needs_sync)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+		ON CONFLICT(code) DO UPDATE SET
+			first_name = excluded.first_name,
+			last_name = excluded.last_name,
+			age = excluded.age,
+			date_of_birth = excluded.date_of_birth,
+			address = excluded.address,
+			phone_number = excluded.phone_number,
+			other_info = excluded.other_info,
+			updated_at = datetime('now')
+	`, code, "", firstName, lastName, age, dateOfBirth, address, phone, otherInfo)
+
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{"code": code})
+}
+
+// ==================== NURSE PREFERENCES HANDLERS ====================
+// Note: These store preferences in a nurse_preferences table
+// The table structure: nurse_id TEXT, box_index INT, room_id TEXT, PRIMARY KEY(nurse_id, box_index)
+
+func (h *RESTHandler) GetNurseRoomPreferences(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	nurseId := req["nurse_id"].(string)
+
+	// Ensure table exists
+	h.db.Exec(`CREATE TABLE IF NOT EXISTS nurse_preferences (nurse_id TEXT, box_index INTEGER, room_id TEXT, PRIMARY KEY(nurse_id, box_index))`)
+
+	rows, err := h.db.Query(`SELECT box_index, room_id FROM nurse_preferences WHERE nurse_id = ? ORDER BY box_index`, nurseId)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	rooms := []interface{}{nil, nil, nil}
+	for rows.Next() {
+		var boxIndex int
+		var roomId string
+		if err := rows.Scan(&boxIndex, &roomId); err == nil && boxIndex >= 0 && boxIndex < 3 {
+			rooms[boxIndex] = roomId
+		}
+	}
+
+	respondJSON(w, map[string]interface{}{"rooms": rooms})
+}
+
+func (h *RESTHandler) SaveNurseRoomPreferences(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	nurseId := req["nurse_id"].(string)
+	rooms := req["rooms"].([]interface{})
+
+	// Ensure table exists
+	h.db.Exec(`CREATE TABLE IF NOT EXISTS nurse_preferences (nurse_id TEXT, box_index INTEGER, room_id TEXT, PRIMARY KEY(nurse_id, box_index))`)
+
+	// Clear existing and insert new
+	h.db.Exec(`DELETE FROM nurse_preferences WHERE nurse_id = ?`, nurseId)
+
+	for i, room := range rooms {
+		if room != nil {
+			h.db.Exec(`INSERT INTO nurse_preferences (nurse_id, box_index, room_id) VALUES (?, ?, ?)`, nurseId, i, room.(string))
+		}
+	}
+
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) ClearNurseRoomPreferences(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	nurseId := req["nurse_id"].(string)
+	h.db.Exec(`DELETE FROM nurse_preferences WHERE nurse_id = ?`, nurseId)
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) GetActiveNurses(w http.ResponseWriter, r *http.Request) {
+	// Ensure table exists
+	h.db.Exec(`CREATE TABLE IF NOT EXISTS active_nurses (nurse_id TEXT PRIMARY KEY, active_since TEXT)`)
+
+	rows, err := h.db.Query(`SELECT nurse_id FROM active_nurses`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	nurses := []string{}
+	for rows.Next() {
+		var nurseId string
+		if err := rows.Scan(&nurseId); err == nil {
+			nurses = append(nurses, nurseId)
+		}
+	}
+
+	respondJSON(w, map[string]interface{}{"nurses": nurses})
+}
+
+func (h *RESTHandler) MarkNurseActive(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	nurseId := req["nurse_id"].(string)
+
+	// Ensure table exists
+	h.db.Exec(`CREATE TABLE IF NOT EXISTS active_nurses (nurse_id TEXT PRIMARY KEY, active_since TEXT)`)
+	h.db.Exec(`INSERT OR REPLACE INTO active_nurses (nurse_id, active_since) VALUES (?, datetime('now'))`, nurseId)
+	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) MarkNurseInactive(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	nurseId := req["nurse_id"].(string)
+	h.db.Exec(`DELETE FROM active_nurses WHERE nurse_id = ?`, nurseId)
+	respondJSON(w, map[string]interface{}{})
 }
 
 // StartRESTServer starts the REST API server

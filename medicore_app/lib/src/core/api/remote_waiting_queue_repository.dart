@@ -137,7 +137,7 @@ class RemoteWaitingQueueRepository {
     if (!_roomStreams.containsKey(key)) {
       _roomStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
       
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) async {
+      Future<void> fetchData() async {
         try {
           final allPatients = <WaitingPatient>[];
           for (final roomId in roomIds) {
@@ -151,8 +151,15 @@ class RemoteWaitingQueueRepository {
           _roomStreams[key]?.add(allPatients);
         } catch (e) {
           print('❌ [RemoteWaitingQueue] poll failed: $e');
+          _roomStreams[key]?.add([]); // Emit empty on error
         }
-      });
+      }
+      
+      // Fetch immediately!
+      fetchData();
+      
+      // Then poll every 2 seconds
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
     }
     
     return _roomStreams[key]!.stream;
@@ -203,15 +210,20 @@ class RemoteWaitingQueueRepository {
 
   /// Remove patient by code
   Future<void> removeByPatientCode(int patientCode) async {
-    // This would need server-side support - for now, we'll fetch and remove
-    // This is a limitation that should be addressed in the Go handler
-    print('⚠️ [RemoteWaitingQueue] removeByPatientCode not fully implemented');
+    try {
+      await _client.removeWaitingPatientByCode(patientCode);
+    } catch (e) {
+      print('❌ [RemoteWaitingQueue] removeByPatientCode failed: $e');
+    }
   }
 
   /// Mark dilatations as notified
   Future<void> markDilatationsAsNotified(List<String> roomIds) async {
-    // This would need server-side support
-    print('⚠️ [RemoteWaitingQueue] markDilatationsAsNotified not fully implemented');
+    try {
+      await _client.markDilatationsAsNotified(roomIds);
+    } catch (e) {
+      print('❌ [RemoteWaitingQueue] markDilatationsAsNotified failed: $e');
+    }
   }
 
   /// Get waiting patient by ID
@@ -228,15 +240,23 @@ class RemoteWaitingQueueRepository {
     if (!_roomStreams.containsKey(key)) {
       _roomStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
       
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) async {
+      // Fetch function - reusable
+      Future<void> fetchData() async {
         try {
           final response = await _client.getWaitingPatientsByRoom(roomId);
           final filtered = filter(response.patients.map(_grpcWaitingPatientToLocal).toList());
           _roomStreams[key]?.add(filtered);
         } catch (e) {
           print('❌ [RemoteWaitingQueue] poll failed: $e');
+          _roomStreams[key]?.add([]); // Emit empty on error
         }
-      });
+      }
+      
+      // IMPORTANT: Fetch immediately, don't wait for timer!
+      fetchData();
+      
+      // Then poll every 2 seconds
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
     }
     
     return _roomStreams[key]!.stream;

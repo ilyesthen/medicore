@@ -156,36 +156,30 @@ class RemoteMessagesRepository {
     return _roomStreams[key]!.stream;
   }
 
-  /// Mark message as read (delete it)
+  /// Mark message as read
   Future<void> markAsRead(int messageId) async {
-    await deleteMessage(messageId);
+    try {
+      await _client.markMessageAsRead(messageId);
+    } catch (e) {
+      print('❌ [RemoteMessages] markAsRead failed: $e');
+    }
   }
 
-  /// Delete all messages for nurse
+  /// Mark all messages as read for nurse (all rooms, to_nurse direction)
   Future<void> markAllAsReadForNurse(List<String> roomIds) async {
     for (final roomId in roomIds) {
       try {
-        final response = await _client.getMessagesByRoom(roomId);
-        for (final msg in response.messages) {
-          if (msg.direction == 'to_nurse') {
-            await _client.deleteMessage(msg.id);
-          }
-        }
+        await _client.markAllMessagesAsRead(roomId, 'to_nurse');
       } catch (e) {
         print('❌ [RemoteMessages] markAllAsReadForNurse failed: $e');
       }
     }
   }
 
-  /// Delete all messages for doctor
+  /// Mark all messages as read for doctor (single room, to_doctor direction)
   Future<void> markAllAsReadForDoctor(String roomId) async {
     try {
-      final response = await _client.getMessagesByRoom(roomId);
-      for (final msg in response.messages) {
-        if (msg.direction == 'to_doctor') {
-          await _client.deleteMessage(msg.id);
-        }
-      }
+      await _client.markAllMessagesAsRead(roomId, 'to_doctor');
     } catch (e) {
       print('❌ [RemoteMessages] markAllAsReadForDoctor failed: $e');
     }

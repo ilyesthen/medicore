@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:drift/drift.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/api/medicore_client.dart';
 
 /// Repository for managing payments (Comptabilité)
 /// Handles all database operations for payment records
@@ -19,6 +22,11 @@ class PaymentsRepository {
   }) {
     // Use date string for reliable comparison (avoids timezone issues)
     final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    
+    // Client mode: use REST API with polling
+    if (!GrpcClientConfig.isServer) {
+      return _watchPaymentsRemote(userName, dateStr, timeFilter);
+    }
     
     // Use raw SQL query for reliable date filtering
     // Handle both ISO string dates (new) and integer timestamps (legacy imported data)
@@ -102,6 +110,23 @@ class PaymentsRepository {
     final now = DateTime.now();
     final effectivePaymentTime = paymentTime ?? now;
     
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        return await MediCoreClient.instance.createPayment({
+          'medical_act_id': medicalActId,
+          'amount': amount,
+          'patient_code': patientCode,
+          'payment_date': effectivePaymentTime.toIso8601String().split('T')[0],
+          'payment_method': 'cash',
+          'notes': medicalActName,
+        });
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote create failed: $e');
+        return -1;
+      }
+    }
+    
     return await _database.into(_database.payments).insert(
       PaymentsCompanion.insert(
         medicalActId: medicalActId,
@@ -132,6 +157,26 @@ class PaymentsRepository {
   }) async {
     final now = DateTime.now();
     
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.updatePayment({
+          'id': id,
+          'medical_act_id': medicalActId,
+          'medical_act_name': medicalActName,
+          'amount': amount,
+          'patient_code': patientCode,
+          'patient_first_name': patientFirstName,
+          'patient_last_name': patientLastName,
+          'payment_time': (paymentTime ?? now).toIso8601String(),
+        });
+        return true;
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote updatePayment failed: $e');
+        return false;
+      }
+    }
+    
     return await _database.update(_database.payments).replace(
       Payment(
         id: id,
@@ -154,6 +199,16 @@ class PaymentsRepository {
 
   /// Soft delete a payment (set isActive to false)
   Future<int> deletePayment(int id) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.deletePayment(id);
+        return 1;
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote delete failed: $e');
+        return 0;
+      }
+    }
     return await (_database.update(_database.payments)
           ..where((p) => p.id.equals(id)))
         .write(
@@ -172,6 +227,16 @@ class PaymentsRepository {
     required DateTime date,
   }) async {
     final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        return await MediCoreClient.instance.deletePaymentsByPatientAndDate(patientCode, dateStr);
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote deletePaymentsByPatientAndDate failed: $e');
+        return 0;
+      }
+    }
     
     // Find and soft-delete payments for this patient today
     // Handle both ISO string dates (new) and integer timestamps (legacy)
@@ -205,6 +270,16 @@ class PaymentsRepository {
   }) async {
     final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        return await MediCoreClient.instance.countPaymentsByPatientAndDate(patientCode, dateStr);
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote countPaymentsByPatientAndDate failed: $e');
+        return 0;
+      }
+    }
+    
     final result = await _database.customSelect(
       '''
       SELECT COUNT(*) as count FROM payments 
@@ -227,6 +302,32 @@ class PaymentsRepository {
 
   /// Get payment by ID
   Future<Payment?> getPaymentById(int id) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final response = await MediCoreClient.instance.getPaymentById(id);
+        if (response.isEmpty) return null;
+        return Payment(
+          id: response['id'] as int,
+          medicalActId: response['medical_act_id'] as int,
+          medicalActName: response['medical_act_name'] as String,
+          amount: response['amount'] as int,
+          userId: response['user_id'] as String,
+          userName: response['user_name'] as String,
+          patientCode: response['patient_code'] as int,
+          patientFirstName: response['patient_first_name'] as String,
+          patientLastName: response['patient_last_name'] as String,
+          paymentTime: DateTime.tryParse(response['payment_time'] as String) ?? DateTime.now(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          needsSync: false,
+          isActive: true,
+        );
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote getPaymentById failed: $e');
+        return null;
+      }
+    }
     return await (_database.select(_database.payments)
           ..where((p) => p.id.equals(id))
           ..where((p) => p.isActive.equals(true)))
@@ -235,6 +336,35 @@ class PaymentsRepository {
 
   /// Get all payments for a user (for reporting)
   Future<List<Payment>> getAllPaymentsByUser(String userId) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final response = await MediCoreClient.instance.getAllPaymentsByUser(userId);
+        final payments = (response['payments'] as List<dynamic>?) ?? [];
+        return payments.map((p) {
+          final json = p as Map<String, dynamic>;
+          return Payment(
+            id: json['id'] as int,
+            medicalActId: json['medical_act_id'] as int,
+            medicalActName: json['medical_act_name'] as String,
+            amount: json['amount'] as int,
+            userId: userId,
+            userName: userId,
+            patientCode: json['patient_code'] as int,
+            patientFirstName: json['patient_first_name'] as String,
+            patientLastName: json['patient_last_name'] as String,
+            paymentTime: DateTime.tryParse(json['payment_time'] as String) ?? DateTime.now(),
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            needsSync: false,
+            isActive: true,
+          );
+        }).toList();
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote getAllPaymentsByUser failed: $e');
+        return [];
+      }
+    }
     return await (_database.select(_database.payments)
           ..where((p) => p.userId.equals(userId))
           ..where((p) => p.isActive.equals(true))
@@ -291,6 +421,28 @@ class PaymentsRepository {
     required String patientLastName,
     required DateTime paymentTime,
   }) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        await MediCoreClient.instance.importPayment({
+          'id': id,
+          'medical_act_id': medicalActId,
+          'medical_act_name': medicalActName,
+          'amount': amount,
+          'user_id': userId,
+          'user_name': userName,
+          'patient_code': patientCode,
+          'patient_first_name': patientFirstName,
+          'patient_last_name': patientLastName,
+          'payment_time': paymentTime.toIso8601String(),
+        });
+        return;
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote importPayment failed: $e');
+        rethrow;
+      }
+    }
+    
     // Drift expects milliseconds since epoch
     final timeMs = paymentTime.millisecondsSinceEpoch;
     // Use raw SQL to insert with specific ID
@@ -323,6 +475,15 @@ class PaymentsRepository {
 
   /// Get the maximum payment ID (for continuing after import)
   Future<int> getMaxPaymentId() async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        return await MediCoreClient.instance.getMaxPaymentId();
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote getMaxPaymentId failed: $e');
+        return 0;
+      }
+    }
     final result = await _database.customSelect(
       'SELECT MAX(id) as max_id FROM payments',
     ).getSingleOrNull();
@@ -331,6 +492,11 @@ class PaymentsRepository {
 
   /// Get user by name (for import)
   Future<UserEntity?> getUserByName(String name) async {
+    // Client mode: use remote (returns null as import is admin-only)
+    if (!GrpcClientConfig.isServer) {
+      // XML import is admin-only, but return null gracefully
+      return null;
+    }
     return await (_database.select(_database.users)
           ..where((u) => u.name.equals(name))
           ..where((u) => u.deletedAt.isNull()))
@@ -339,6 +505,11 @@ class PaymentsRepository {
 
   /// Get patient by code (for import)
   Future<Patient?> getPatientByCode(int code) async {
+    // Client mode: use remote (returns null as import is admin-only)
+    if (!GrpcClientConfig.isServer) {
+      // XML import is admin-only, but return null gracefully
+      return null;
+    }
     return await (_database.select(_database.patients)
           ..where((p) => p.code.equals(code)))
         .getSingleOrNull();
@@ -346,6 +517,29 @@ class PaymentsRepository {
 
   /// Batch import payments for efficiency using a transaction
   Future<void> batchImportPayments(List<Map<String, dynamic>> paymentDataList) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final paymentsData = paymentDataList.map((data) => {
+          'id': data['id'],
+          'medical_act_id': data['medicalActId'],
+          'medical_act_name': data['medicalActName'],
+          'amount': data['amount'],
+          'user_id': data['userId'],
+          'user_name': data['userName'],
+          'patient_code': data['patientCode'],
+          'patient_first_name': data['patientFirstName'],
+          'patient_last_name': data['patientLastName'],
+          'payment_time': (data['paymentTime'] as DateTime).toIso8601String(),
+        }).toList();
+        await MediCoreClient.instance.batchImportPayments(paymentsData);
+        return;
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote batchImportPayments failed: $e');
+        rethrow;
+      }
+    }
+    
     await _database.transaction(() async {
       for (final data in paymentDataList) {
         // Drift expects milliseconds since epoch (not seconds)
@@ -377,5 +571,67 @@ class PaymentsRepository {
         );
       }
     });
+  }
+  
+  // ==================== REMOTE API HELPERS ====================
+  
+  /// Watch payments from remote server with polling
+  Stream<List<Payment>> _watchPaymentsRemote(String userName, String dateStr, String timeFilter) async* {
+    // Fetch immediately
+    yield await _fetchPaymentsRemote(userName, dateStr, timeFilter);
+    
+    // Then poll every 3 seconds
+    await for (final _ in Stream.periodic(const Duration(seconds: 3))) {
+      yield await _fetchPaymentsRemote(userName, dateStr, timeFilter);
+    }
+  }
+  
+  /// Fetch payments from remote server
+  Future<List<Payment>> _fetchPaymentsRemote(String userName, String dateStr, String timeFilter) async {
+    try {
+      final response = await MediCoreClient.instance.getPaymentsByUserAndDate(userName, dateStr);
+      final paymentsJson = (response['payments'] as List<dynamic>?) ?? [];
+      
+      var payments = paymentsJson.map((json) => _mapJsonToPayment(json as Map<String, dynamic>)).toList();
+      
+      // Apply time filter
+      if (timeFilter == 'morning') {
+        payments = payments.where((p) => p.paymentTime.hour < 13).toList();
+      } else if (timeFilter == 'afternoon') {
+        payments = payments.where((p) => p.paymentTime.hour >= 13).toList();
+      }
+      
+      return payments;
+    } catch (e) {
+      print('❌ [PaymentsRepository] Remote fetch failed: $e');
+      return [];
+    }
+  }
+  
+  /// Map JSON to Payment object
+  Payment _mapJsonToPayment(Map<String, dynamic> json) {
+    DateTime parseTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      if (value is String) return DateTime.tryParse(value)?.toLocal() ?? DateTime.now();
+      return DateTime.now();
+    }
+    
+    return Payment(
+      id: json['id'] as int,
+      medicalActId: json['medical_act_id'] as int? ?? 0,
+      medicalActName: json['medical_act_name'] as String? ?? '',
+      amount: json['amount'] as int? ?? 0,
+      userId: json['user_id'] as String? ?? '',
+      userName: json['user_name'] as String? ?? '',
+      patientCode: json['patient_code'] as int? ?? 0,
+      patientFirstName: json['patient_first_name'] as String? ?? '',
+      patientLastName: json['patient_last_name'] as String? ?? '',
+      paymentTime: parseTime(json['payment_time']),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      needsSync: false,
+      isActive: json['is_active'] as bool? ?? true,
+    );
   }
 }
