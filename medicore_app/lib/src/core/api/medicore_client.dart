@@ -187,7 +187,12 @@ class MediCoreClient {
   Future<void> deleteUserTemplate(String id) async {
     await _request('DeleteUserTemplate', {'id': id});
   }
-  
+
+  /// Get user template by ID
+  Future<Map<String, dynamic>> getUserTemplateById(String id) async {
+    return await _request('GetUserTemplateById', {'id': id});
+  }
+
   /// Create user from template
   Future<Map<String, dynamic>> createUserFromTemplate({
     required String templateId,
@@ -298,76 +303,6 @@ class MediCoreClient {
     await _request('MarkAllMessagesAsRead', {'room_id': roomId, 'direction': direction});
   }
   
-  // ==================== WAITING PATIENT OPERATIONS ====================
-  
-  /// Get waiting patients for room
-  Future<WaitingPatientList> getWaitingPatientsByRoom(String roomId) async {
-    final response = await _request('GetWaitingPatientsByRoom', {'room_id': roomId});
-    return WaitingPatientList.fromJson(response);
-  }
-  
-  /// Add waiting patient
-  Future<int> addWaitingPatient(CreateWaitingPatientRequest request) async {
-    final response = await _request('AddWaitingPatient', request.toJson());
-    return response['id'] as int;
-  }
-  
-  /// Update waiting patient
-  Future<void> updateWaitingPatient(GrpcWaitingPatient patient) async {
-    await _request('UpdateWaitingPatient', patient.toJson());
-  }
-  
-  /// Remove waiting patient
-  Future<void> removeWaitingPatient(int id) async {
-    await _request('RemoveWaitingPatient', {'id': id});
-  }
-  
-  /// Remove waiting patient by patient code
-  Future<void> removeWaitingPatientByCode(int patientCode) async {
-    await _request('RemoveWaitingPatientByCode', {'patient_code': patientCode});
-  }
-  
-  /// Mark dilatations as notified for rooms
-  Future<void> markDilatationsAsNotified(List<String> roomIds) async {
-    await _request('MarkDilatationsAsNotified', {'room_ids': roomIds});
-  }
-  
-  // ==================== MEDICAL ACT OPERATIONS ====================
-  
-  /// Get all medical acts
-  Future<MedicalActList> getAllMedicalActs() async {
-    final response = await _request('GetAllMedicalActs', {});
-    return MedicalActList.fromJson(response);
-  }
-  
-  /// Get medical act by ID
-  Future<GrpcMedicalAct?> getMedicalActById(int id) async {
-    final response = await _request('GetMedicalActById', {'id': id});
-    if (response.isEmpty) return null;
-    return GrpcMedicalAct.fromJson(response);
-  }
-  
-  /// Create medical act
-  Future<int> createMedicalAct({required String name, required int feeAmount}) async {
-    final response = await _request('CreateMedicalAct', {'name': name, 'fee_amount': feeAmount});
-    return response['id'] as int;
-  }
-  
-  /// Update medical act
-  Future<void> updateMedicalAct({required int id, required String name, required int feeAmount}) async {
-    await _request('UpdateMedicalAct', {'id': id, 'name': name, 'fee_amount': feeAmount});
-  }
-  
-  /// Delete medical act
-  Future<void> deleteMedicalAct(int id) async {
-    await _request('DeleteMedicalAct', {'id': id});
-  }
-  
-  /// Reorder medical acts
-  Future<void> reorderMedicalActs(List<int> ids) async {
-    await _request('ReorderMedicalActs', {'ids': ids});
-  }
-  
   // ==================== MESSAGE TEMPLATE OPERATIONS ====================
   
   /// Get all message templates
@@ -393,7 +328,17 @@ class MediCoreClient {
   Future<void> deleteMessageTemplate(int id) async {
     await _request('DeleteMessageTemplate', {'id': id});
   }
-  
+
+  /// Get message template by ID
+  Future<Map<String, dynamic>> getMessageTemplateById(int id) async {
+    return await _request('GetMessageTemplateById', {'id': id});
+  }
+
+  /// Reorder message templates
+  Future<void> reorderMessageTemplates(List<int> orderedIds) async {
+    await _request('ReorderMessageTemplates', {'ordered_ids': orderedIds});
+  }
+
   // ==================== VISIT OPERATIONS ====================
   
   /// Get visits for patient
@@ -608,6 +553,23 @@ class MediCoreClient {
   /// Mark nurse inactive
   Future<void> markNurseInactive(String nurseId) async {
     await _request('MarkNurseInactive', {'nurse_id': nurseId});
+  }
+  
+  // ==================== PAYMENT OPERATIONS ====================
+  
+  /// Update payment
+  Future<void> updatePayment(Map<String, dynamic> payment) async {
+    await _request('UpdatePayment', payment);
+  }
+  
+  /// Import payment
+  Future<void> importPayment(Map<String, dynamic> payment) async {
+    await _request('ImportPayment', payment);
+  }
+  
+  /// Batch import payments
+  Future<void> batchImportPayments(List<Map<String, dynamic>> payments) async {
+    await _request('BatchImportPayments', {'payments': payments});
   }
   
   /// Dispose client

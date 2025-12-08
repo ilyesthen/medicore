@@ -67,12 +67,12 @@ class MedicalActsRepository {
     if (!GrpcClientConfig.isServer) {
       try {
         final response = await MediCoreClient.instance.getMedicalActById(id);
-        if (response.isEmpty) return null;
+        if (response == null) return null;
         return MedicalAct(
-          id: response['id'] as int,
-          name: response['name'] as String,
-          feeAmount: response['fee_amount'] as int,
-          displayOrder: response['display_order'] as int? ?? 0,
+          id: response.id,
+          name: response.name,
+          feeAmount: response.feeAmount,
+          displayOrder: response.displayOrder,
           isActive: true,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
