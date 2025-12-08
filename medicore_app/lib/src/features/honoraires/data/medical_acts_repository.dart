@@ -46,11 +46,12 @@ class MedicalActsRepository {
   Future<List<MedicalAct>> _fetchMedicalActsRemote() async {
     try {
       final response = await MediCoreClient.instance.getAllMedicalActs();
-      return response.acts.map((a) => MedicalAct(
-        id: a.id,
-        name: a.name,
-        feeAmount: a.feeAmount,
-        displayOrder: a.displayOrder,
+      final acts = (response['acts'] as List<dynamic>?) ?? [];
+      return acts.map((a) => MedicalAct(
+        id: a['id'] as int,
+        name: a['name'] as String,
+        feeAmount: a['fee_amount'] as int,
+        displayOrder: a['display_order'] as int? ?? 0,
         isActive: true,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -67,12 +68,12 @@ class MedicalActsRepository {
     if (!GrpcClientConfig.isServer) {
       try {
         final response = await MediCoreClient.instance.getMedicalActById(id);
-        if (response == null) return null;
+        if (response.isEmpty) return null;
         return MedicalAct(
-          id: response.id,
-          name: response.name,
-          feeAmount: response.feeAmount,
-          displayOrder: response.displayOrder,
+          id: response['id'] as int,
+          name: response['name'] as String,
+          feeAmount: response['fee_amount'] as int,
+          displayOrder: response['display_order'] as int? ?? 0,
           isActive: true,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),

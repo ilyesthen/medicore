@@ -555,12 +555,7 @@ class MediCoreClient {
     await _request('MarkNurseInactive', {'nurse_id': nurseId});
   }
   
-  // ==================== PAYMENT OPERATIONS ====================
-  
-  /// Update payment
-  Future<void> updatePayment(Map<String, dynamic> payment) async {
-    await _request('UpdatePayment', payment);
-  }
+  // ==================== ADDITIONAL PAYMENT OPERATIONS ====================
   
   /// Import payment
   Future<void> importPayment(Map<String, dynamic> payment) async {
@@ -570,6 +565,90 @@ class MediCoreClient {
   /// Batch import payments
   Future<void> batchImportPayments(List<Map<String, dynamic>> payments) async {
     await _request('BatchImportPayments', {'payments': payments});
+  }
+  
+  // ==================== WAITING QUEUE OPERATIONS ====================
+  
+  /// Add waiting patient (accepts protobuf CreateWaitingPatientRequest)
+  Future<int> addWaitingPatient(CreateWaitingPatientRequest request) async {
+    final response = await _request('AddWaitingPatient', {
+      'patient_code': request.patientCode,
+      'patient_first_name': request.patientFirstName,
+      'patient_last_name': request.patientLastName,
+      'room_id': request.roomId,
+      'room_name': request.roomName,
+      'motif': request.motif,
+      'sent_by_user_id': request.sentByUserId,
+      'sent_by_user_name': request.sentByUserName,
+      'patient_age': request.patientAge,
+      'is_urgent': request.isUrgent,
+      'is_dilatation': request.isDilatation,
+      'dilatation_type': request.dilatationType,
+    });
+    return response['id'] as int;
+  }
+  
+  /// Get waiting patients by room - returns object with patients list
+  Future<WaitingPatientList> getWaitingPatientsByRoom(String roomId) async {
+    final response = await _request('GetWaitingPatientsByRoom', {'room_id': roomId});
+    return WaitingPatientList.fromJson(response);
+  }
+  
+  /// Update waiting patient (accepts protobuf GrpcWaitingPatient)
+  Future<void> updateWaitingPatient(GrpcWaitingPatient patient) async {
+    await _request('UpdateWaitingPatient', {
+      'id': patient.id,
+      'is_checked': patient.isChecked,
+      'is_active': patient.isActive,
+    });
+  }
+  
+  /// Remove waiting patient
+  Future<void> removeWaitingPatient(int id) async {
+    await _request('RemoveWaitingPatient', {'id': id});
+  }
+  
+  /// Remove waiting patient by code
+  Future<void> removeWaitingPatientByCode(int patientCode) async {
+    await _request('RemoveWaitingPatientByCode', {'patient_code': patientCode});
+  }
+  
+  /// Mark dilatations as notified (accepts room IDs as strings)
+  Future<void> markDilatationsAsNotified(List<String> roomIds) async {
+    await _request('MarkDilatationsAsNotified', {'room_ids': roomIds});
+  }
+  
+  // ==================== MEDICAL ACT OPERATIONS ====================
+  
+  /// Get all medical acts
+  Future<Map<String, dynamic>> getAllMedicalActs() async {
+    return await _request('GetAllMedicalActs', {});
+  }
+  
+  /// Get medical act by ID
+  Future<Map<String, dynamic>> getMedicalActById(int id) async {
+    return await _request('GetMedicalActById', {'id': id});
+  }
+  
+  /// Create medical act
+  Future<int> createMedicalAct({required String name, required int feeAmount}) async {
+    final response = await _request('CreateMedicalAct', {'name': name, 'fee_amount': feeAmount});
+    return response['id'] as int;
+  }
+  
+  /// Update medical act
+  Future<void> updateMedicalAct({required int id, required String name, required int feeAmount}) async {
+    await _request('UpdateMedicalAct', {'id': id, 'name': name, 'fee_amount': feeAmount});
+  }
+  
+  /// Delete medical act
+  Future<void> deleteMedicalAct(int id) async {
+    await _request('DeleteMedicalAct', {'id': id});
+  }
+  
+  /// Reorder medical acts
+  Future<void> reorderMedicalActs(List<int> ids) async {
+    await _request('ReorderMedicalActs', {'ids': ids});
   }
   
   /// Dispose client

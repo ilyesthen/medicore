@@ -487,7 +487,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
                 const SizedBox(height: 10),
                 // EYE PANELS
                 Expanded(child: Row(children: [
-                  Expanded(child: _NewVisitEyePanel(key: _odPanelKey, eyeLabel: 'OEIL DROIT (OD)', eyeColor: const Color(0xFF2E7D32), isRightEye: true, onChanged: _checkForChanges)),
+                  Expanded(child: _NewVisitEyePanel(key: _odPanelKey, eyeLabel: 'OEIL DROIT (OD)', eyeColor: const Color(0xFF2E7D32), isRightEye: true, onChanged: _checkForChanges, onAxeSubmitted: () => _ogPanelKey.currentState?.focusOnSph())),
                   const SizedBox(width: 10),
                   Expanded(child: _NewVisitEyePanel(key: _ogPanelKey, eyeLabel: 'OEIL GAUCHE (OG)', eyeColor: const Color(0xFF1565C0), isRightEye: false, onChanged: _checkForChanges)),
                 ])),
@@ -577,8 +577,9 @@ class _NewVisitEyePanel extends StatefulWidget {
   final Color eyeColor;
   final bool isRightEye;
   final VoidCallback? onChanged; // Callback when any field changes
+  final VoidCallback? onAxeSubmitted; // Callback when Enter pressed on AXE field
 
-  const _NewVisitEyePanel({super.key, required this.eyeLabel, required this.eyeColor, required this.isRightEye, this.onChanged});
+  const _NewVisitEyePanel({super.key, required this.eyeLabel, required this.eyeColor, required this.isRightEye, this.onChanged, this.onAxeSubmitted});
 
   @override
   State<_NewVisitEyePanel> createState() => _NewVisitEyePanelState();
@@ -588,6 +589,16 @@ class _NewVisitEyePanelState extends State<_NewVisitEyePanel> {
   final _conduiteController = TextEditingController();
   final _notesController = TextEditingController();
   bool _isLoading = false; // Flag to prevent notifications during load
+  
+  // Focus nodes for SPH/CYL/AXE navigation with Enter key
+  final _sphFocusNode = FocusNode();
+  final _cylFocusNode = FocusNode();
+  final _axeFocusNode = FocusNode();
+  
+  /// Request focus on SPH field (called from parent to chain panels)
+  void focusOnSph() {
+    _sphFocusNode.requestFocus();
+  }
   
   // Controllers for input fields
   final _k1Controller = TextEditingController();
@@ -803,6 +814,9 @@ class _NewVisitEyePanelState extends State<_NewVisitEyePanel> {
     _r0Controller.dispose();
     _tocController.dispose();
     _vlController.dispose();
+    _sphFocusNode.dispose();
+    _cylFocusNode.dispose();
+    _axeFocusNode.dispose();
     super.dispose();
   }
 
@@ -828,9 +842,9 @@ class _NewVisitEyePanelState extends State<_NewVisitEyePanel> {
               ])),
               const SizedBox(height: 6),
               Expanded(child: Row(children: [
-                Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: _FieldDropdown('SPH', _sphere, sphereCylindreValues, (v) { setState(() => _sphere = v); _updateVL(); _notifyChange(); }))),
-                Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: _FieldDropdown('CYL', _cylindre, sphereCylindreValues, (v) { setState(() => _cylindre = v); _updateVL(); _notifyChange(); }))),
-                Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: _FieldDropdown('AXE', _axe, axeValues, (v) { setState(() => _axe = v); _updateVL(); _notifyChange(); }))),
+                Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: _FieldDropdown('SPH', _sphere, sphereCylindreValues, (v) { setState(() => _sphere = v); _updateVL(); _notifyChange(); }, focusNode: _sphFocusNode, onFieldSubmitted: () => _cylFocusNode.requestFocus()))),
+                Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: _FieldDropdown('CYL', _cylindre, sphereCylindreValues, (v) { setState(() => _cylindre = v); _updateVL(); _notifyChange(); }, focusNode: _cylFocusNode, onFieldSubmitted: () => _axeFocusNode.requestFocus()))),
+                Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: _FieldDropdown('AXE', _axe, axeValues, (v) { setState(() => _axe = v); _updateVL(); _notifyChange(); }, focusNode: _axeFocusNode, onFieldSubmitted: () => widget.onAxeSubmitted?.call()))),
                 Expanded(flex: 2, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: _FieldAutoCalc('VL', _vlController, green: true))),
               ])),
               const SizedBox(height: 6),
@@ -958,8 +972,10 @@ class _FieldDropdown extends StatefulWidget {
   final String? value;
   final List<String> options;
   final ValueChanged<String?> onChanged;
+  final FocusNode? focusNode; // Optional external focus node
+  final VoidCallback? onFieldSubmitted; // Called when Enter is pressed
 
-  const _FieldDropdown(this.label, this.value, this.options, this.onChanged);
+  const _FieldDropdown(this.label, this.value, this.options, this.onChanged, {this.focusNode, this.onFieldSubmitted});
 
   @override
   State<_FieldDropdown> createState() => _FieldDropdownState();
@@ -967,7 +983,8 @@ class _FieldDropdown extends StatefulWidget {
 
 class _FieldDropdownState extends State<_FieldDropdown> {
   late TextEditingController _controller;
-  final _focusNode = FocusNode();
+  FocusNode? _internalFocusNode;
+  FocusNode get _focusNode => widget.focusNode ?? (_internalFocusNode ??= FocusNode());
   OverlayEntry? _overlayEntry;
   final _layerLink = LayerLink();
 
@@ -988,7 +1005,7 @@ class _FieldDropdownState extends State<_FieldDropdown> {
   @override
   void dispose() {
     _controller.dispose();
-    _focusNode.dispose();
+    _internalFocusNode?.dispose(); // Only dispose internal focus node
     _removeOverlay();
     super.dispose();
   }
@@ -1050,9 +1067,11 @@ class _FieldDropdownState extends State<_FieldDropdown> {
               focusNode: _focusNode,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: MediCoreColors.deepNavy),
               textAlign: TextAlign.center,
+              textInputAction: TextInputAction.next,
               decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8)),
               onChanged: (v) => widget.onChanged(v.isEmpty ? null : v),
               onTap: () => _removeOverlay(),
+              onSubmitted: (_) => widget.onFieldSubmitted?.call(),
             ),
           ),
           InkWell(
