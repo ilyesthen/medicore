@@ -97,15 +97,16 @@ class PatientsRepository {
     yield await _fetchPatientsRemote();
     
     // Poll every 5 seconds
-    await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
       yield await _fetchPatientsRemote();
     }
   }
   
-  /// Fetch patients from remote server
+  /// Fetch patients from remote server (server returns in code ASC order)
   Future<List<Patient>> _fetchPatientsRemote() async {
     try {
       final response = await MediCoreClient.instance.getAllPatients();
+      // Server already returns patients ordered by code ASC (oldest first)
       return response.patients.map(_grpcPatientToLocal).toList();
     } catch (e) {
       print('❌ [PatientsRepository] Remote fetch failed: $e');
@@ -157,11 +158,40 @@ class PatientsRepository {
       return;
     }
     
-    // Client mode: use remote
+    // Client mode: fetch all and filter locally for reliable search
     if (!GrpcClientConfig.isServer) {
       try {
-        final response = await MediCoreClient.instance.searchPatients(query);
-        yield response.patients.map(_grpcPatientToLocal).toList();
+        final allPatients = await _fetchPatientsRemote();
+        final lowerQuery = query.toLowerCase().trim();
+        
+        List<Patient> filtered;
+        
+        // Check if query is a valid patient code (exact number match)
+        final queryAsCode = int.tryParse(query.trim());
+        if (queryAsCode != null) {
+          // Exact code match only
+          filtered = allPatients.where((p) => p.code == queryAsCode).toList();
+        } else if (lowerQuery.contains(' ')) {
+          // Search with space: match both first and last name
+          final parts = lowerQuery.split(' ');
+          final part1 = parts[0];
+          final part2 = parts.sublist(1).join(' ');
+          
+          filtered = allPatients.where((p) {
+            final firstName = p.firstName.toLowerCase();
+            final lastName = p.lastName.toLowerCase();
+            return (firstName.contains(part1) && lastName.contains(part2)) ||
+                   (firstName.contains(part2) && lastName.contains(part1));
+          }).toList();
+        } else {
+          // Single word: search in first or last name
+          filtered = allPatients.where((p) {
+            return p.firstName.toLowerCase().contains(lowerQuery) ||
+                   p.lastName.toLowerCase().contains(lowerQuery);
+          }).toList();
+        }
+        
+        yield filtered;
       } catch (e) {
         print('❌ [PatientsRepository] Remote searchPatients failed: $e');
         yield [];

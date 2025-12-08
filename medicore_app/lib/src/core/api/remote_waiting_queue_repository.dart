@@ -159,7 +159,7 @@ class RemoteWaitingQueueRepository {
       fetchData();
       
       // Then poll every 2 seconds
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
     }
     
     return _roomStreams[key]!.stream;
@@ -256,7 +256,7 @@ class RemoteWaitingQueueRepository {
       fetchData();
       
       // Then poll every 2 seconds
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
     }
     
     return _roomStreams[key]!.stream;
@@ -282,7 +282,7 @@ class RemoteWaitingQueueRepository {
       sentAt: DateTime.tryParse(grpc.sentAt) ?? DateTime.now(),
       isChecked: grpc.isChecked,
       isActive: grpc.isActive,
-      isNotified: false,
+      isNotified: grpc.isNotified,
     );
   }
 

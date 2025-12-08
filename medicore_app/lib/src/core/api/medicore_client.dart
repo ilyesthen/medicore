@@ -594,6 +594,11 @@ class MediCoreClient {
     return WaitingPatientList.fromJson(response);
   }
   
+  /// Get waiting patient by ID
+  Future<Map<String, dynamic>> getWaitingPatientById(int id) async {
+    return await _request('GetWaitingPatientById', {'id': id});
+  }
+  
   /// Update waiting patient (accepts protobuf GrpcWaitingPatient)
   Future<void> updateWaitingPatient(GrpcWaitingPatient patient) async {
     await _request('UpdateWaitingPatient', {

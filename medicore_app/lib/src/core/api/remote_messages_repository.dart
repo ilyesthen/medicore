@@ -90,7 +90,7 @@ class RemoteMessagesRepository {
       fetchMessages();
       
       // Poll every 2 seconds for real-time updates
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchMessages());
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
     }
     
     return _roomStreams[key]!.stream;
@@ -122,7 +122,7 @@ class RemoteMessagesRepository {
       fetchMessages();
       
       // Poll every 2 seconds for real-time updates
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchMessages());
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
     }
     
     return _roomStreams[key]!.stream;
@@ -150,7 +150,7 @@ class RemoteMessagesRepository {
       fetchMessages();
       
       // Poll every 2 seconds for real-time updates
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchMessages());
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
     }
     
     return _roomStreams[key]!.stream;

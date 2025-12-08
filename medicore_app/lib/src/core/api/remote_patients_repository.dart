@@ -23,7 +23,7 @@ class RemotePatientsRepository {
     yield _cachedPatients;
     
     // Periodic refresh every 5 seconds for real-time updates
-    await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
       await _refreshPatients();
       yield _cachedPatients;
     }

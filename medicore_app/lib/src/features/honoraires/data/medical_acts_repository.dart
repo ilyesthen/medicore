@@ -38,7 +38,7 @@ class MedicalActsRepository {
   // Remote helpers
   Stream<List<MedicalAct>> _watchMedicalActsRemote() async* {
     yield await _fetchMedicalActsRemote();
-    await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
       yield await _fetchMedicalActsRemote();
     }
   }

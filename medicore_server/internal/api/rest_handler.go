@@ -3,10 +3,24 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
+	"time"
 )
+
+// generateBarcode creates a random 8-character barcode
+func generateBarcode() string {
+	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+"
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, 8)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
+}
 
 // RESTHandler provides HTTP/JSON API endpoints for Flutter clients
 // This allows clients to communicate without full gRPC implementation
@@ -49,6 +63,7 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 
 	// User template endpoints
 	mux.HandleFunc("/api/GetAllUserTemplates", cors(h.GetAllUserTemplates))
+	mux.HandleFunc("/api/GetUserTemplateById", cors(h.GetUserTemplateById))
 	mux.HandleFunc("/api/CreateUserTemplate", cors(h.CreateUserTemplate))
 	mux.HandleFunc("/api/UpdateUserTemplate", cors(h.UpdateUserTemplate))
 	mux.HandleFunc("/api/DeleteUserTemplate", cors(h.DeleteUserTemplate))
@@ -78,12 +93,15 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 
 	// Message template endpoints
 	mux.HandleFunc("/api/GetAllMessageTemplates", cors(h.GetAllMessageTemplates))
+	mux.HandleFunc("/api/GetMessageTemplateById", cors(h.GetMessageTemplateById))
 	mux.HandleFunc("/api/CreateMessageTemplate", cors(h.CreateMessageTemplate))
 	mux.HandleFunc("/api/UpdateMessageTemplate", cors(h.UpdateMessageTemplate))
 	mux.HandleFunc("/api/DeleteMessageTemplate", cors(h.DeleteMessageTemplate))
+	mux.HandleFunc("/api/ReorderMessageTemplates", cors(h.ReorderMessageTemplates))
 
 	// Waiting patient endpoints
 	mux.HandleFunc("/api/GetWaitingPatientsByRoom", cors(h.GetWaitingPatientsByRoom))
+	mux.HandleFunc("/api/GetWaitingPatientById", cors(h.GetWaitingPatientById))
 	mux.HandleFunc("/api/AddWaitingPatient", cors(h.AddWaitingPatient))
 	mux.HandleFunc("/api/UpdateWaitingPatient", cors(h.UpdateWaitingPatient))
 	mux.HandleFunc("/api/RemoveWaitingPatient", cors(h.RemoveWaitingPatient))
@@ -289,18 +307,33 @@ func (h *RESTHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.db.Exec(`
+	// Auto-generate ID if not provided
+	userId := ""
+	if id, ok := req["id"].(string); ok && id != "" {
+		userId = id
+	} else {
+		userId = fmt.Sprintf("%d", time.Now().UnixNano()/1e6)
+	}
+
+	// Get name from full_name or username
+	name := ""
+	if fn, ok := req["full_name"].(string); ok && fn != "" {
+		name = fn
+	} else if un, ok := req["username"].(string); ok {
+		name = un
+	}
+
+	_, err := h.db.Exec(`
 		INSERT INTO users (id, name, role, password_hash, percentage, is_template_user, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-	`, req["id"], req["full_name"], req["role"], req["password_hash"], req["percentage"], false)
+	`, userId, name, req["role"], req["password_hash"], req["percentage"], false)
 
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
 	}
 
-	id, _ := result.LastInsertId()
-	respondJSON(w, map[string]interface{}{"id": id})
+	respondJSON(w, map[string]interface{}{"id": userId})
 }
 
 func (h *RESTHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -310,10 +343,26 @@ func (h *RESTHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get name from full_name or username
+	name := ""
+	if fn, ok := req["full_name"].(string); ok && fn != "" {
+		name = fn
+	} else if un, ok := req["username"].(string); ok {
+		name = un
+	}
+
+	// Get ID from id field (can be string or int)
+	userId := ""
+	if id, ok := req["id"].(string); ok {
+		userId = id
+	} else if id, ok := req["id"].(float64); ok {
+		userId = fmt.Sprintf("%.0f", id)
+	}
+
 	_, err := h.db.Exec(`
 		UPDATE users SET name = ?, role = ?, password_hash = ?, percentage = ?, updated_at = datetime('now')
 		WHERE id = ?
-	`, req["full_name"], req["role"], req["password_hash"], req["percentage"], req["id"])
+	`, name, req["role"], req["password_hash"], req["percentage"], userId)
 
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -330,7 +379,15 @@ func (h *RESTHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.db.Exec(`UPDATE users SET deleted_at = datetime('now') WHERE id = ?`, req["id"])
+	// Get ID from id field (can be string or int)
+	userId := ""
+	if id, ok := req["id"].(string); ok {
+		userId = id
+	} else if id, ok := req["id"].(float64); ok {
+		userId = fmt.Sprintf("%.0f", id)
+	}
+
+	_, err := h.db.Exec(`UPDATE users SET deleted_at = datetime('now') WHERE id = ?`, userId)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -444,6 +501,32 @@ func (h *RESTHandler) GetAllUserTemplates(w http.ResponseWriter, r *http.Request
 	}
 
 	respondJSON(w, map[string]interface{}{"templates": templates})
+}
+
+func (h *RESTHandler) GetUserTemplateById(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := req["id"].(string)
+	row := h.db.QueryRow(`SELECT id, role, password_hash, percentage, created_at FROM templates WHERE id = ? AND deleted_at IS NULL`, id)
+
+	var role, passwordHash, createdAt string
+	var percentage float64
+	if err := row.Scan(&id, &role, &passwordHash, &percentage, &createdAt); err != nil {
+		respondJSON(w, map[string]interface{}{})
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{
+		"id":            id,
+		"role":          role,
+		"password_hash": passwordHash,
+		"percentage":    percentage,
+		"created_at":    createdAt,
+	})
 }
 
 func (h *RESTHandler) CreateUserTemplate(w http.ResponseWriter, r *http.Request) {
@@ -648,7 +731,7 @@ func (h *RESTHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 func (h *RESTHandler) GetAllPatients(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.db.Query(`
 		SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, other_info, created_at
-		FROM patients ORDER BY code DESC
+		FROM patients ORDER BY code ASC
 	`)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -700,16 +783,16 @@ func (h *RESTHandler) GetPatientByCode(w http.ResponseWriter, r *http.Request) {
 
 	code := int(req["patient_code"].(float64))
 	row := h.db.QueryRow(`
-		SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number
+		SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, other_info
 		FROM patients WHERE code = ?
 	`, code)
 
 	var patientCode int
 	var barcode, firstName, lastName string
 	var age sql.NullInt64
-	var dateOfBirth, address, phone sql.NullString
+	var dateOfBirth, address, phone, otherInfo sql.NullString
 
-	if err := row.Scan(&patientCode, &barcode, &firstName, &lastName, &age, &dateOfBirth, &address, &phone); err != nil {
+	if err := row.Scan(&patientCode, &barcode, &firstName, &lastName, &age, &dateOfBirth, &address, &phone, &otherInfo); err != nil {
 		respondJSON(w, map[string]interface{}{})
 		return
 	}
@@ -723,6 +806,18 @@ func (h *RESTHandler) GetPatientByCode(w http.ResponseWriter, r *http.Request) {
 	if age.Valid {
 		patient["age"] = age.Int64
 	}
+	if dateOfBirth.Valid {
+		patient["date_of_birth"] = dateOfBirth.String
+	}
+	if address.Valid {
+		patient["address"] = address.String
+	}
+	if phone.Valid {
+		patient["phone"] = phone.String
+	}
+	if otherInfo.Valid {
+		patient["notes"] = otherInfo.String
+	}
 
 	respondJSON(w, patient)
 }
@@ -734,13 +829,42 @@ func (h *RESTHandler) SearchPatients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "%" + strings.ToLower(req["query"].(string)) + "%"
-	rows, err := h.db.Query(`
-		SELECT code, barcode, first_name, last_name, age
-		FROM patients 
-		WHERE LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ? OR CAST(code AS TEXT) LIKE ?
-		ORDER BY code DESC LIMIT 100
-	`, query, query, query)
+	queryStr := strings.TrimSpace(req["query"].(string))
+	queryLower := strings.ToLower(queryStr)
+
+	var rows *sql.Rows
+	var err error
+
+	// Check if query is a number (code search)
+	if _, parseErr := fmt.Sscanf(queryStr, "%d", new(int)); parseErr == nil {
+		// Exact code match
+		rows, err = h.db.Query(`
+			SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number
+			FROM patients WHERE code = ?
+			ORDER BY code ASC
+		`, queryStr)
+	} else if strings.Contains(queryLower, " ") {
+		// Space-separated: search both first AND last name (either order)
+		parts := strings.SplitN(queryLower, " ", 2)
+		part1 := "%" + parts[0] + "%"
+		part2 := "%" + parts[1] + "%"
+		rows, err = h.db.Query(`
+			SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number
+			FROM patients 
+			WHERE (LOWER(first_name) LIKE ? AND LOWER(last_name) LIKE ?)
+			   OR (LOWER(first_name) LIKE ? AND LOWER(last_name) LIKE ?)
+			ORDER BY code ASC LIMIT 100
+		`, part1, part2, part2, part1)
+	} else {
+		// Single word: search in first OR last name
+		queryPattern := "%" + queryLower + "%"
+		rows, err = h.db.Query(`
+			SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number
+			FROM patients 
+			WHERE LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ?
+			ORDER BY code ASC LIMIT 100
+		`, queryPattern, queryPattern)
+	}
 
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -753,8 +877,9 @@ func (h *RESTHandler) SearchPatients(w http.ResponseWriter, r *http.Request) {
 		var code int
 		var barcode, firstName, lastName string
 		var age sql.NullInt64
+		var dateOfBirth, address, phone sql.NullString
 
-		if err := rows.Scan(&code, &barcode, &firstName, &lastName, &age); err != nil {
+		if err := rows.Scan(&code, &barcode, &firstName, &lastName, &age, &dateOfBirth, &address, &phone); err != nil {
 			continue
 		}
 
@@ -766,6 +891,15 @@ func (h *RESTHandler) SearchPatients(w http.ResponseWriter, r *http.Request) {
 		}
 		if age.Valid {
 			patient["age"] = age.Int64
+		}
+		if dateOfBirth.Valid {
+			patient["date_of_birth"] = dateOfBirth.String
+		}
+		if address.Valid {
+			patient["address"] = address.String
+		}
+		if phone.Valid {
+			patient["phone"] = phone.String
 		}
 		patients = append(patients, patient)
 	}
@@ -780,18 +914,41 @@ func (h *RESTHandler) CreatePatient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code := int(req["code"].(float64))
+	// Auto-generate code if not provided or 0
+	code := 0
+	if c, ok := req["code"].(float64); ok && c > 0 {
+		code = int(c)
+	} else {
+		// Get next code
+		row := h.db.QueryRow(`SELECT COALESCE(MAX(code), 0) + 1 FROM patients`)
+		row.Scan(&code)
+	}
+
+	// Auto-generate barcode if not provided
+	barcode := ""
+	if b, ok := req["barcode"].(string); ok && b != "" {
+		barcode = b
+	} else {
+		barcode = generateBarcode()
+	}
+
+	// Get optional fields
+	var dateOfBirth interface{}
+	if v, ok := req["date_of_birth"]; ok {
+		dateOfBirth = v
+	}
+
 	_, err := h.db.Exec(`
-		INSERT INTO patients (code, barcode, first_name, last_name, age, address, phone_number, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-	`, code, req["barcode"], req["first_name"], req["last_name"], req["age"], req["address"], req["phone"])
+		INSERT INTO patients (code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+	`, code, barcode, req["first_name"], req["last_name"], req["age"], dateOfBirth, req["address"], req["phone"])
 
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
 	}
 
-	respondJSON(w, map[string]interface{}{"code": code})
+	respondJSON(w, map[string]interface{}{"code": code, "id": code})
 }
 
 func (h *RESTHandler) UpdatePatient(w http.ResponseWriter, r *http.Request) {
@@ -802,10 +959,17 @@ func (h *RESTHandler) UpdatePatient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := int(req["code"].(float64))
+
+	// Get optional fields
+	var dateOfBirth interface{}
+	if v, ok := req["date_of_birth"]; ok {
+		dateOfBirth = v
+	}
+
 	_, err := h.db.Exec(`
-		UPDATE patients SET first_name = ?, last_name = ?, age = ?, address = ?, phone_number = ?, updated_at = datetime('now')
+		UPDATE patients SET first_name = ?, last_name = ?, age = ?, date_of_birth = ?, address = ?, phone_number = ?, updated_at = datetime('now')
 		WHERE code = ?
-	`, req["first_name"], req["last_name"], req["age"], req["address"], req["phone"], code)
+	`, req["first_name"], req["last_name"], req["age"], dateOfBirth, req["address"], req["phone"], code)
 
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -934,7 +1098,8 @@ func (h *RESTHandler) MarkMessageAsRead(w http.ResponseWriter, r *http.Request) 
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`UPDATE messages SET is_read = 1 WHERE id = ?`, id)
+	// Delete message when marked as read (no history kept - matches Flutter behavior)
+	_, err := h.db.Exec(`DELETE FROM messages WHERE id = ?`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -953,7 +1118,8 @@ func (h *RESTHandler) MarkAllMessagesAsRead(w http.ResponseWriter, r *http.Reque
 	roomId := req["room_id"].(string)
 	direction := req["direction"].(string)
 
-	_, err := h.db.Exec(`UPDATE messages SET is_read = 1 WHERE room_id = ? AND direction = ? AND is_read = 0`, roomId, direction)
+	// Delete all messages when marked as read (no history kept - matches Flutter behavior)
+	_, err := h.db.Exec(`DELETE FROM messages WHERE room_id = ? AND direction = ?`, roomId, direction)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1044,6 +1210,36 @@ func (h *RESTHandler) UpdateMessageTemplate(w http.ResponseWriter, r *http.Reque
 	respondJSON(w, map[string]interface{}{})
 }
 
+func (h *RESTHandler) GetMessageTemplateById(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	row := h.db.QueryRow(`SELECT id, content, display_order, created_at, created_by FROM message_templates WHERE id = ?`, id)
+
+	var templateId, displayOrder int
+	var content, createdAt string
+	var createdBy sql.NullString
+	if err := row.Scan(&templateId, &content, &displayOrder, &createdAt, &createdBy); err != nil {
+		respondJSON(w, map[string]interface{}{})
+		return
+	}
+
+	t := map[string]interface{}{
+		"id":            templateId,
+		"content":       content,
+		"display_order": displayOrder,
+		"created_at":    createdAt,
+	}
+	if createdBy.Valid {
+		t["created_by"] = createdBy.String
+	}
+	respondJSON(w, t)
+}
+
 func (h *RESTHandler) DeleteMessageTemplate(w http.ResponseWriter, r *http.Request) {
 	var req map[string]interface{}
 	if err := decodeBody(r, &req); err != nil {
@@ -1060,6 +1256,35 @@ func (h *RESTHandler) DeleteMessageTemplate(w http.ResponseWriter, r *http.Reque
 	respondJSON(w, map[string]interface{}{})
 }
 
+func (h *RESTHandler) ReorderMessageTemplates(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	// Accept both "ordered_ids" (Flutter) and "ids" (legacy)
+	var idsRaw []interface{}
+	if ids, ok := req["ordered_ids"].([]interface{}); ok {
+		idsRaw = ids
+	} else if ids, ok := req["ids"].([]interface{}); ok {
+		idsRaw = ids
+	} else {
+		respondError(w, 400, "missing ordered_ids or ids array")
+		return
+	}
+
+	for i, idRaw := range idsRaw {
+		id := int(idRaw.(float64))
+		_, err := h.db.Exec(`UPDATE message_templates SET display_order = ? WHERE id = ?`, i+1, id)
+		if err != nil {
+			respondError(w, 500, err.Error())
+			return
+		}
+	}
+	respondJSON(w, map[string]interface{}{})
+}
+
 // ==================== WAITING PATIENT HANDLERS ====================
 
 func (h *RESTHandler) GetWaitingPatientsByRoom(w http.ResponseWriter, r *http.Request) {
@@ -1072,7 +1297,7 @@ func (h *RESTHandler) GetWaitingPatientsByRoom(w http.ResponseWriter, r *http.Re
 	roomId := req["room_id"].(string)
 	rows, err := h.db.Query(`
 		SELECT id, patient_code, patient_first_name, patient_last_name, patient_age, is_urgent, is_dilatation, 
-			   dilatation_type, room_id, room_name, motif, sent_by_user_id, sent_by_user_name, sent_at, is_checked, is_active
+			   dilatation_type, room_id, room_name, motif, sent_by_user_id, sent_by_user_name, sent_at, is_checked, is_active, is_notified
 		FROM waiting_patients WHERE room_id = ? AND is_active = 1 ORDER BY sent_at ASC
 	`, roomId)
 
@@ -1088,10 +1313,10 @@ func (h *RESTHandler) GetWaitingPatientsByRoom(w http.ResponseWriter, r *http.Re
 		var patientFirstName, patientLastName, roomId, roomName, motif, sentByUserId, sentByUserName, sentAt string
 		var patientAge sql.NullInt64
 		var dilatationType sql.NullString
-		var isUrgent, isDilatation, isChecked, isActive bool
+		var isUrgent, isDilatation, isChecked, isActive, isNotified bool
 
 		if err := rows.Scan(&id, &patientCode, &patientFirstName, &patientLastName, &patientAge, &isUrgent, &isDilatation,
-			&dilatationType, &roomId, &roomName, &motif, &sentByUserId, &sentByUserName, &sentAt, &isChecked, &isActive); err != nil {
+			&dilatationType, &roomId, &roomName, &motif, &sentByUserId, &sentByUserName, &sentAt, &isChecked, &isActive, &isNotified); err != nil {
 			continue
 		}
 
@@ -1110,6 +1335,7 @@ func (h *RESTHandler) GetWaitingPatientsByRoom(w http.ResponseWriter, r *http.Re
 			"sent_at":            sentAt,
 			"is_checked":         isChecked,
 			"is_active":          isActive,
+			"is_notified":        isNotified,
 		}
 		if patientAge.Valid {
 			patient["patient_age"] = patientAge.Int64
@@ -1121,6 +1347,59 @@ func (h *RESTHandler) GetWaitingPatientsByRoom(w http.ResponseWriter, r *http.Re
 	}
 
 	respondJSON(w, map[string]interface{}{"patients": patients})
+}
+
+func (h *RESTHandler) GetWaitingPatientById(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	row := h.db.QueryRow(`
+		SELECT id, patient_code, patient_first_name, patient_last_name, patient_age, is_urgent, is_dilatation, 
+			   dilatation_type, room_id, room_name, motif, sent_by_user_id, sent_by_user_name, sent_at, is_checked, is_active, is_notified
+		FROM waiting_patients WHERE id = ?
+	`, id)
+
+	var patientId, patientCode int
+	var patientFirstName, patientLastName, roomId, roomName, motif, sentByUserId, sentByUserName, sentAt string
+	var patientAge sql.NullInt64
+	var dilatationType sql.NullString
+	var isUrgent, isDilatation, isChecked, isActive, isNotified bool
+
+	if err := row.Scan(&patientId, &patientCode, &patientFirstName, &patientLastName, &patientAge, &isUrgent, &isDilatation,
+		&dilatationType, &roomId, &roomName, &motif, &sentByUserId, &sentByUserName, &sentAt, &isChecked, &isActive, &isNotified); err != nil {
+		respondJSON(w, map[string]interface{}{})
+		return
+	}
+
+	patient := map[string]interface{}{
+		"id":                 patientId,
+		"patient_code":       patientCode,
+		"patient_first_name": patientFirstName,
+		"patient_last_name":  patientLastName,
+		"is_urgent":          isUrgent,
+		"is_dilatation":      isDilatation,
+		"room_id":            roomId,
+		"room_name":          roomName,
+		"motif":              motif,
+		"sent_by_user_id":    sentByUserId,
+		"sent_by_user_name":  sentByUserName,
+		"sent_at":            sentAt,
+		"is_checked":         isChecked,
+		"is_active":          isActive,
+		"is_notified":        isNotified,
+	}
+	if patientAge.Valid {
+		patient["patient_age"] = patientAge.Int64
+	}
+	if dilatationType.Valid {
+		patient["dilatation_type"] = dilatationType.String
+	}
+
+	respondJSON(w, patient)
 }
 
 func (h *RESTHandler) AddWaitingPatient(w http.ResponseWriter, r *http.Request) {
@@ -1155,13 +1434,25 @@ func (h *RESTHandler) UpdateWaitingPatient(w http.ResponseWriter, r *http.Reques
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`
-		UPDATE waiting_patients SET is_checked = ?, is_active = ? WHERE id = ?
-	`, req["is_checked"], req["is_active"], id)
 
-	if err != nil {
-		respondError(w, 500, err.Error())
-		return
+	// Check if this is a toggle request (is_checked sent without explicit value to set)
+	// If is_checked is true from Flutter toggleChecked, we toggle the current value
+	if isChecked, ok := req["is_checked"].(bool); ok && isChecked {
+		// Toggle: set is_checked = NOT is_checked
+		_, err := h.db.Exec(`UPDATE waiting_patients SET is_checked = NOT is_checked WHERE id = ?`, id)
+		if err != nil {
+			respondError(w, 500, err.Error())
+			return
+		}
+	} else {
+		// Direct update with provided values
+		_, err := h.db.Exec(`
+			UPDATE waiting_patients SET is_checked = ?, is_active = ? WHERE id = ?
+		`, req["is_checked"], req["is_active"], id)
+		if err != nil {
+			respondError(w, 500, err.Error())
+			return
+		}
 	}
 
 	respondJSON(w, map[string]interface{}{})
@@ -1367,8 +1658,8 @@ func (h *RESTHandler) GetVisitsForPatient(w http.ResponseWriter, r *http.Request
 	patientCode := int(req["patient_code"].(float64))
 	rows, err := h.db.Query(`
 		SELECT id, patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct,
-			   od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_toc,
-			   og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_toc,
+			   od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
+			   og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
 			   addition, dip, created_at
 		FROM visits WHERE patient_code = ? AND is_active = 1 ORDER BY visit_date DESC
 	`, patientCode)
@@ -1383,13 +1674,13 @@ func (h *RESTHandler) GetVisitsForPatient(w http.ResponseWriter, r *http.Request
 		var id, patientCode, visitSequence int
 		var visitDate, createdAt string
 		var doctorName, motif, diagnosis, conduct sql.NullString
-		var odSv, odAv, odSphere, odCylinder, odAxis, odVl, odK1, odK2, odToc sql.NullString
-		var ogSv, ogAv, ogSphere, ogCylinder, ogAxis, ogVl, ogK1, ogK2, ogToc sql.NullString
+		var odSv, odAv, odSphere, odCylinder, odAxis, odVl, odK1, odK2, odR1, odR2, odR0, odPachy, odToc, odNotes, odGonio, odTo, odLaf, odFo sql.NullString
+		var ogSv, ogAv, ogSphere, ogCylinder, ogAxis, ogVl, ogK1, ogK2, ogR1, ogR2, ogR0, ogPachy, ogToc, ogNotes, ogGonio, ogTo, ogLaf, ogFo sql.NullString
 		var addition, dip sql.NullString
 
 		if err := rows.Scan(&id, &patientCode, &visitSequence, &visitDate, &doctorName, &motif, &diagnosis, &conduct,
-			&odSv, &odAv, &odSphere, &odCylinder, &odAxis, &odVl, &odK1, &odK2, &odToc,
-			&ogSv, &ogAv, &ogSphere, &ogCylinder, &ogAxis, &ogVl, &ogK1, &ogK2, &ogToc,
+			&odSv, &odAv, &odSphere, &odCylinder, &odAxis, &odVl, &odK1, &odK2, &odR1, &odR2, &odR0, &odPachy, &odToc, &odNotes, &odGonio, &odTo, &odLaf, &odFo,
+			&ogSv, &ogAv, &ogSphere, &ogCylinder, &ogAxis, &ogVl, &ogK1, &ogK2, &ogR1, &ogR2, &ogR0, &ogPachy, &ogToc, &ogNotes, &ogGonio, &ogTo, &ogLaf, &ogFo,
 			&addition, &dip, &createdAt); err != nil {
 			continue
 		}
@@ -1401,60 +1692,57 @@ func (h *RESTHandler) GetVisitsForPatient(w http.ResponseWriter, r *http.Request
 			"visit_date":     visitDate,
 			"created_at":     createdAt,
 		}
-		if doctorName.Valid {
-			visit["doctor_name"] = doctorName.String
+		// Helper to add nullable string
+		addIfValid := func(key string, val sql.NullString) {
+			if val.Valid {
+				visit[key] = val.String
+			}
 		}
-		if motif.Valid {
-			visit["motif"] = motif.String
-		}
-		if diagnosis.Valid {
-			visit["diagnosis"] = diagnosis.String
-		}
-		if conduct.Valid {
-			visit["conduct"] = conduct.String
-		}
-		if odSv.Valid {
-			visit["od_sv"] = odSv.String
-		}
-		if odAv.Valid {
-			visit["od_av"] = odAv.String
-		}
-		if odSphere.Valid {
-			visit["od_sphere"] = odSphere.String
-		}
-		if odCylinder.Valid {
-			visit["od_cylinder"] = odCylinder.String
-		}
-		if odAxis.Valid {
-			visit["od_axis"] = odAxis.String
-		}
-		if odToc.Valid {
-			visit["od_toc"] = odToc.String
-		}
-		if ogSv.Valid {
-			visit["og_sv"] = ogSv.String
-		}
-		if ogAv.Valid {
-			visit["og_av"] = ogAv.String
-		}
-		if ogSphere.Valid {
-			visit["og_sphere"] = ogSphere.String
-		}
-		if ogCylinder.Valid {
-			visit["og_cylinder"] = ogCylinder.String
-		}
-		if ogAxis.Valid {
-			visit["og_axis"] = ogAxis.String
-		}
-		if ogToc.Valid {
-			visit["og_toc"] = ogToc.String
-		}
-		if addition.Valid {
-			visit["addition"] = addition.String
-		}
-		if dip.Valid {
-			visit["dip"] = dip.String
-		}
+		addIfValid("doctor_name", doctorName)
+		addIfValid("motif", motif)
+		addIfValid("diagnosis", diagnosis)
+		addIfValid("conduct", conduct)
+		// OD fields
+		addIfValid("od_sv", odSv)
+		addIfValid("od_av", odAv)
+		addIfValid("od_sphere", odSphere)
+		addIfValid("od_cylinder", odCylinder)
+		addIfValid("od_axis", odAxis)
+		addIfValid("od_vl", odVl)
+		addIfValid("od_k1", odK1)
+		addIfValid("od_k2", odK2)
+		addIfValid("od_r1", odR1)
+		addIfValid("od_r2", odR2)
+		addIfValid("od_r0", odR0)
+		addIfValid("od_pachy", odPachy)
+		addIfValid("od_toc", odToc)
+		addIfValid("od_notes", odNotes)
+		addIfValid("od_gonio", odGonio)
+		addIfValid("od_to", odTo)
+		addIfValid("od_laf", odLaf)
+		addIfValid("od_fo", odFo)
+		// OG fields
+		addIfValid("og_sv", ogSv)
+		addIfValid("og_av", ogAv)
+		addIfValid("og_sphere", ogSphere)
+		addIfValid("og_cylinder", ogCylinder)
+		addIfValid("og_axis", ogAxis)
+		addIfValid("og_vl", ogVl)
+		addIfValid("og_k1", ogK1)
+		addIfValid("og_k2", ogK2)
+		addIfValid("og_r1", ogR1)
+		addIfValid("og_r2", ogR2)
+		addIfValid("og_r0", ogR0)
+		addIfValid("og_pachy", ogPachy)
+		addIfValid("og_toc", ogToc)
+		addIfValid("og_notes", ogNotes)
+		addIfValid("og_gonio", ogGonio)
+		addIfValid("og_to", ogTo)
+		addIfValid("og_laf", ogLaf)
+		addIfValid("og_fo", ogFo)
+		// Shared
+		addIfValid("addition", addition)
+		addIfValid("dip", dip)
 
 		visits = append(visits, visit)
 	}
@@ -1469,16 +1757,89 @@ func (h *RESTHandler) GetVisitById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := int(req["id"].(float64))
-	row := h.db.QueryRow(`SELECT id, patient_code, visit_date, doctor_name FROM visits WHERE id = ?`, id)
+	row := h.db.QueryRow(`
+		SELECT id, patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct,
+			   od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
+			   og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
+			   addition, dip, created_at
+		FROM visits WHERE id = ?
+	`, id)
 
-	var visitId, patientCode int
-	var visitDate string
-	var doctorName sql.NullString
-	if err := row.Scan(&visitId, &patientCode, &visitDate, &doctorName); err != nil {
+	var visitId, patientCode, visitSequence int
+	var visitDate, createdAt string
+	var doctorName, motif, diagnosis, conduct sql.NullString
+	var odSv, odAv, odSphere, odCylinder, odAxis, odVl, odK1, odK2, odR1, odR2, odR0, odPachy, odToc, odNotes, odGonio, odTo, odLaf, odFo sql.NullString
+	var ogSv, ogAv, ogSphere, ogCylinder, ogAxis, ogVl, ogK1, ogK2, ogR1, ogR2, ogR0, ogPachy, ogToc, ogNotes, ogGonio, ogTo, ogLaf, ogFo sql.NullString
+	var addition, dip sql.NullString
+
+	if err := row.Scan(&visitId, &patientCode, &visitSequence, &visitDate, &doctorName, &motif, &diagnosis, &conduct,
+		&odSv, &odAv, &odSphere, &odCylinder, &odAxis, &odVl, &odK1, &odK2, &odR1, &odR2, &odR0, &odPachy, &odToc, &odNotes, &odGonio, &odTo, &odLaf, &odFo,
+		&ogSv, &ogAv, &ogSphere, &ogCylinder, &ogAxis, &ogVl, &ogK1, &ogK2, &ogR1, &ogR2, &ogR0, &ogPachy, &ogToc, &ogNotes, &ogGonio, &ogTo, &ogLaf, &ogFo,
+		&addition, &dip, &createdAt); err != nil {
 		respondJSON(w, map[string]interface{}{})
 		return
 	}
-	respondJSON(w, map[string]interface{}{"id": visitId, "patient_code": patientCode, "visit_date": visitDate, "doctor_name": doctorName.String})
+
+	visit := map[string]interface{}{
+		"id":             visitId,
+		"patient_code":   patientCode,
+		"visit_sequence": visitSequence,
+		"visit_date":     visitDate,
+		"created_at":     createdAt,
+	}
+	// Helper to add nullable string
+	addIfValid := func(key string, val sql.NullString) {
+		if val.Valid {
+			visit[key] = val.String
+		}
+	}
+	addIfValid("doctor_name", doctorName)
+	addIfValid("motif", motif)
+	addIfValid("diagnosis", diagnosis)
+	addIfValid("conduct", conduct)
+	// OD fields
+	addIfValid("od_sv", odSv)
+	addIfValid("od_av", odAv)
+	addIfValid("od_sphere", odSphere)
+	addIfValid("od_cylinder", odCylinder)
+	addIfValid("od_axis", odAxis)
+	addIfValid("od_vl", odVl)
+	addIfValid("od_k1", odK1)
+	addIfValid("od_k2", odK2)
+	addIfValid("od_r1", odR1)
+	addIfValid("od_r2", odR2)
+	addIfValid("od_r0", odR0)
+	addIfValid("od_pachy", odPachy)
+	addIfValid("od_toc", odToc)
+	addIfValid("od_notes", odNotes)
+	addIfValid("od_gonio", odGonio)
+	addIfValid("od_to", odTo)
+	addIfValid("od_laf", odLaf)
+	addIfValid("od_fo", odFo)
+	// OG fields
+	addIfValid("og_sv", ogSv)
+	addIfValid("og_av", ogAv)
+	addIfValid("og_sphere", ogSphere)
+	addIfValid("og_cylinder", ogCylinder)
+	addIfValid("og_axis", ogAxis)
+	addIfValid("og_vl", ogVl)
+	addIfValid("og_k1", ogK1)
+	addIfValid("og_k2", ogK2)
+	addIfValid("og_r1", ogR1)
+	addIfValid("og_r2", ogR2)
+	addIfValid("og_r0", ogR0)
+	addIfValid("og_pachy", ogPachy)
+	addIfValid("og_toc", ogToc)
+	addIfValid("og_notes", ogNotes)
+	addIfValid("og_gonio", ogGonio)
+	addIfValid("og_to", ogTo)
+	addIfValid("og_laf", ogLaf)
+	addIfValid("og_fo", ogFo)
+	// Shared
+	addIfValid("addition", addition)
+	addIfValid("dip", dip)
+
+	respondJSON(w, visit)
 }
 
 func (h *RESTHandler) CreateVisit(w http.ResponseWriter, r *http.Request) {
@@ -1488,9 +1849,16 @@ func (h *RESTHandler) CreateVisit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := h.db.Exec(`
-		INSERT INTO visits (patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct, created_at, updated_at, is_active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
-	`, req["patient_code"], req["visit_sequence"], req["visit_date"], req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"])
+		INSERT INTO visits (
+			patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct,
+			od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
+			og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
+			addition, dip, created_at, updated_at, is_active
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+	`, req["patient_code"], req["visit_sequence"], req["visit_date"], req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"],
+		req["od_sv"], req["od_av"], req["od_sphere"], req["od_cylinder"], req["od_axis"], req["od_vl"], req["od_k1"], req["od_k2"], req["od_r1"], req["od_r2"], req["od_r0"], req["od_pachy"], req["od_toc"], req["od_notes"], req["od_gonio"], req["od_to"], req["od_laf"], req["od_fo"],
+		req["og_sv"], req["og_av"], req["og_sphere"], req["og_cylinder"], req["og_axis"], req["og_vl"], req["og_k1"], req["og_k2"], req["og_r1"], req["og_r2"], req["og_r0"], req["og_pachy"], req["og_toc"], req["og_notes"], req["og_gonio"], req["og_to"], req["og_laf"], req["og_fo"],
+		req["addition"], req["dip"])
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1505,8 +1873,17 @@ func (h *RESTHandler) UpdateVisit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
-	_, err := h.db.Exec(`UPDATE visits SET doctor_name = ?, motif = ?, diagnosis = ?, conduct = ?, updated_at = datetime('now') WHERE id = ?`,
-		req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"], req["id"])
+	_, err := h.db.Exec(`
+		UPDATE visits SET 
+			doctor_name = ?, motif = ?, diagnosis = ?, conduct = ?,
+			od_sv = ?, od_av = ?, od_sphere = ?, od_cylinder = ?, od_axis = ?, od_vl = ?, od_k1 = ?, od_k2 = ?, od_r1 = ?, od_r2 = ?, od_r0 = ?, od_pachy = ?, od_toc = ?, od_notes = ?, od_gonio = ?, od_to = ?, od_laf = ?, od_fo = ?,
+			og_sv = ?, og_av = ?, og_sphere = ?, og_cylinder = ?, og_axis = ?, og_vl = ?, og_k1 = ?, og_k2 = ?, og_r1 = ?, og_r2 = ?, og_r0 = ?, og_pachy = ?, og_toc = ?, og_notes = ?, og_gonio = ?, og_to = ?, og_laf = ?, og_fo = ?,
+			addition = ?, dip = ?, updated_at = datetime('now')
+		WHERE id = ?`,
+		req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"],
+		req["od_sv"], req["od_av"], req["od_sphere"], req["od_cylinder"], req["od_axis"], req["od_vl"], req["od_k1"], req["od_k2"], req["od_r1"], req["od_r2"], req["od_r0"], req["od_pachy"], req["od_toc"], req["od_notes"], req["od_gonio"], req["od_to"], req["od_laf"], req["od_fo"],
+		req["og_sv"], req["og_av"], req["og_sphere"], req["og_cylinder"], req["og_axis"], req["og_vl"], req["og_k1"], req["og_k2"], req["og_r1"], req["og_r2"], req["og_r0"], req["og_pachy"], req["og_toc"], req["og_notes"], req["og_gonio"], req["og_to"], req["og_laf"], req["og_fo"],
+		req["addition"], req["dip"], req["id"])
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1626,7 +2003,8 @@ func (h *RESTHandler) UpdateOrdonnance(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
-	_, err := h.db.Exec(`UPDATE ordonnances SET content1 = ?, type1 = ? WHERE id = ?`, req["content1"], req["type1"], req["id"])
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`UPDATE ordonnances SET content1 = ?, type1 = ? WHERE id = ?`, req["content1"], req["type1"], id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1640,7 +2018,8 @@ func (h *RESTHandler) DeleteOrdonnance(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
-	_, err := h.db.Exec(`DELETE FROM ordonnances WHERE id = ?`, req["id"])
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`DELETE FROM ordonnances WHERE id = ?`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1659,8 +2038,9 @@ func (h *RESTHandler) GetPaymentsForPatient(w http.ResponseWriter, r *http.Reque
 
 	patientCode := int(req["patient_code"].(float64))
 	rows, err := h.db.Query(`
-		SELECT id, patient_code, visit_id, amount, payment_date, payment_method, medical_act_id, notes
-		FROM payments WHERE patient_code = ? ORDER BY payment_date DESC
+		SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name,
+			   patient_code, patient_first_name, patient_last_name, payment_time, is_active
+		FROM payments WHERE patient_code = ? AND is_active = 1 ORDER BY payment_time DESC
 	`, patientCode)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -1670,38 +2050,29 @@ func (h *RESTHandler) GetPaymentsForPatient(w http.ResponseWriter, r *http.Reque
 
 	payments := []map[string]interface{}{}
 	for rows.Next() {
-		var id, patientCode int
-		var visitId, medicalActId sql.NullInt64
-		var amount int
-		var paymentDate, paymentMethod sql.NullString
-		var notes sql.NullString
+		var id, medicalActId, amount, pCode int
+		var medicalActName, userId, userName, patientFirstName, patientLastName string
+		var paymentTime sql.NullString
+		var isActive bool
 
-		if err := rows.Scan(&id, &patientCode, &visitId, &amount, &paymentDate, &paymentMethod, &medicalActId, &notes); err != nil {
+		if err := rows.Scan(&id, &medicalActId, &medicalActName, &amount, &userId, &userName,
+			&pCode, &patientFirstName, &patientLastName, &paymentTime, &isActive); err != nil {
 			continue
 		}
 
-		payment := map[string]interface{}{
-			"id":           id,
-			"patient_code": patientCode,
-			"amount":       amount,
-		}
-		if visitId.Valid {
-			payment["visit_id"] = visitId.Int64
-		}
-		if paymentDate.Valid {
-			payment["payment_date"] = paymentDate.String
-		}
-		if paymentMethod.Valid {
-			payment["payment_method"] = paymentMethod.String
-		}
-		if medicalActId.Valid {
-			payment["medical_act_id"] = medicalActId.Int64
-		}
-		if notes.Valid {
-			payment["notes"] = notes.String
-		}
-
-		payments = append(payments, payment)
+		payments = append(payments, map[string]interface{}{
+			"id":                 id,
+			"medical_act_id":     medicalActId,
+			"medical_act_name":   medicalActName,
+			"amount":             amount,
+			"user_id":            userId,
+			"user_name":          userName,
+			"patient_code":       pCode,
+			"patient_first_name": patientFirstName,
+			"patient_last_name":  patientLastName,
+			"payment_time":       paymentTime.String,
+			"is_active":          isActive,
+		})
 	}
 
 	respondJSON(w, map[string]interface{}{"payments": payments})
@@ -1714,24 +2085,12 @@ func (h *RESTHandler) GetPaymentsForVisit(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	visitId := int(req["visit_id"].(float64))
-	rows, err := h.db.Query(`SELECT id, patient_code, amount, payment_date FROM payments WHERE visit_id = ?`, visitId)
-	if err != nil {
-		respondError(w, 500, err.Error())
-		return
-	}
-	defer rows.Close()
+	// Note: visit_id is not in the new schema, so this returns empty for now
+	// Future: could be reimplemented to use patient_code + date matching
+	_ = int(req["visit_id"].(float64))
 
-	payments := []map[string]interface{}{}
-	for rows.Next() {
-		var id, patientCode, amount int
-		var paymentDate sql.NullString
-		if err := rows.Scan(&id, &patientCode, &amount, &paymentDate); err != nil {
-			continue
-		}
-		payments = append(payments, map[string]interface{}{"id": id, "patient_code": patientCode, "amount": amount, "payment_date": paymentDate.String})
-	}
-	respondJSON(w, map[string]interface{}{"payments": payments})
+	// Return empty array since visit_id is not tracked in new schema
+	respondJSON(w, map[string]interface{}{"payments": []map[string]interface{}{}})
 }
 
 func (h *RESTHandler) GetPaymentsByUserAndDate(w http.ResponseWriter, r *http.Request) {
@@ -1793,10 +2152,53 @@ func (h *RESTHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
+
+	// Get values with defaults
+	medicalActId := 0
+	if v, ok := req["medical_act_id"].(float64); ok {
+		medicalActId = int(v)
+	}
+	medicalActName := ""
+	if v, ok := req["medical_act_name"].(string); ok {
+		medicalActName = v
+	} else if v, ok := req["notes"].(string); ok {
+		medicalActName = v // fallback to notes
+	}
+	amount := 0
+	if v, ok := req["amount"].(float64); ok {
+		amount = int(v)
+	}
+	userId := ""
+	if v, ok := req["user_id"].(string); ok {
+		userId = v
+	}
+	userName := ""
+	if v, ok := req["user_name"].(string); ok {
+		userName = v
+	}
+	patientCode := 0
+	if v, ok := req["patient_code"].(float64); ok {
+		patientCode = int(v)
+	}
+	patientFirstName := ""
+	if v, ok := req["patient_first_name"].(string); ok {
+		patientFirstName = v
+	}
+	patientLastName := ""
+	if v, ok := req["patient_last_name"].(string); ok {
+		patientLastName = v
+	}
+	paymentTime := time.Now().Format("2006-01-02 15:04:05")
+	if v, ok := req["payment_time"].(string); ok && v != "" {
+		paymentTime = v
+	} else if v, ok := req["payment_date"].(string); ok && v != "" {
+		paymentTime = v
+	}
+
 	result, err := h.db.Exec(`
-		INSERT INTO payments (patient_code, visit_id, amount, payment_date, payment_method, medical_act_id, notes, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-	`, req["patient_code"], req["visit_id"], req["amount"], req["payment_date"], req["payment_method"], req["medical_act_id"], req["notes"])
+		INSERT INTO payments (medical_act_id, medical_act_name, amount, user_id, user_name, patient_code, patient_first_name, patient_last_name, payment_time, created_at, updated_at, needs_sync, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1, 1)
+	`, medicalActId, medicalActName, amount, userId, userName, patientCode, patientFirstName, patientLastName, paymentTime)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1811,8 +2213,42 @@ func (h *RESTHandler) UpdatePayment(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
-	_, err := h.db.Exec(`UPDATE payments SET amount = ?, payment_method = ?, notes = ? WHERE id = ?`,
-		req["amount"], req["payment_method"], req["notes"], req["id"])
+
+	id := 0
+	if v, ok := req["id"].(float64); ok {
+		id = int(v)
+	}
+	medicalActId := 0
+	if v, ok := req["medical_act_id"].(float64); ok {
+		medicalActId = int(v)
+	}
+	medicalActName := ""
+	if v, ok := req["medical_act_name"].(string); ok {
+		medicalActName = v
+	}
+	amount := 0
+	if v, ok := req["amount"].(float64); ok {
+		amount = int(v)
+	}
+	patientCode := 0
+	if v, ok := req["patient_code"].(float64); ok {
+		patientCode = int(v)
+	}
+	patientFirstName := ""
+	if v, ok := req["patient_first_name"].(string); ok {
+		patientFirstName = v
+	}
+	patientLastName := ""
+	if v, ok := req["patient_last_name"].(string); ok {
+		patientLastName = v
+	}
+	paymentTime := ""
+	if v, ok := req["payment_time"].(string); ok {
+		paymentTime = v
+	}
+
+	_, err := h.db.Exec(`UPDATE payments SET medical_act_id = ?, medical_act_name = ?, amount = ?, patient_code = ?, patient_first_name = ?, patient_last_name = ?, payment_time = ?, updated_at = datetime('now') WHERE id = ?`,
+		medicalActId, medicalActName, amount, patientCode, patientFirstName, patientLastName, paymentTime, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1826,7 +2262,9 @@ func (h *RESTHandler) DeletePayment(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
-	_, err := h.db.Exec(`DELETE FROM payments WHERE id = ?`, req["id"])
+	id := int(req["id"].(float64))
+	// Soft delete to preserve accounting integrity
+	_, err := h.db.Exec(`UPDATE payments SET is_active = 0, updated_at = datetime('now') WHERE id = ?`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2133,17 +2571,29 @@ func (h *RESTHandler) InsertVisits(w http.ResponseWriter, r *http.Request) {
 
 	for _, v := range visits {
 		visit := v.(map[string]interface{})
+
+		// Helper to get int with default
+		getInt := func(key string) interface{} {
+			if val, ok := visit[key]; ok && val != nil {
+				if f, ok := val.(float64); ok {
+					return int(f)
+				}
+			}
+			return nil
+		}
+
 		_, err := h.db.Exec(`
-			INSERT INTO visits (patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct, is_active, created_at, updated_at, needs_sync)
-			VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), 1)
+			INSERT INTO visits (
+				patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct,
+				od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
+				og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
+				addition, dip, is_active, created_at, updated_at, needs_sync
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), 1)
 		`,
-			int(visit["patient_code"].(float64)),
-			int(visit["visit_sequence"].(float64)),
-			visit["visit_date"],
-			visit["doctor_name"],
-			visit["motif"],
-			visit["diagnosis"],
-			visit["conduct"],
+			getInt("patient_code"), getInt("visit_sequence"), visit["visit_date"], visit["doctor_name"], visit["motif"], visit["diagnosis"], visit["conduct"],
+			visit["od_sv"], visit["od_av"], visit["od_sphere"], visit["od_cylinder"], visit["od_axis"], visit["od_vl"], visit["od_k1"], visit["od_k2"], visit["od_r1"], visit["od_r2"], visit["od_r0"], visit["od_pachy"], visit["od_toc"], visit["od_notes"], visit["od_gonio"], visit["od_to"], visit["od_laf"], visit["od_fo"],
+			visit["og_sv"], visit["og_av"], visit["og_sphere"], visit["og_cylinder"], visit["og_axis"], visit["og_vl"], visit["og_k1"], visit["og_k2"], visit["og_r1"], visit["og_r2"], visit["og_r0"], visit["og_pachy"], visit["og_toc"], visit["og_notes"], visit["og_gonio"], visit["og_to"], visit["og_laf"], visit["og_fo"],
+			visit["addition"], visit["dip"],
 		)
 		if err == nil {
 			insertedCount++

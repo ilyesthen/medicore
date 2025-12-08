@@ -115,11 +115,14 @@ class PaymentsRepository {
       try {
         return await MediCoreClient.instance.createPayment({
           'medical_act_id': medicalActId,
+          'medical_act_name': medicalActName,
           'amount': amount,
+          'user_id': userId,
+          'user_name': userName,
           'patient_code': patientCode,
-          'payment_date': effectivePaymentTime.toIso8601String().split('T')[0],
-          'payment_method': 'cash',
-          'notes': medicalActName,
+          'patient_first_name': patientFirstName,
+          'patient_last_name': patientLastName,
+          'payment_time': effectivePaymentTime.toIso8601String(),
         });
       } catch (e) {
         print('❌ [PaymentsRepository] Remote create failed: $e');
@@ -581,7 +584,7 @@ class PaymentsRepository {
     yield await _fetchPaymentsRemote(userName, dateStr, timeFilter);
     
     // Then poll every 3 seconds
-    await for (final _ in Stream.periodic(const Duration(seconds: 3))) {
+    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
       yield await _fetchPaymentsRemote(userName, dateStr, timeFilter);
     }
   }

@@ -37,7 +37,7 @@ class WaitingQueueRepository {
       sentAt: DateTime.tryParse(grpc.sentAt) ?? DateTime.now(),
       isChecked: grpc.isChecked,
       isActive: grpc.isActive,
-      isNotified: false,
+      isNotified: grpc.isNotified,
     );
   }
   
@@ -57,11 +57,10 @@ class WaitingQueueRepository {
     _remoteCountStreams.clear();
   }
 
-  /// List of consultation motifs in order
+  /// List of consultation motifs in order (same as doctor's new_visit_page)
   static const List<String> motifs = [
     'BAV loin',
     'Certificat',
-    'Bav loin',
     'FO',
     'RAS',
     'Bav de près',
@@ -191,7 +190,7 @@ class WaitingQueueRepository {
       fetchData();
       
       // Poll every 2 seconds
-      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
     }
     
     return _remoteStreams[key]!.stream;
@@ -398,7 +397,7 @@ class WaitingQueueRepository {
         }
         
         fetchData();
-        _remoteTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
+        _remoteTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
       }
       return _remoteStreams[key]!.stream;
     }
@@ -509,9 +508,9 @@ class WaitingQueueRepository {
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
       try {
-        // Note: No direct API for single patient by ID, would need to search
-        // For now, return null as this is rarely called in client mode
-        return null;
+        final response = await MediCoreClient.instance.getWaitingPatientById(id);
+        if (response.isEmpty) return null;
+        return _grpcWaitingPatientToLocal(GrpcWaitingPatient.fromJson(response));
       } catch (e) {
         print('❌ [WaitingQueueRepository] Remote getById failed: $e');
         return null;

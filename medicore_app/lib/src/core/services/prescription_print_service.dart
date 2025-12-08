@@ -12,8 +12,8 @@ class PrescriptionPrintService {
   static const String _assetBackgroundPath = 'assets/images/prescription_bg.jpg';
   static Uint8List? _cachedBackground;
   
-  /// Title color for all printed documents
-  static const PdfColor _titleColor = PdfColors.blue800;
+  /// Title color for all printed documents (black, bold)
+  static const PdfColor _titleColor = PdfColors.black;
   
   /// Sanitize text for printing - replaces special characters that printers can't handle
   static String _sanitizeForPrint(String text) {
@@ -467,7 +467,7 @@ class PrescriptionPrintService {
               
               // Content - more right (165pt) and more down (195pt)
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 165, right: 8, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 185, right: 8, top: 195, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -475,9 +475,9 @@ class PrescriptionPrintService {
                     pw.SizedBox(height: 12),
                     
                     // Centered title
-                    pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _titleColor))),
+                    pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                     pw.SizedBox(height: 4),
-                    pw.Center(child: pw.Text(title, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _titleColor))),
+                    pw.Center(child: pw.Text(title, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                     pw.SizedBox(height: 10),
                     
                     // Both eyes side by side
@@ -543,7 +543,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 165, right: 8, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 185, right: 8, top: 195, bottom: 8),
                 child: pw.Builder(builder: (context) {
                   // Check if addition is valid (not empty and not "0" or "0.00")
                   final hasAddition = addition.isNotEmpty && 
@@ -556,18 +556,18 @@ class PrescriptionPrintService {
                       pw.SizedBox(height: 10),
                       
                       // Centered title
-                      pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _titleColor))),
+                      pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                       pw.SizedBox(height: 8),
                       
                       // Vision de Loin - both eyes side by side
-                      pw.Text('Vision de Loin', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _titleColor)),
+                      pw.Text('Vision de Loin', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
                       pw.SizedBox(height: 4),
                       _buildBothEyesOptique(sphereOD, cylindreOD, axeOD, sphereOG, cylindreOG, axeOG),
                       
                       // Vision de Près - only show if addition exists
                       if (hasAddition) ...[
                         pw.SizedBox(height: 8),
-                        pw.Text('Vision de Près', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _titleColor)),
+                        pw.Text('Vision de Près', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
                         pw.SizedBox(height: 4),
                         _buildBothEyesOptique(
                           _addValues(sphereOD, addition), cylindreOD, axeOD,
@@ -638,7 +638,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 165, right: 8, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 185, right: 8, top: 195, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -721,7 +721,7 @@ class PrescriptionPrintService {
     }
 
     // Adjust padding for A4 (more right, more down)
-    final leftPad = useA4 ? 220.0 : 165.0;
+    final leftPad = useA4 ? 240.0 : 185.0;
     final topPad = useA4 ? 280.0 : 195.0;
     final fontSize = useA4 ? 11.0 : 9.0;
     final titleSize = useA4 ? 14.0 : 10.0;

@@ -115,9 +115,24 @@ class MessagesRepository {
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
       try {
-        final response = await MediCoreClient.instance.getMessagesByRoom('');
-        final match = response.messages.where((m) => m.id == id).firstOrNull;
-        return match != null ? _grpcMessageToLocal(match) : null;
+        final response = await MediCoreClient.instance.getMessageById(id);
+        if (response.isEmpty) return null;
+        
+        // Parse JSON response to Message
+        return Message(
+          id: response['id'] as int,
+          roomId: response['room_id'] as String? ?? '',
+          senderId: response['sender_id'] as String? ?? '',
+          senderName: response['sender_name'] as String? ?? '',
+          senderRole: response['sender_role'] as String? ?? '',
+          content: response['content'] as String? ?? '',
+          direction: response['direction'] as String? ?? '',
+          isRead: response['is_read'] as bool? ?? false,
+          sentAt: DateTime.tryParse(response['sent_at'] as String? ?? '') ?? DateTime.now(),
+          readAt: null,
+          patientCode: response['patient_code'] as int?,
+          patientName: response['patient_name'] as String?,
+        );
       } catch (e) {
         print('❌ [MessagesRepository] Remote getMessage failed: $e');
         return null;
@@ -181,7 +196,7 @@ class MessagesRepository {
       fetchMessages();
       
       // Poll every 2 seconds
-      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchMessages());
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
     }
     
     return _remoteStreams[key]!.stream;
@@ -231,7 +246,7 @@ class MessagesRepository {
         }
         
         fetchMessages();
-        _remoteTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchMessages());
+        _remoteTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
       }
       return _remoteStreams[key]!.stream;
     }

@@ -37,7 +37,7 @@ class VisitsRepository {
         .get();
   }
   
-  /// Map JSON to Visit object
+  /// Map JSON to Visit object (includes ALL fields)
   Visit _mapToVisit(Map<String, dynamic> json) {
     return Visit(
       id: json['id'] as int,
@@ -48,18 +48,45 @@ class VisitsRepository {
       motif: json['motif'] as String?,
       diagnosis: json['diagnosis'] as String?,
       conduct: json['conduct'] as String?,
+      // Right Eye (OD)
       odSv: json['od_sv'] as String?,
       odAv: json['od_av'] as String?,
       odSphere: json['od_sphere'] as String?,
       odCylinder: json['od_cylinder'] as String?,
       odAxis: json['od_axis'] as String?,
+      odVl: json['od_vl'] as String?,
+      odK1: json['od_k1'] as String?,
+      odK2: json['od_k2'] as String?,
+      odR1: json['od_r1'] as String?,
+      odR2: json['od_r2'] as String?,
+      odR0: json['od_r0'] as String?,
+      odPachy: json['od_pachy'] as String?,
       odToc: json['od_toc'] as String?,
+      odNotes: json['od_notes'] as String?,
+      odGonio: json['od_gonio'] as String?,
+      odTo: json['od_to'] as String?,
+      odLaf: json['od_laf'] as String?,
+      odFo: json['od_fo'] as String?,
+      // Left Eye (OG)
       ogSv: json['og_sv'] as String?,
       ogAv: json['og_av'] as String?,
       ogSphere: json['og_sphere'] as String?,
       ogCylinder: json['og_cylinder'] as String?,
       ogAxis: json['og_axis'] as String?,
+      ogVl: json['og_vl'] as String?,
+      ogK1: json['og_k1'] as String?,
+      ogK2: json['og_k2'] as String?,
+      ogR1: json['og_r1'] as String?,
+      ogR2: json['og_r2'] as String?,
+      ogR0: json['og_r0'] as String?,
+      ogPachy: json['og_pachy'] as String?,
       ogToc: json['og_toc'] as String?,
+      ogNotes: json['og_notes'] as String?,
+      ogGonio: json['og_gonio'] as String?,
+      ogTo: json['og_to'] as String?,
+      ogLaf: json['og_laf'] as String?,
+      ogFo: json['og_fo'] as String?,
+      // Shared
       addition: json['addition'] as String?,
       dip: json['dip'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
@@ -107,14 +134,7 @@ class VisitsRepository {
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
       try {
-        return await MediCoreClient.instance.createVisit({
-          'patient_code': visit.patientCode.value,
-          'visit_date': visit.visitDate.value?.toIso8601String(),
-          'doctor_name': visit.doctorName.value,
-          'motif': visit.motif.value,
-          'diagnosis': visit.diagnosis.value,
-          'conduct': visit.conduct.value,
-        });
+        return await MediCoreClient.instance.createVisit(_visitCompanionToJson(visit));
       } catch (e) {
         print('❌ [VisitsRepository] Remote insert failed: $e');
         return -1;
@@ -122,21 +142,67 @@ class VisitsRepository {
     }
     return await _db.into(_db.visits).insert(visit);
   }
+  
+  /// Convert VisitsCompanion to JSON with all fields
+  Map<String, dynamic> _visitCompanionToJson(VisitsCompanion visit) {
+    return {
+      'patient_code': visit.patientCode.value,
+      'visit_sequence': visit.visitSequence.value,
+      'visit_date': visit.visitDate.value?.toIso8601String(),
+      'doctor_name': visit.doctorName.value,
+      'motif': visit.motif.value,
+      'diagnosis': visit.diagnosis.value,
+      'conduct': visit.conduct.value,
+      // Right Eye (OD)
+      'od_sv': visit.odSv.value,
+      'od_av': visit.odAv.value,
+      'od_sphere': visit.odSphere.value,
+      'od_cylinder': visit.odCylinder.value,
+      'od_axis': visit.odAxis.value,
+      'od_vl': visit.odVl.value,
+      'od_k1': visit.odK1.value,
+      'od_k2': visit.odK2.value,
+      'od_r1': visit.odR1.value,
+      'od_r2': visit.odR2.value,
+      'od_r0': visit.odR0.value,
+      'od_pachy': visit.odPachy.value,
+      'od_toc': visit.odToc.value,
+      'od_notes': visit.odNotes.value,
+      'od_gonio': visit.odGonio.value,
+      'od_to': visit.odTo.value,
+      'od_laf': visit.odLaf.value,
+      'od_fo': visit.odFo.value,
+      // Left Eye (OG)
+      'og_sv': visit.ogSv.value,
+      'og_av': visit.ogAv.value,
+      'og_sphere': visit.ogSphere.value,
+      'og_cylinder': visit.ogCylinder.value,
+      'og_axis': visit.ogAxis.value,
+      'og_vl': visit.ogVl.value,
+      'og_k1': visit.ogK1.value,
+      'og_k2': visit.ogK2.value,
+      'og_r1': visit.ogR1.value,
+      'og_r2': visit.ogR2.value,
+      'og_r0': visit.ogR0.value,
+      'og_pachy': visit.ogPachy.value,
+      'og_toc': visit.ogToc.value,
+      'og_notes': visit.ogNotes.value,
+      'og_gonio': visit.ogGonio.value,
+      'og_to': visit.ogTo.value,
+      'og_laf': visit.ogLaf.value,
+      'og_fo': visit.ogFo.value,
+      // Shared
+      'addition': visit.addition.value,
+      'dip': visit.dip.value,
+    };
+  }
 
   /// Insert multiple visits (batch import)
   Future<void> insertVisits(List<VisitsCompanion> visits) async {
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
       try {
-        final visitsData = visits.map((v) => {
-          'patient_code': v.patientCode.value,
-          'visit_sequence': v.visitSequence.value,
-          'visit_date': v.visitDate.value?.toIso8601String(),
-          'doctor_name': v.doctorName.value,
-          'motif': v.motif.value,
-          'diagnosis': v.diagnosis.value,
-          'conduct': v.conduct.value,
-        }).toList();
+        final visitsData = visits.map((v) => _visitCompanionToJson(v)).toList();
         await MediCoreClient.instance.insertVisits(visitsData);
         return;
       } catch (e) {
@@ -154,12 +220,9 @@ class VisitsRepository {
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
       try {
-        await MediCoreClient.instance.updateVisit({
-          'id': id,
-          'motif': visit.motif.value,
-          'diagnosis': visit.diagnosis.value,
-          'conduct': visit.conduct.value,
-        });
+        final data = _visitCompanionToJson(visit);
+        data['id'] = id;
+        await MediCoreClient.instance.updateVisit(data);
         return true;
       } catch (e) {
         print('❌ [VisitsRepository] Remote update failed: $e');

@@ -468,6 +468,7 @@ class GrpcWaitingPatient {
   $core.String? dilatationType;
   $core.bool isChecked;
   $core.bool isActive;
+  $core.bool isNotified;
   
   GrpcWaitingPatient({
     this.id = 0,
@@ -486,6 +487,7 @@ class GrpcWaitingPatient {
     this.dilatationType,
     this.isChecked = false,
     this.isActive = true,
+    this.isNotified = false,
   });
   
   factory GrpcWaitingPatient.fromJson($core.Map<$core.String, $core.dynamic> json) => GrpcWaitingPatient(
@@ -505,6 +507,7 @@ class GrpcWaitingPatient {
     dilatationType: json['dilatation_type'] as $core.String? ?? json['dilatationType'] as $core.String?,
     isChecked: json['is_checked'] as $core.bool? ?? json['isChecked'] as $core.bool? ?? false,
     isActive: json['is_active'] as $core.bool? ?? json['isActive'] as $core.bool? ?? true,
+    isNotified: json['is_notified'] as $core.bool? ?? json['isNotified'] as $core.bool? ?? false,
   );
   
   $core.Map<$core.String, $core.dynamic> toJson() => {
@@ -524,6 +527,7 @@ class GrpcWaitingPatient {
     if (dilatationType != null) 'dilatation_type': dilatationType,
     'is_checked': isChecked,
     'is_active': isActive,
+    'is_notified': isNotified,
   };
 }
 
