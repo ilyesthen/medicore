@@ -2,7 +2,7 @@
 ; Works on Windows 7-11, both 32-bit and 64-bit
 
 #define MyAppName "MediCore"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "3.3.0"
 #define MyAppPublisher "MediCore Team"
 #define MyAppURL "https://github.com/ilyesthen/medicore"
 #define MyAppExeName "medicore_app.exe"
