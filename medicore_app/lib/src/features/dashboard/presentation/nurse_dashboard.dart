@@ -200,31 +200,8 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
       _previousDilatationCount = dilatationCount;
     }
 
-    // Watch total waiting count across all nurse rooms (for sound notification)
-    final totalWaitingCountAsync = _activeRoomIds.isNotEmpty
-        ? ref.watch(totalWaitingCountProvider(_activeRoomIds))
-        : const AsyncValue.data(0);
-    final totalWaitingCount = totalWaitingCountAsync.valueOrNull ?? 0;
-
-    // Play notification sound when NEW patient is sent to waiting queue
-    if (_previousWaitingCount == -1) {
-      // First load - just record the count, don't play sound
-      _previousWaitingCount = totalWaitingCount;
-    } else if (totalWaitingCount > _previousWaitingCount) {
-      // New patient arrived - play sound
-      print('🔊 NURSE: Playing new waiting patient sound (count increased from $_previousWaitingCount to $totalWaitingCount)');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _notificationService.playNotificationSound();
-      });
-      _previousWaitingCount = totalWaitingCount;
-    } else if (totalWaitingCount == 0 && _previousWaitingCount > 0) {
-      // All waiting patients cleared - stop sound
-      print('🔇 NURSE: All waiting patients cleared, stopping sound');
-      _notificationService.stopNotificationSound();
-      _previousWaitingCount = totalWaitingCount;
-    } else if (totalWaitingCount != _previousWaitingCount) {
-      _previousWaitingCount = totalWaitingCount;
-    }
+    // Track waiting count (no sound for nurse waiting patients - only messages and dilatations)
+    // The totalWaitingCountProvider is still used for UI display purposes
 
     // Get rooms for display
     final displayRooms = _selectedRoomIds.map((roomId) {

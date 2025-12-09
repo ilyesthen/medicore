@@ -150,19 +150,39 @@ class WaitingQueueRepository {
   }
 
   /// Watch waiting patients for a specific room (non-urgent, non-dilatation only)
+  /// Uses polling for both modes to detect Go server changes
   Stream<List<WaitingPatient>> watchWaitingPatientsForRoom(String roomId) {
     // Client mode: use remote with polling
     if (!GrpcClientConfig.isServer) {
       return _watchWaitingPatientsRemote('waiting_$roomId', roomId, (p) => !p.isUrgent && !p.isDilatation && p.isActive);
     }
     
-    return (_database.select(_database.waitingPatients)
-          ..where((w) => w.roomId.equals(roomId))
-          ..where((w) => w.isActive.equals(true))
-          ..where((w) => w.isUrgent.equals(false))
-          ..where((w) => w.isDilatation.equals(false)) // Exclude patients sent to nurse
-          ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
-        .watch();
+    // Server/Admin mode: use local DB with polling to detect Go server changes
+    final key = 'waiting_local_$roomId';
+    if (!_remoteStreams.containsKey(key)) {
+      _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+      
+      Future<void> fetchData() async {
+        try {
+          final patients = await (_database.select(_database.waitingPatients)
+                ..where((w) => w.roomId.equals(roomId))
+                ..where((w) => w.isActive.equals(true))
+                ..where((w) => w.isUrgent.equals(false))
+                ..where((w) => w.isDilatation.equals(false))
+                ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
+              .get();
+          _remoteStreams[key]?.add(patients);
+        } catch (e) {
+          print('❌ [WaitingQueueRepository] Local poll failed: $e');
+          _remoteStreams[key]?.add([]);
+        }
+      }
+      
+      fetchData();
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
+    }
+    
+    return _remoteStreams[key]!.stream;
   }
   
   /// Remote stream for waiting patients with SSE support
@@ -207,53 +227,52 @@ class WaitingQueueRepository {
   }
 
   /// Watch urgent patients for a specific room
+  /// Uses polling for both modes to detect Go server changes
   Stream<List<WaitingPatient>> watchUrgentPatientsForRoom(String roomId) {
     // Client mode: use remote with polling
     if (!GrpcClientConfig.isServer) {
       return _watchWaitingPatientsRemote('urgent_$roomId', roomId, (p) => p.isUrgent && p.isActive);
     }
     
-    return (_database.select(_database.waitingPatients)
-          ..where((w) => w.roomId.equals(roomId))
-          ..where((w) => w.isActive.equals(true))
-          ..where((w) => w.isUrgent.equals(true))
-          ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
-        .watch();
+    // Server/Admin mode: use local DB with polling
+    final key = 'urgent_local_$roomId';
+    if (!_remoteStreams.containsKey(key)) {
+      _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+      
+      Future<void> fetchData() async {
+        try {
+          final patients = await (_database.select(_database.waitingPatients)
+                ..where((w) => w.roomId.equals(roomId))
+                ..where((w) => w.isActive.equals(true))
+                ..where((w) => w.isUrgent.equals(true))
+                ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
+              .get();
+          _remoteStreams[key]?.add(patients);
+        } catch (e) {
+          print('❌ [WaitingQueueRepository] Local poll failed: $e');
+          _remoteStreams[key]?.add([]);
+        }
+      }
+      
+      fetchData();
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
+    }
+    
+    return _remoteStreams[key]!.stream;
   }
 
   /// Get count of waiting patients for a room (non-urgent, non-dilatation only)
+  /// Uses polling for both modes
   Stream<int> watchWaitingCountForRoom(String roomId) {
-    // Client mode: use remote with polling
-    if (!GrpcClientConfig.isServer) {
-      return watchWaitingPatientsForRoom(roomId).map((list) => list.length);
-    }
-    
-    final query = _database.selectOnly(_database.waitingPatients)
-      ..addColumns([_database.waitingPatients.id.count()])
-      ..where(_database.waitingPatients.roomId.equals(roomId))
-      ..where(_database.waitingPatients.isActive.equals(true))
-      ..where(_database.waitingPatients.isUrgent.equals(false))
-      ..where(_database.waitingPatients.isDilatation.equals(false)); // Exclude patients sent to nurse
-    
-    return query.watchSingle().map((row) => 
-      row.read(_database.waitingPatients.id.count()) ?? 0);
+    // Both modes: derive from the list stream (which uses polling)
+    return watchWaitingPatientsForRoom(roomId).map((list) => list.length);
   }
 
   /// Get count of urgent patients for a room
+  /// Uses polling for both modes
   Stream<int> watchUrgentCountForRoom(String roomId) {
-    // Client mode: use remote with polling
-    if (!GrpcClientConfig.isServer) {
-      return watchUrgentPatientsForRoom(roomId).map((list) => list.length);
-    }
-    
-    final query = _database.selectOnly(_database.waitingPatients)
-      ..addColumns([_database.waitingPatients.id.count()])
-      ..where(_database.waitingPatients.roomId.equals(roomId))
-      ..where(_database.waitingPatients.isActive.equals(true))
-      ..where(_database.waitingPatients.isUrgent.equals(true));
-    
-    return query.watchSingle().map((row) => 
-      row.read(_database.waitingPatients.id.count()) ?? 0);
+    // Both modes: derive from the list stream (which uses polling)
+    return watchUrgentPatientsForRoom(roomId).map((list) => list.length);
   }
 
   /// Dilatation type labels
@@ -325,66 +344,67 @@ class WaitingQueueRepository {
   }
 
   /// Watch dilatation patients for a specific room
+  /// Uses polling for both modes to detect Go server changes
   Stream<List<WaitingPatient>> watchDilatationPatientsForRoom(String roomId) {
     // Client mode: use remote with polling
     if (!GrpcClientConfig.isServer) {
       return _watchWaitingPatientsRemote('dilatation_$roomId', roomId, (p) => p.isDilatation && p.isActive);
     }
     
-    return (_database.select(_database.waitingPatients)
-          ..where((w) => w.roomId.equals(roomId))
-          ..where((w) => w.isActive.equals(true))
-          ..where((w) => w.isDilatation.equals(true))
-          ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
-        .watch();
+    // Server/Admin mode: use local DB with polling
+    final key = 'dilatation_local_$roomId';
+    if (!_remoteStreams.containsKey(key)) {
+      _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+      
+      Future<void> fetchData() async {
+        try {
+          final patients = await (_database.select(_database.waitingPatients)
+                ..where((w) => w.roomId.equals(roomId))
+                ..where((w) => w.isActive.equals(true))
+                ..where((w) => w.isDilatation.equals(true))
+                ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
+              .get();
+          _remoteStreams[key]?.add(patients);
+        } catch (e) {
+          print('❌ [WaitingQueueRepository] Local poll failed: $e');
+          _remoteStreams[key]?.add([]);
+        }
+      }
+      
+      fetchData();
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
+    }
+    
+    return _remoteStreams[key]!.stream;
   }
 
   /// Get count of dilatation patients for a room
+  /// Uses polling for both modes
   Stream<int> watchDilatationCountForRoom(String roomId) {
-    // Client mode: use remote with polling
-    if (!GrpcClientConfig.isServer) {
-      return watchDilatationPatientsForRoom(roomId).map((list) => list.length);
-    }
-    
-    final query = _database.selectOnly(_database.waitingPatients)
-      ..addColumns([_database.waitingPatients.id.count()])
-      ..where(_database.waitingPatients.roomId.equals(roomId))
-      ..where(_database.waitingPatients.isActive.equals(true))
-      ..where(_database.waitingPatients.isDilatation.equals(true));
-    
-    return query.watchSingle().map((row) => 
-      row.read(_database.waitingPatients.id.count()) ?? 0);
+    // Both modes: derive from the list stream (which uses polling)
+    return watchDilatationPatientsForRoom(roomId).map((list) => list.length);
   }
 
   /// Watch total dilatation count across multiple rooms (for nurse badge - only unnotified)
+  /// Uses polling for both modes
   Stream<int> watchTotalDilatationCount(List<String> roomIds) {
     if (roomIds.isEmpty) return Stream.value(0);
     
-    // Client mode: use remote with polling
-    if (!GrpcClientConfig.isServer) {
-      return watchDilatationPatientsForRooms(roomIds).map((list) => 
-        list.where((p) => !p.isNotified).length
-      );
-    }
-    
-    final query = _database.selectOnly(_database.waitingPatients)
-      ..addColumns([_database.waitingPatients.id.count()])
-      ..where(_database.waitingPatients.roomId.isIn(roomIds))
-      ..where(_database.waitingPatients.isActive.equals(true))
-      ..where(_database.waitingPatients.isDilatation.equals(true))
-      ..where(_database.waitingPatients.isNotified.equals(false));
-    
-    return query.watchSingle().map((row) => 
-      row.read(_database.waitingPatients.id.count()) ?? 0);
+    // Both modes: derive from the list stream (which uses polling)
+    return watchDilatationPatientsForRooms(roomIds).map((list) => 
+      list.where((p) => !p.isNotified).length
+    );
   }
 
   /// Watch dilatation patients across multiple rooms (for nurse)
+  /// Uses polling for both modes to detect Go server changes
   Stream<List<WaitingPatient>> watchDilatationPatientsForRooms(List<String> roomIds) {
     if (roomIds.isEmpty) return Stream.value([]);
     
+    final key = 'dilatation_multi_${roomIds.join('_')}';
+    
     // Client mode: use remote with polling
     if (!GrpcClientConfig.isServer) {
-      final key = 'dilatation_multi_${roomIds.join('_')}';
       if (!_remoteStreams.containsKey(key)) {
         _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
         
@@ -412,12 +432,30 @@ class WaitingQueueRepository {
       return _remoteStreams[key]!.stream;
     }
     
-    return (_database.select(_database.waitingPatients)
-          ..where((w) => w.roomId.isIn(roomIds))
-          ..where((w) => w.isActive.equals(true))
-          ..where((w) => w.isDilatation.equals(true))
-          ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
-        .watch();
+    // Server/Admin mode: use local DB with polling
+    final localKey = 'dilatation_multi_local_${roomIds.join('_')}';
+    if (!_remoteStreams.containsKey(localKey)) {
+      _remoteStreams[localKey] = StreamController<List<WaitingPatient>>.broadcast();
+      
+      Future<void> fetchData() async {
+        try {
+          final patients = await (_database.select(_database.waitingPatients)
+                ..where((w) => w.roomId.isIn(roomIds))
+                ..where((w) => w.isActive.equals(true))
+                ..where((w) => w.isDilatation.equals(true))
+                ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
+              .get();
+          _remoteStreams[localKey]?.add(patients);
+        } catch (e) {
+          print('❌ [WaitingQueueRepository] Local poll failed: $e');
+          _remoteStreams[localKey]?.add([]);
+        }
+      }
+      
+      fetchData();
+      _remoteTimers[localKey] = Timer.periodic(const Duration(seconds: 2), (_) => fetchData());
+    }
+    return _remoteStreams[localKey]!.stream;
   }
 
   /// Mark all dilatations as notified for given rooms (clears badge)

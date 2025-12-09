@@ -917,36 +917,23 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   }
 
   /// Print existing document (no save needed)
-  /// Tab 0 (Prescriptions) uses A5, Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background
+  /// Tab 0 & 1 use A5, Tab 2 (Comptes) uses A4 - all same format, no background image
   Future<void> _printExistingDocument(OrdonnanceDocument doc) async {
     final printContent = _stripSeparatorsForPrint(doc.content);
     final p = widget.patient;
     final tabIndex = _tabController.index;
-    bool success;
     
-    // Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background image and multi-page
-    if (tabIndex == 1 || tabIndex == 2) {
-      success = await PrescriptionPrintService.printCompteRendu(
-        patientName: '${p.firstName} ${p.lastName}',
-        patientCode: p.code.toString(),
-        barcode: p.code.toString(),
-        date: doc.formattedDate,
-        content: printContent,
-        documentType: doc.type ?? 'ORDONNANCE',
-        age: p.age?.toString(),
-      );
-    } else {
-      // Tab 0 (Prescriptions) uses A5
-      success = await PrescriptionPrintService.printOrdonnance(
-        patientName: '${p.firstName} ${p.lastName}',
-        patientCode: p.code.toString(),
-        barcode: p.code.toString(),
-        date: doc.formattedDate,
-        content: printContent,
-        documentType: doc.type ?? 'ORDONNANCE',
-        age: p.age?.toString(),
-      );
-    }
+    // Tab 2 (Compte Rendu) uses A4, others use A5 - same format, no image
+    final bool success = await PrescriptionPrintService.printOrdonnance(
+      patientName: '${p.firstName} ${p.lastName}',
+      patientCode: p.code.toString(),
+      barcode: p.code.toString(),
+      date: doc.formattedDate,
+      content: printContent,
+      documentType: doc.type ?? 'ORDONNANCE',
+      age: p.age?.toString(),
+      useA4: tabIndex == 2, // Only Compte Rendu uses A4
+    );
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -957,38 +944,24 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   }
 
   /// Download existing document as PDF
-  /// Tab 0 (Prescriptions) uses A5, Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background
+  /// Tab 0 & 1 use A5, Tab 2 (Comptes) uses A4 - all same format, no background image
   Future<void> _downloadExistingDocument(OrdonnanceDocument doc) async {
     final pdfContent = _stripSeparatorsForPrint(doc.content);
     final p = widget.patient;
     final tabIndex = _tabController.index;
     
     try {
-      Uint8List pdf;
-      
-      // Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background image and multi-page
-      if (tabIndex == 1 || tabIndex == 2) {
-        pdf = await PrescriptionPrintService.generateCompteRenduPdf(
-          patientName: '${p.firstName} ${p.lastName}',
-          patientCode: p.code.toString(),
-          barcode: p.code.toString(),
-          date: doc.formattedDate,
-          content: pdfContent,
-          documentType: doc.type ?? 'ORDONNANCE',
-          age: p.age?.toString(),
-        );
-      } else {
-        // Tab 0 (Prescriptions) uses A5
-        pdf = await PrescriptionPrintService.generateOrdonnancePdf(
-          patientName: '${p.firstName} ${p.lastName}',
-          patientCode: p.code.toString(),
-          barcode: p.code.toString(),
-          date: doc.formattedDate,
-          content: pdfContent,
-          documentType: doc.type ?? 'ORDONNANCE',
-          age: p.age?.toString(),
-        );
-      }
+      // Tab 2 (Compte Rendu) uses A4, others use A5 - same format, no image
+      final Uint8List pdf = await PrescriptionPrintService.generateOrdonnancePdf(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        date: doc.formattedDate,
+        content: pdfContent,
+        documentType: doc.type ?? 'ORDONNANCE',
+        age: p.age?.toString(),
+        useA4: tabIndex == 2, // Only Compte Rendu uses A4
+      );
       
       final cleanType = (doc.type ?? 'ORDONNANCE').replaceAll(' ', '_').replaceAll("'", '');
       final path = await PrescriptionPrintService.downloadPdf(pdf, '${cleanType}_${p.code}.pdf');
@@ -1283,7 +1256,7 @@ Sauf complications.
   }
 
   /// Print document - saves to DB first, uses "print with another name" fields if filled
-  /// Tab 0 (Prescriptions) uses A5, Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background
+  /// Tab 0 & 1 use A5, Tab 2 (Comptes) uses A4 - all same format, no background image
   Future<void> _printDocumentTab(int tabIndex, String documentType) async {
     final newDoc = _getNewDocForTab(tabIndex);
     if (newDoc == null || newDoc.plainText.isEmpty) {
@@ -1305,37 +1278,21 @@ Sauf complications.
     final printContent = _stripSeparatorsForPrint(newDoc.plainText);
     
     final p = widget.patient;
-    bool success;
     
-    // Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background image and multi-page
-    if (tabIndex == 1 || tabIndex == 2) {
-      success = await PrescriptionPrintService.printCompteRendu(
-        patientName: '${p.firstName} ${p.lastName}',
-        patientCode: p.code.toString(),
-        barcode: p.code.toString(),
-        date: DateFormat('dd/MM/yyyy').format(_selectedDate),
-        content: printContent,
-        documentType: documentType,
-        printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
-        printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
-        printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
-        age: p.age?.toString(),
-      );
-    } else {
-      // Tab 0 (Prescriptions) uses A5
-      success = await PrescriptionPrintService.printOrdonnance(
-        patientName: '${p.firstName} ${p.lastName}',
-        patientCode: p.code.toString(),
-        barcode: p.code.toString(),
-        date: DateFormat('dd/MM/yyyy').format(_selectedDate),
-        content: printContent,
-        documentType: documentType,
-        printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
-        printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
-        printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
-        age: p.age?.toString(),
-      );
-    }
+    // Tab 2 (Compte Rendu) uses A4, others use A5 - same format, no image
+    final bool success = await PrescriptionPrintService.printOrdonnance(
+      patientName: '${p.firstName} ${p.lastName}',
+      patientCode: p.code.toString(),
+      barcode: p.code.toString(),
+      date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+      content: printContent,
+      documentType: documentType,
+      printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
+      printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
+      printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
+      age: p.age?.toString(),
+      useA4: tabIndex == 2, // Only Compte Rendu uses A4
+    );
     
     // Clear print with another name fields after printing
     _printNameController.clear();
@@ -1354,7 +1311,7 @@ Sauf complications.
   }
 
   /// Download document as PDF
-  /// Tab 0 (Prescriptions) uses A5, Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background
+  /// Tab 0 & 1 use A5, Tab 2 (Comptes) uses A4 - all same format, no background image
   Future<void> _downloadDocument(int tabIndex, String documentType) async {
     final newDoc = _getNewDocForTab(tabIndex);
     if (newDoc == null || newDoc.plainText.isEmpty) {
@@ -1369,37 +1326,21 @@ Sauf complications.
     
     try {
       final p = widget.patient;
-      Uint8List pdf;
       
-      // Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background image and multi-page
-      if (tabIndex == 1 || tabIndex == 2) {
-        pdf = await PrescriptionPrintService.generateCompteRenduPdf(
-          patientName: '${p.firstName} ${p.lastName}',
-          patientCode: p.code.toString(),
-          barcode: p.code.toString(),
-          date: DateFormat('dd/MM/yyyy').format(_selectedDate),
-          content: pdfContent,
-          documentType: documentType,
-          printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
-          printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
-          printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
-          age: p.age?.toString(),
-        );
-      } else {
-        // Tab 0 (Prescriptions) uses A5
-        pdf = await PrescriptionPrintService.generateOrdonnancePdf(
-          patientName: '${p.firstName} ${p.lastName}',
-          patientCode: p.code.toString(),
-          barcode: p.code.toString(),
-          date: DateFormat('dd/MM/yyyy').format(_selectedDate),
-          content: pdfContent,
-          documentType: documentType,
-          printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
-          printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
-          printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
-          age: p.age?.toString(),
-        );
-      }
+      // Tab 2 (Compte Rendu) uses A4, others use A5 - same format, no image
+      final Uint8List pdf = await PrescriptionPrintService.generateOrdonnancePdf(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+        content: pdfContent,
+        documentType: documentType,
+        printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
+        printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
+        printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
+        age: p.age?.toString(),
+        useA4: tabIndex == 2, // Only Compte Rendu uses A4
+      );
       
       // Clean filename: replace spaces and special chars
       final cleanType = documentType.replaceAll(' ', '_').replaceAll("'", '');

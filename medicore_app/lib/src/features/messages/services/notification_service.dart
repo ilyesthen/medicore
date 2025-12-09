@@ -120,36 +120,53 @@ class NotificationService {
     });
   }
 
-  /// Play Windows sound - use rundll32 for system beep or AudioPlayer
+  /// Play Windows sound - multiple reliable methods
   Future<void> _playWindowsSound() async {
+    // Method 1: PowerShell with SystemSounds (most reliable for Windows notifications)
     try {
-      // Method 1: Try rundll32 for system sound (more reliable than PowerShell)
-      final result = await Process.run('rundll32', [
-        'user32.dll,MessageBeep',
+      final result = await Process.run('powershell', [
+        '-NoProfile',
+        '-NonInteractive', 
+        '-Command',
+        '[System.Media.SystemSounds]::Exclamation.Play()'
       ]);
       if (result.exitCode == 0) {
-        debugPrint('🔊 Windows sound played via rundll32');
+        debugPrint('🔊 Windows sound played via SystemSounds');
         return;
       }
     } catch (e) {
-      debugPrint('⚠️ rundll32 failed: $e');
+      debugPrint('⚠️ SystemSounds failed: $e');
     }
 
-    // Method 2: Try PowerShell as backup
+    // Method 2: PowerShell with SoundPlayer and Windows Media path
     try {
       await Process.run('powershell', [
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        '[Console]::Beep(800, 200); [Console]::Beep(1000, 200)'
+        r"(New-Object Media.SoundPlayer 'C:\Windows\Media\Windows Notify.wav').PlaySync()"
       ]);
-      debugPrint('🔊 Windows sound played via PowerShell Beep');
+      debugPrint('🔊 Windows sound played via SoundPlayer');
       return;
     } catch (e) {
-      debugPrint('⚠️ PowerShell beep failed: $e');
+      debugPrint('⚠️ SoundPlayer failed: $e');
     }
 
-    // Method 3: Fallback to audioplayer with asset
+    // Method 3: Console Beep (always works)
+    try {
+      await Process.run('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '[Console]::Beep(1000, 300)'
+      ]);
+      debugPrint('🔊 Windows sound played via Console.Beep');
+      return;
+    } catch (e) {
+      debugPrint('⚠️ Console.Beep failed: $e');
+    }
+
+    // Method 4: Fallback to audioplayer with asset
     try {
       await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
       debugPrint('🔊 Sound played via AudioPlayer');

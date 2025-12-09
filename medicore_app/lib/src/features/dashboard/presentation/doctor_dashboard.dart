@@ -117,25 +117,8 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
       _previousUnreadCount = currentCount;
     }
 
-    // Play notification sound when NEW patient is sent to waiting queue
-    if (_previousWaitingCount == -1) {
-      // First load - just record the count, don't play sound
-      _previousWaitingCount = waitingCount;
-    } else if (waitingCount > _previousWaitingCount) {
-      // New patient arrived - play sound
-      print('🔊 DOCTOR: Playing new waiting patient sound (count increased from $_previousWaitingCount to $waitingCount)');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _notificationService.playNotificationSound();
-      });
-      _previousWaitingCount = waitingCount;
-    } else if (waitingCount == 0 && _previousWaitingCount > 0) {
-      // All waiting patients cleared - stop sound
-      print('🔇 DOCTOR: All waiting patients cleared, stopping sound');
-      _notificationService.stopNotificationSound();
-      _previousWaitingCount = waitingCount;
-    } else if (waitingCount != _previousWaitingCount) {
-      _previousWaitingCount = waitingCount;
-    }
+    // Track waiting count (no sound for doctor - only messages trigger sounds)
+    _previousWaitingCount = waitingCount;
 
     return KeyboardShortcutHandler(
       onF1Pressed: () => _showPatientDialog(context, null),

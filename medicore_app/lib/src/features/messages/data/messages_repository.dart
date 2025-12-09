@@ -146,28 +146,46 @@ class MessagesRepository {
   }
 
   /// Get unread messages for a nurse (for specific rooms)
+  /// Uses polling for both client AND server mode to detect changes from Go server
   Stream<List<Message>> watchUnreadMessagesForNurse(List<String> roomIds) {
     // Client mode: use remote with polling
     if (!GrpcClientConfig.isServer) {
       return _watchMessagesRemote('nurse_${roomIds.join('_')}', roomIds, 'to_nurse');
     }
     
-    print('🔍 QUERY: Fetching unread messages for nurse in rooms $roomIds (direction: to_nurse)');
+    // Server/Admin mode: use local DB with polling to detect Go server changes
+    return _watchMessagesLocalWithPolling('nurse_${roomIds.join('_')}', roomIds, 'to_nurse');
+  }
+  
+  /// Local stream with polling to detect changes from Go server
+  Stream<List<Message>> _watchMessagesLocalWithPolling(String key, List<String> roomIds, String direction) {
+    if (!_remoteStreams.containsKey(key)) {
+      _remoteStreams[key] = StreamController<List<Message>>.broadcast();
+      
+      Future<void> fetchMessages() async {
+        try {
+          final messages = await (_db.select(_db.messages)
+                ..where((m) => 
+                    m.direction.equals(direction) & 
+                    m.isRead.equals(false) &
+                    m.roomId.isIn(roomIds))
+                ..orderBy([(m) => OrderingTerm.desc(m.sentAt)]))
+              .get();
+          _remoteStreams[key]?.add(messages);
+        } catch (e) {
+          print('❌ [MessagesRepository] Local poll failed: $e');
+          _remoteStreams[key]?.add([]);
+        }
+      }
+      
+      // Immediate fetch
+      fetchMessages();
+      
+      // Poll every 2 seconds to detect Go server changes quickly
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 2), (_) => fetchMessages());
+    }
     
-    return (_db.select(_db.messages)
-          ..where((m) => 
-              m.direction.equals('to_nurse') & 
-              m.isRead.equals(false) &
-              m.roomId.isIn(roomIds))
-          ..orderBy([(m) => OrderingTerm.desc(m.sentAt)]))
-        .watch()
-        .map((messages) {
-          print('📊 QUERY RESULT: Found ${messages.length} messages for nurse in rooms $roomIds');
-          for (final msg in messages) {
-            print('   ✉️  ID: ${msg.id}, From: ${msg.senderName}, Content: ${msg.content}, Direction: ${msg.direction}');
-          }
-          return messages;
-        });
+    return _remoteStreams[key]!.stream;
   }
   
   /// Remote stream for messages with SSE support
@@ -212,31 +230,19 @@ class MessagesRepository {
   }
 
   /// Get unread messages for a doctor (for specific room)
+  /// Uses polling for both client AND server mode to detect changes from Go server
   Stream<List<Message>> watchUnreadMessagesForDoctor(String roomId) {
     // Client mode: use remote with polling
     if (!GrpcClientConfig.isServer) {
       return _watchMessagesRemote('doctor_$roomId', [roomId], 'to_doctor');
     }
     
-    print('🔍 QUERY: Fetching unread messages for doctor in room $roomId (direction: to_doctor)');
-    
-    return (_db.select(_db.messages)
-          ..where((m) => 
-              m.direction.equals('to_doctor') & 
-              m.isRead.equals(false) &
-              m.roomId.equals(roomId))
-          ..orderBy([(m) => OrderingTerm.desc(m.sentAt)]))
-        .watch()
-        .map((messages) {
-          print('📊 QUERY RESULT: Found ${messages.length} messages for doctor in room $roomId');
-          for (final msg in messages) {
-            print('   ✉️  ID: ${msg.id}, From: ${msg.senderName}, Content: ${msg.content}, Direction: ${msg.direction}');
-          }
-          return messages;
-        });
+    // Server/Admin mode: use local DB with polling to detect Go server changes
+    return _watchMessagesLocalWithPolling('doctor_$roomId', [roomId], 'to_doctor');
   }
 
   /// Get all messages for a room (for viewing history)
+  /// Uses polling for both modes to detect Go server changes
   Stream<List<Message>> watchMessagesForRoom(String roomId) {
     // Client mode: use remote with polling
     if (!GrpcClientConfig.isServer) {
@@ -260,10 +266,28 @@ class MessagesRepository {
       return _remoteStreams[key]!.stream;
     }
     
-    return (_db.select(_db.messages)
-          ..where((m) => m.roomId.equals(roomId))
-          ..orderBy([(m) => OrderingTerm.desc(m.sentAt)]))
-        .watch();
+    // Server/Admin mode: use local DB with polling to detect Go server changes
+    final key = 'all_local_$roomId';
+    if (!_remoteStreams.containsKey(key)) {
+      _remoteStreams[key] = StreamController<List<Message>>.broadcast();
+      
+      Future<void> fetchMessages() async {
+        try {
+          final messages = await (_db.select(_db.messages)
+                ..where((m) => m.roomId.equals(roomId))
+                ..orderBy([(m) => OrderingTerm.desc(m.sentAt)]))
+              .get();
+          _remoteStreams[key]?.add(messages);
+        } catch (e) {
+          print('❌ [MessagesRepository] Local poll failed: $e');
+          _remoteStreams[key]?.add([]);
+        }
+      }
+      
+      fetchMessages();
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
+    }
+    return _remoteStreams[key]!.stream;
   }
 
   /// Delete message when read (no history kept)
