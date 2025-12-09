@@ -113,6 +113,37 @@ class _PatientFormDialogState extends ConsumerState<PatientFormDialog> {
     return age;
   }
 
+  /// Parse age input - accepts number or date format (dd/mm/yyyy or d/m/yyyy)
+  /// Returns calculated age if date, or null if invalid
+  int? _parseAgeInput(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return null;
+    
+    // First try as a number
+    final directAge = int.tryParse(trimmed);
+    if (directAge != null) return directAge;
+    
+    // Try parsing as date (dd/mm/yyyy or d/m/yyyy)
+    final parts = trimmed.split('/');
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      
+      if (day != null && month != null && year != null) {
+        try {
+          final dob = DateTime(year, month, day);
+          if (dob.isBefore(DateTime.now())) {
+            _dateOfBirth = dob;  // Store the date of birth
+            return _calculateAge(dob);
+          }
+        } catch (_) {}
+      }
+    }
+    
+    return null;
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -127,16 +158,23 @@ class _PatientFormDialogState extends ConsumerState<PatientFormDialog> {
           ? null 
           : int.tryParse(_ageController.text);
 
+      // Parse age - could be number or date format
+      final parsedAge = _parseAgeInput(_ageController.text);
+      final finalAge = parsedAge ?? age;
+      
+      // Default address to "Batna" if empty
+      final address = _addressController.text.trim().isEmpty 
+          ? 'Batna' 
+          : _addressController.text.trim();
+      
       if (widget.patient == null) {
         // Create new patient
         await repository.createPatient(
           firstName: _firstNameController.text.trim(),
           lastName: _lastNameController.text.trim(),
-          age: _useAgeInput ? age : null,
-          dateOfBirth: _useAgeInput ? null : _dateOfBirth,
-          address: _addressController.text.trim().isEmpty 
-              ? null 
-              : _addressController.text.trim(),
+          age: finalAge,
+          dateOfBirth: _dateOfBirth,
+          address: address,
           phoneNumber: _phoneController.text.trim().isEmpty 
               ? null 
               : _phoneController.text.trim(),
@@ -150,11 +188,9 @@ class _PatientFormDialogState extends ConsumerState<PatientFormDialog> {
           code: widget.patient!.code,
           firstName: _firstNameController.text.trim(),
           lastName: _lastNameController.text.trim(),
-          age: _useAgeInput ? age : null,
-          dateOfBirth: _useAgeInput ? null : _dateOfBirth,
-          address: _addressController.text.trim().isEmpty 
-              ? null 
-              : _addressController.text.trim(),
+          age: finalAge,
+          dateOfBirth: _dateOfBirth,
+          address: address,
           phoneNumber: _phoneController.text.trim().isEmpty 
               ? null 
               : _phoneController.text.trim(),

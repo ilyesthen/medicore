@@ -337,6 +337,9 @@ func (h *RESTHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast SSE event for real-time sync
+	BroadcastUserEvent(EventUserCreated, map[string]interface{}{"id": userId, "name": name})
+
 	respondJSON(w, map[string]interface{}{"id": userId})
 }
 
@@ -373,6 +376,9 @@ func (h *RESTHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast SSE event for real-time sync
+	BroadcastUserEvent(EventUserUpdated, map[string]interface{}{"id": userId})
+
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -396,6 +402,9 @@ func (h *RESTHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	// Broadcast SSE event for real-time sync
+	BroadcastUserEvent(EventUserDeleted, map[string]interface{}{"id": userId})
 
 	respondJSON(w, map[string]interface{}{})
 }
@@ -553,6 +562,7 @@ func (h *RESTHandler) CreateUserTemplate(w http.ResponseWriter, r *http.Request)
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastTemplateEvent(EventTemplateCreated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -574,6 +584,7 @@ func (h *RESTHandler) UpdateUserTemplate(w http.ResponseWriter, r *http.Request)
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastTemplateEvent(EventTemplateUpdated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -590,6 +601,7 @@ func (h *RESTHandler) DeleteUserTemplate(w http.ResponseWriter, r *http.Request)
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastTemplateEvent(EventTemplateDeleted, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -695,6 +707,7 @@ func (h *RESTHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, _ := result.LastInsertId()
+	BroadcastRoomEvent(EventRoomCreated, map[string]interface{}{"id": req["id"]})
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -710,7 +723,7 @@ func (h *RESTHandler) UpdateRoom(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
-
+	BroadcastRoomEvent(EventRoomUpdated, map[string]interface{}{"id": req["id"]})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -726,7 +739,7 @@ func (h *RESTHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
-
+	BroadcastRoomEvent(EventRoomDeleted, map[string]interface{}{"id": req["id"]})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -953,6 +966,12 @@ func (h *RESTHandler) CreatePatient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast SSE event for real-time sync
+	BroadcastPatientEvent(EventPatientCreated, code, map[string]interface{}{
+		"first_name": req["first_name"],
+		"last_name":  req["last_name"],
+	})
+
 	respondJSON(w, map[string]interface{}{"code": code, "id": code})
 }
 
@@ -981,6 +1000,9 @@ func (h *RESTHandler) UpdatePatient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast SSE event for real-time sync
+	BroadcastPatientEvent(EventPatientUpdated, code, nil)
+
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -997,6 +1019,9 @@ func (h *RESTHandler) DeletePatient(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	// Broadcast SSE event for real-time sync
+	BroadcastPatientEvent(EventPatientDeleted, code, nil)
 
 	respondJSON(w, map[string]interface{}{})
 }
@@ -1075,6 +1100,19 @@ func (h *RESTHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, _ := result.LastInsertId()
+
+	// Broadcast SSE event for real-time sync - this is critical for instant notifications!
+	roomID := ""
+	if r, ok := req["room_id"].(string); ok {
+		roomID = r
+	}
+	BroadcastMessageEvent(EventMessageCreated, roomID, map[string]interface{}{
+		"id":          id,
+		"sender_name": req["sender_name"],
+		"direction":   req["direction"],
+		"content":     req["content"],
+	})
+
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -1103,12 +1141,20 @@ func (h *RESTHandler) MarkMessageAsRead(w http.ResponseWriter, r *http.Request) 
 	}
 
 	id := int(req["id"].(float64))
+
+	// Get room_id before deleting for SSE broadcast
+	var roomID string
+	h.db.QueryRow(`SELECT room_id FROM messages WHERE id = ?`, id).Scan(&roomID)
+
 	// Delete message when marked as read (no history kept - matches Flutter behavior)
 	_, err := h.db.Exec(`DELETE FROM messages WHERE id = ?`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	// Broadcast SSE event for real-time sync
+	BroadcastMessageEvent(EventMessageRead, roomID, map[string]interface{}{"id": id})
 
 	respondJSON(w, map[string]interface{}{})
 }
@@ -1129,6 +1175,9 @@ func (h *RESTHandler) MarkAllMessagesAsRead(w http.ResponseWriter, r *http.Reque
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	// Broadcast SSE event for real-time sync
+	BroadcastMessageEvent(EventMessagesCleared, roomId, map[string]interface{}{"direction": direction})
 
 	respondJSON(w, map[string]interface{}{})
 }
@@ -1194,6 +1243,7 @@ func (h *RESTHandler) CreateMessageTemplate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	id, _ := result.LastInsertId()
+	BroadcastMsgTemplateEvent(EventMsgTemplateCreated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -1212,6 +1262,7 @@ func (h *RESTHandler) UpdateMessageTemplate(w http.ResponseWriter, r *http.Reque
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastMsgTemplateEvent(EventMsgTemplateUpdated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -1258,6 +1309,7 @@ func (h *RESTHandler) DeleteMessageTemplate(w http.ResponseWriter, r *http.Reque
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastMsgTemplateEvent(EventMsgTemplateDeleted, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -1287,6 +1339,7 @@ func (h *RESTHandler) ReorderMessageTemplates(w http.ResponseWriter, r *http.Req
 			return
 		}
 	}
+	BroadcastMsgTemplateEvent(EventMsgTemplateReorder, nil)
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -1428,6 +1481,27 @@ func (h *RESTHandler) AddWaitingPatient(w http.ResponseWriter, r *http.Request) 
 	}
 
 	id, _ := result.LastInsertId()
+
+	// Broadcast SSE event for real-time sync - critical for nurse notifications!
+	roomID := ""
+	if r, ok := req["room_id"].(string); ok {
+		roomID = r
+	}
+	isDilatation, _ := req["is_dilatation"].(bool)
+	eventType := EventWaitingAdded
+	if isDilatation {
+		eventType = EventDilatationAdded
+	}
+	BroadcastWaitingEvent(eventType, roomID, map[string]interface{}{
+		"id":                 id,
+		"patient_code":       patientCode,
+		"patient_first_name": req["patient_first_name"],
+		"patient_last_name":  req["patient_last_name"],
+		"is_urgent":          req["is_urgent"],
+		"is_dilatation":      isDilatation,
+		"motif":              req["motif"],
+	})
+
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -1439,6 +1513,10 @@ func (h *RESTHandler) UpdateWaitingPatient(w http.ResponseWriter, r *http.Reques
 	}
 
 	id := int(req["id"].(float64))
+
+	// Get room_id for SSE broadcast
+	var roomID string
+	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE id = ?`, id).Scan(&roomID)
 
 	// Check if this is a toggle request (is_checked sent without explicit value to set)
 	// If is_checked is true from Flutter toggleChecked, we toggle the current value
@@ -1460,6 +1538,9 @@ func (h *RESTHandler) UpdateWaitingPatient(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Broadcast SSE event for real-time sync
+	BroadcastWaitingEvent(EventWaitingUpdated, roomID, map[string]interface{}{"id": id})
+
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -1471,11 +1552,19 @@ func (h *RESTHandler) RemoveWaitingPatient(w http.ResponseWriter, r *http.Reques
 	}
 
 	id := int(req["id"].(float64))
+
+	// Get room_id for SSE broadcast
+	var roomID string
+	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE id = ?`, id).Scan(&roomID)
+
 	_, err := h.db.Exec(`UPDATE waiting_patients SET is_active = 0 WHERE id = ?`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	// Broadcast SSE event for real-time sync
+	BroadcastWaitingEvent(EventWaitingRemoved, roomID, map[string]interface{}{"id": id})
 
 	respondJSON(w, map[string]interface{}{})
 }
@@ -1488,11 +1577,19 @@ func (h *RESTHandler) RemoveWaitingPatientByCode(w http.ResponseWriter, r *http.
 	}
 
 	patientCode := int(req["patient_code"].(float64))
+
+	// Get room_id for SSE broadcast before removing
+	var roomID string
+	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE patient_code = ? AND is_active = 1`, patientCode).Scan(&roomID)
+
 	_, err := h.db.Exec(`UPDATE waiting_patients SET is_active = 0 WHERE patient_code = ? AND is_active = 1`, patientCode)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	// Broadcast SSE event for real-time sync
+	BroadcastWaitingEvent(EventWaitingRemoved, roomID, map[string]interface{}{"patient_code": patientCode})
 
 	respondJSON(w, map[string]interface{}{})
 }
@@ -1597,6 +1694,7 @@ func (h *RESTHandler) CreateMedicalAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := result.LastInsertId()
+	BroadcastMedicalActEvent(EventMedicalActCreated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -1617,6 +1715,7 @@ func (h *RESTHandler) UpdateMedicalAct(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastMedicalActEvent(EventMedicalActUpdated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -1633,6 +1732,7 @@ func (h *RESTHandler) DeleteMedicalAct(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastMedicalActEvent(EventMedicalActDeleted, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -1648,6 +1748,7 @@ func (h *RESTHandler) ReorderMedicalActs(w http.ResponseWriter, r *http.Request)
 		id := int(idVal.(float64))
 		h.db.Exec(`UPDATE medical_acts SET display_order = ?, updated_at = datetime('now') WHERE id = ?`, i+1, id)
 	}
+	BroadcastMedicalActEvent(EventMedicalActReorder, nil)
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -1889,6 +1990,7 @@ func (h *RESTHandler) CreateVisit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := result.LastInsertId()
+	BroadcastVisitEvent(EventVisitCreated, patientCode, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -1914,6 +2016,11 @@ func (h *RESTHandler) UpdateVisit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+	patientCode := 0
+	if pc, ok := req["patient_code"].(float64); ok {
+		patientCode = int(pc)
+	}
+	BroadcastVisitEvent(EventVisitUpdated, patientCode, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -1929,6 +2036,11 @@ func (h *RESTHandler) DeleteVisit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+	patientCode := 0
+	if pc, ok := req["patient_code"].(float64); ok {
+		patientCode = int(pc)
+	}
+	BroadcastVisitEvent(EventVisitDeleted, patientCode, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2021,6 +2133,11 @@ func (h *RESTHandler) CreateOrdonnance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := result.LastInsertId()
+	patientCode := 0
+	if pc, ok := req["patient_code"].(float64); ok {
+		patientCode = int(pc)
+	}
+	BroadcastOrdonnanceEvent(EventOrdonnanceCreated, patientCode, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -2036,6 +2153,11 @@ func (h *RESTHandler) UpdateOrdonnance(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+	patientCode := 0
+	if pc, ok := req["patient_code"].(float64); ok {
+		patientCode = int(pc)
+	}
+	BroadcastOrdonnanceEvent(EventOrdonnanceUpdated, patientCode, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2051,6 +2173,11 @@ func (h *RESTHandler) DeleteOrdonnance(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+	patientCode := 0
+	if pc, ok := req["patient_code"].(float64); ok {
+		patientCode = int(pc)
+	}
+	BroadcastOrdonnanceEvent(EventOrdonnanceDeleted, patientCode, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2233,6 +2360,15 @@ func (h *RESTHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := result.LastInsertId()
+
+	// Broadcast SSE event for real-time sync
+	BroadcastPaymentEvent(EventPaymentCreated, map[string]interface{}{
+		"id":           id,
+		"patient_code": patientCode,
+		"amount":       amount,
+		"user_name":    userName,
+	})
+
 	respondJSON(w, map[string]interface{}{"id": id})
 }
 
@@ -2282,6 +2418,10 @@ func (h *RESTHandler) UpdatePayment(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	// Broadcast SSE event for real-time sync
+	BroadcastPaymentEvent(EventPaymentUpdated, map[string]interface{}{"id": id, "patient_code": patientCode})
+
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2298,6 +2438,10 @@ func (h *RESTHandler) DeletePayment(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	// Broadcast SSE event for real-time sync
+	BroadcastPaymentEvent(EventPaymentDeleted, map[string]interface{}{"id": id})
+
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2551,6 +2695,7 @@ func (h *RESTHandler) IncrementMedicationUsage(w http.ResponseWriter, r *http.Re
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastMedicationEvent(EventMedicationUpdated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2568,6 +2713,7 @@ func (h *RESTHandler) SetMedicationUsageCount(w http.ResponseWriter, r *http.Req
 		respondError(w, 500, err.Error())
 		return
 	}
+	BroadcastMedicationEvent(EventMedicationUpdated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2785,7 +2931,7 @@ func (h *RESTHandler) SaveNurseRoomPreferences(w http.ResponseWriter, r *http.Re
 			h.db.Exec(`INSERT INTO nurse_preferences (nurse_id, box_index, room_id) VALUES (?, ?, ?)`, nurseId, i, room.(string))
 		}
 	}
-
+	BroadcastNursePrefsEvent(EventNursePrefsUpdated, map[string]interface{}{"nurse_id": nurseId})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2798,6 +2944,7 @@ func (h *RESTHandler) ClearNurseRoomPreferences(w http.ResponseWriter, r *http.R
 
 	nurseId := req["nurse_id"].(string)
 	h.db.Exec(`DELETE FROM nurse_preferences WHERE nurse_id = ?`, nurseId)
+	BroadcastNursePrefsEvent(EventNursePrefsUpdated, map[string]interface{}{"nurse_id": nurseId})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2835,6 +2982,7 @@ func (h *RESTHandler) MarkNurseActive(w http.ResponseWriter, r *http.Request) {
 	// Ensure table exists
 	h.db.Exec(`CREATE TABLE IF NOT EXISTS active_nurses (nurse_id TEXT PRIMARY KEY, active_since TEXT)`)
 	h.db.Exec(`INSERT OR REPLACE INTO active_nurses (nurse_id, active_since) VALUES (?, datetime('now'))`, nurseId)
+	BroadcastNursePrefsEvent(EventNurseActive, map[string]interface{}{"nurse_id": nurseId})
 	respondJSON(w, map[string]interface{}{})
 }
 
@@ -2847,6 +2995,7 @@ func (h *RESTHandler) MarkNurseInactive(w http.ResponseWriter, r *http.Request) 
 
 	nurseId := req["nurse_id"].(string)
 	h.db.Exec(`DELETE FROM active_nurses WHERE nurse_id = ?`, nurseId)
+	BroadcastNursePrefsEvent(EventNurseInactive, map[string]interface{}{"nurse_id": nurseId})
 	respondJSON(w, map[string]interface{}{})
 }
 

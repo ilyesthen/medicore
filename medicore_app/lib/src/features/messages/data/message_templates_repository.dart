@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
+import '../../../core/api/realtime_sync_service.dart';
 
 /// Repository for message template operations
 class MessageTemplatesRepository {
@@ -22,11 +23,36 @@ class MessageTemplatesRepository {
         .watch();
   }
   
-  Stream<List<MessageTemplate>> _watchTemplatesRemote() async* {
-    yield await _fetchTemplatesRemote();
-    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
-      yield await _fetchTemplatesRemote();
+  Stream<List<MessageTemplate>> _watchTemplatesRemote() {
+    final controller = StreamController<List<MessageTemplate>>.broadcast();
+    Timer? pollTimer;
+    void Function()? sseCallback;
+    
+    Future<void> fetch() async {
+      final templates = await _fetchTemplatesRemote();
+      if (!controller.isClosed) {
+        controller.add(templates);
+      }
     }
+    
+    // Register SSE callback for instant refresh
+    sseCallback = () => fetch();
+    RealtimeSyncService.instance.onMsgTemplateRefresh(sseCallback!);
+    
+    // Initial fetch
+    fetch();
+    
+    // Fallback poll every 30 seconds (SSE handles real-time)
+    pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => fetch());
+    
+    controller.onCancel = () {
+      pollTimer?.cancel();
+      if (sseCallback != null) {
+        RealtimeSyncService.instance.removeMsgTemplateRefresh(sseCallback!);
+      }
+    };
+    
+    return controller.stream;
   }
   
   Future<List<MessageTemplate>> _fetchTemplatesRemote() async {

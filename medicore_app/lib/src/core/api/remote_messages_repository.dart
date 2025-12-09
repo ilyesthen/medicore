@@ -1,10 +1,11 @@
 import 'dart:async';
 import '../generated/medicore.pb.dart';
 import 'medicore_client.dart';
+import 'realtime_sync_service.dart';
 import '../database/app_database.dart' show Message;
 
 /// Remote Messages Repository - Uses REST API to communicate with admin server
-/// Used in CLIENT mode only
+/// Used in CLIENT mode only - now with SSE-powered instant updates!
 class RemoteMessagesRepository {
   final MediCoreClient _client;
   
@@ -12,8 +13,81 @@ class RemoteMessagesRepository {
   final Map<String, StreamController<List<Message>>> _roomStreams = {};
   final Map<String, Timer> _roomTimers = {};
   
+  // SSE callback for instant refresh
+  void Function(String? roomId)? _sseRefreshCallback;
+  
   RemoteMessagesRepository([MediCoreClient? client])
-      : _client = client ?? MediCoreClient.instance;
+      : _client = client ?? MediCoreClient.instance {
+    // Register for SSE message events for instant updates
+    _sseRefreshCallback = (roomId) => _forceRefreshAllStreams(roomId);
+    RealtimeSyncService.instance.onMessageRefresh(_sseRefreshCallback!);
+  }
+
+  /// Force refresh all active message streams (called by SSE)
+  void _forceRefreshAllStreams(String? targetRoomId) {
+    print('🔄 [RemoteMessages] SSE triggered instant refresh for room: $targetRoomId');
+    
+    for (final key in _roomStreams.keys.toList()) {
+      // Check if this stream is relevant to the target room
+      if (targetRoomId == null || key.contains(targetRoomId)) {
+        _refreshStreamByKey(key);
+      }
+    }
+  }
+
+  /// Refresh a specific stream by its key
+  void _refreshStreamByKey(String key) {
+    if (key.startsWith('nurse_')) {
+      final roomIdsStr = key.substring('nurse_'.length);
+      final roomIds = roomIdsStr.split('_');
+      _fetchNurseMessages(key, roomIds);
+    } else if (key.startsWith('doctor_')) {
+      final roomId = key.substring('doctor_'.length);
+      _fetchDoctorMessages(key, roomId);
+    } else if (key.startsWith('all_')) {
+      final roomId = key.substring('all_'.length);
+      _fetchAllMessages(key, roomId);
+    }
+  }
+
+  Future<void> _fetchNurseMessages(String key, List<String> roomIds) async {
+    try {
+      final allMessages = <Message>[];
+      for (final roomId in roomIds) {
+        final response = await _client.getMessagesByRoom(roomId);
+        allMessages.addAll(
+          response.messages
+            .where((m) => m.direction == 'to_nurse' && !m.isRead)
+            .map(_grpcMessageToLocal)
+        );
+      }
+      _roomStreams[key]?.add(allMessages);
+    } catch (e) {
+      print('❌ [RemoteMessages] refresh failed: $e');
+    }
+  }
+
+  Future<void> _fetchDoctorMessages(String key, String roomId) async {
+    try {
+      final response = await _client.getMessagesByRoom(roomId);
+      final unread = response.messages
+        .where((m) => m.direction == 'to_doctor' && !m.isRead)
+        .map(_grpcMessageToLocal)
+        .toList();
+      _roomStreams[key]?.add(unread);
+    } catch (e) {
+      print('❌ [RemoteMessages] refresh failed: $e');
+    }
+  }
+
+  Future<void> _fetchAllMessages(String key, String roomId) async {
+    try {
+      final response = await _client.getMessagesByRoom(roomId);
+      _roomStreams[key]?.add(response.messages.map(_grpcMessageToLocal).toList());
+    } catch (e) {
+      print('❌ [RemoteMessages] refresh failed: $e');
+    }
+  }
 
   /// Send a message
   Future<Message> sendMessage({
@@ -89,8 +163,8 @@ class RemoteMessagesRepository {
       // Immediate fetch
       fetchMessages();
       
-      // Poll every 2 seconds for real-time updates
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
+      // Fallback poll every 5 seconds (SSE handles real-time updates)
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 5), (_) => fetchMessages());
     }
     
     return _roomStreams[key]!.stream;
@@ -121,8 +195,8 @@ class RemoteMessagesRepository {
       // Immediate fetch
       fetchMessages();
       
-      // Poll every 2 seconds for real-time updates
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
+      // Fallback poll every 5 seconds (SSE handles real-time updates)
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 5), (_) => fetchMessages());
     }
     
     return _roomStreams[key]!.stream;
@@ -149,8 +223,8 @@ class RemoteMessagesRepository {
       // Immediate fetch
       fetchMessages();
       
-      // Poll every 2 seconds for real-time updates
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
+      // Fallback poll every 5 seconds (SSE handles real-time updates)
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 5), (_) => fetchMessages());
     }
     
     return _roomStreams[key]!.stream;
@@ -163,6 +237,8 @@ class RemoteMessagesRepository {
     } catch (e) {
       print('❌ [RemoteMessages] markAsRead failed: $e');
     }
+    // Force immediate refresh (don't wait for SSE)
+    _forceRefreshAllStreams(null);
   }
 
   /// Mark all messages as read for nurse (all rooms, to_nurse direction)
@@ -174,6 +250,8 @@ class RemoteMessagesRepository {
         print('❌ [RemoteMessages] markAllAsReadForNurse failed: $e');
       }
     }
+    // Force immediate refresh of all nurse streams (don't wait for SSE)
+    _forceRefreshAllStreams(null);
   }
 
   /// Mark all messages as read for doctor (single room, to_doctor direction)
@@ -183,6 +261,8 @@ class RemoteMessagesRepository {
     } catch (e) {
       print('❌ [RemoteMessages] markAllAsReadForDoctor failed: $e');
     }
+    // Force immediate refresh (don't wait for SSE)
+    _forceRefreshAllStreams(roomId);
   }
 
   /// Get unread count for nurse
@@ -233,6 +313,11 @@ class RemoteMessagesRepository {
   }
 
   void dispose() {
+    // Unregister SSE callback
+    if (_sseRefreshCallback != null) {
+      RealtimeSyncService.instance.removeMessageRefresh(_sseRefreshCallback!);
+    }
+    
     for (final timer in _roomTimers.values) {
       timer.cancel();
     }

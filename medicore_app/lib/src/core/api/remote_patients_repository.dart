@@ -1,10 +1,11 @@
 import 'dart:async';
 import '../generated/medicore.pb.dart';
 import 'medicore_client.dart';
+import 'realtime_sync_service.dart';
 import '../database/app_database.dart' show Patient;
 
 /// Remote Patients Repository - Uses REST API to communicate with admin server
-/// Used in CLIENT mode only
+/// Used in CLIENT mode only - now with SSE-powered instant updates!
 class RemotePatientsRepository {
   final MediCoreClient _client;
   
@@ -13,8 +14,15 @@ class RemotePatientsRepository {
   List<Patient> _cachedPatients = [];
   DateTime? _lastFetch;
   
+  // SSE callback for instant refresh
+  void Function()? _sseRefreshCallback;
+  
   RemotePatientsRepository([MediCoreClient? client])
-      : _client = client ?? MediCoreClient.instance;
+      : _client = client ?? MediCoreClient.instance {
+    // Register for SSE patient events for instant updates
+    _sseRefreshCallback = () => _refreshPatients();
+    RealtimeSyncService.instance.onPatientRefresh(_sseRefreshCallback!);
+  }
 
   /// Watch all patients (with caching for performance)
   Stream<List<Patient>> watchAllPatients() async* {
@@ -22,8 +30,8 @@ class RemotePatientsRepository {
     await _refreshPatients();
     yield _cachedPatients;
     
-    // Periodic refresh every 5 seconds for real-time updates
-    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
+    // Fallback poll every 10 seconds (SSE handles real-time updates)
+    await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
       await _refreshPatients();
       yield _cachedPatients;
     }
@@ -171,6 +179,10 @@ class RemotePatientsRepository {
   }
   
   void dispose() {
+    // Unregister SSE callback
+    if (_sseRefreshCallback != null) {
+      RealtimeSyncService.instance.removePatientRefresh(_sseRefreshCallback!);
+    }
     _patientsController.close();
   }
 }

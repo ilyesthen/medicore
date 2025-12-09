@@ -472,9 +472,9 @@ class PrescriptionPrintService {
               // if (bgImage != null)
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
-              // Content - more right (200pt) and moved UP (175pt)
+              // Content - more right (200pt) and moved UP (155pt)
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 175, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 0, top: 155, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -482,9 +482,9 @@ class PrescriptionPrintService {
                     pw.SizedBox(height: 12),
                     
                     // Centered title
-                    pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
+                    pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                     pw.SizedBox(height: 4),
-                    pw.Center(child: pw.Text(title, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
+                    pw.Center(child: pw.Text(title, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                     pw.SizedBox(height: 10),
                     
                     // Both eyes side by side
@@ -496,7 +496,7 @@ class PrescriptionPrintService {
                     // Verres at bottom
                     if (glassType != null && glassType.isNotEmpty) ...[
                       pw.SizedBox(height: 12),
-                      pw.Text('Verres : $glassType', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text('Verres : $glassType', style: const pw.TextStyle(fontSize: 11)),
                     ],
                     
                     pw.Spacer(),
@@ -550,7 +550,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 175, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 0, top: 155, bottom: 8),
                 child: pw.Builder(builder: (context) {
                   // Check if addition is valid (not empty and not "0" or "0.00")
                   final hasAddition = addition.isNotEmpty && 
@@ -563,18 +563,18 @@ class PrescriptionPrintService {
                       pw.SizedBox(height: 10),
                       
                       // Centered title
-                      pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
+                      pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                       pw.SizedBox(height: 8),
                       
                       // Vision de Loin - both eyes side by side
-                      pw.Text('Vision de Loin', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                      pw.Text('Vision de Loin', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
                       pw.SizedBox(height: 4),
                       _buildBothEyesOptique(sphereOD, cylindreOD, axeOD, sphereOG, cylindreOG, axeOG),
                       
                       // Vision de Près - only show if addition exists
                       if (hasAddition) ...[
                         pw.SizedBox(height: 8),
-                        pw.Text('Vision de Près', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                        pw.Text('Vision de Près', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
                         pw.SizedBox(height: 4),
                         _buildBothEyesOptique(
                           _addValues(sphereOD, addition), cylindreOD, axeOD,
@@ -585,7 +585,7 @@ class PrescriptionPrintService {
                       // Verres at bottom
                       if (glassType != null && glassType.isNotEmpty) ...[
                         pw.SizedBox(height: 10),
-                        pw.Text('Verres : $glassType', style: const pw.TextStyle(fontSize: 9)),
+                        pw.Text('Verres : $glassType', style: const pw.TextStyle(fontSize: 11)),
                       ],
                       
                       pw.Spacer(),
@@ -645,7 +645,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 175, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 0, top: 155, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -653,8 +653,8 @@ class PrescriptionPrintService {
                     pw.SizedBox(height: 12),
                     
                     // Centered title
-                    pw.Center(child: pw.Text('LENTILLES DE CONTACT', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _titleColor))),
-                    if (isToric) pw.Center(child: pw.Text('(Sphere Equivalente)', style: const pw.TextStyle(fontSize: 9))),
+                    pw.Center(child: pw.Text('LENTILLES DE CONTACT', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: _titleColor))),
+                    if (isToric) pw.Center(child: pw.Text('(Sphere Equivalente)', style: const pw.TextStyle(fontSize: 11))),
                     pw.SizedBox(height: 12),
                     
                     // Both eyes side by side
@@ -663,11 +663,11 @@ class PrescriptionPrintService {
                     // Type and Marque at bottom
                     if (type.isNotEmpty) ...[
                       pw.SizedBox(height: 10),
-                      pw.Text('Type : $type', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text('Type : $type', style: const pw.TextStyle(fontSize: 11)),
                     ],
                     if (marque.isNotEmpty) ...[
                       pw.SizedBox(height: 4),
-                      pw.Text('Marque : $marque', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text('Marque : $marque', style: const pw.TextStyle(fontSize: 11)),
                     ],
                     
                     pw.Spacer(),
@@ -730,10 +730,10 @@ class PrescriptionPrintService {
 
     // Adjust padding for A4 - REDUCED LEFT PADDING to preserve formatting
     final leftPad = useA4 ? 60.0 : 45.0;    // Reduced for wider text area
-    final rightPad = useA4 ? 40.0 : 30.0;   // Right margin
-    final topPad = useA4 ? 200.0 : 160.0;   // Moved UP for header space
-    final fontSize = useA4 ? 12.0 : 10.0;   // Text size
-    final titleSize = useA4 ? 15.0 : 11.0;  // Title size
+    final rightPad = useA4 ? 30.0 : 20.0;   // Right margin - reduced to use space
+    final topPad = useA4 ? 180.0 : 145.0;   // Moved UP more for header space
+    final fontSize = useA4 ? 14.0 : 12.0;   // Text size - INCREASED
+    final titleSize = useA4 ? 17.0 : 14.0;  // Title size - INCREASED
 
     doc.addPage(
       pw.Page(
@@ -828,11 +828,11 @@ class PrescriptionPrintService {
     final bgImage = await _loadBackgroundImage();
     const pageFormat = PdfPageFormat.a4;
     
-    // Margins: top ~200pt for header space, bottom ~150pt for footer space
-    const topMargin = 200.0;
+    // Margins: top ~180pt for header space, bottom ~150pt for footer space
+    const topMargin = 180.0;
     const bottomMargin = 150.0;
     const leftMargin = 60.0;
-    const rightMargin = 40.0;
+    const rightMargin = 30.0;  // Reduced to use right space
 
     // Determine what name to use for printing
     String displayName;
@@ -875,16 +875,16 @@ class PrescriptionPrintService {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('Patient: $displayName', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Patient: $displayName', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
                     if (displayAge != null && displayAge.isNotEmpty)
-                      pw.Text('Âge: $displayAge ans', style: const pw.TextStyle(fontSize: 10)),
-                    pw.Text('Code: $patientCode', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Text('Âge: $displayAge ans', style: const pw.TextStyle(fontSize: 12)),
+                    pw.Text('Code: $patientCode', style: const pw.TextStyle(fontSize: 12)),
                   ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
-                    pw.Text('Date: $date', style: const pw.TextStyle(fontSize: 10)),
+                    pw.Text('Date: $date', style: const pw.TextStyle(fontSize: 12)),
                     pw.SizedBox(height: 4),
                     pw.BarcodeWidget(data: barcode, barcode: pw.Barcode.code128(), width: 70, height: 18, drawText: false),
                   ],
@@ -899,7 +899,7 @@ class PrescriptionPrintService {
               padding: const pw.EdgeInsets.only(bottom: 15),
               child: pw.Text(
                 _sanitizeForPrint(documentType),
-                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _titleColor),
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _titleColor),
               ),
             ),
           ),
@@ -907,7 +907,7 @@ class PrescriptionPrintService {
           // Content - preserves exact formatting with line breaks
           pw.Text(
             _sanitizeForPrint(content),
-            style: const pw.TextStyle(fontSize: 12, lineSpacing: 1.4),
+            style: const pw.TextStyle(fontSize: 14, lineSpacing: 1.4),
           ),
           
           // Signature area at bottom
@@ -988,13 +988,13 @@ class PrescriptionPrintService {
         pw.RichText(
           text: pw.TextSpan(
             children: [
-              pw.TextSpan(text: 'Nom: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-              pw.TextSpan(text: nom, style: const pw.TextStyle(fontSize: 10)),
-              pw.TextSpan(text: '  Prénom: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-              pw.TextSpan(text: prenom, style: const pw.TextStyle(fontSize: 10)),
+              pw.TextSpan(text: 'Nom: ', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+              pw.TextSpan(text: nom, style: const pw.TextStyle(fontSize: 12)),
+              pw.TextSpan(text: '  Prénom: ', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+              pw.TextSpan(text: prenom, style: const pw.TextStyle(fontSize: 12)),
               if (age != null && age.isNotEmpty) ...[
-                pw.TextSpan(text: '  Age: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                pw.TextSpan(text: '$age ans', style: const pw.TextStyle(fontSize: 10)),
+                pw.TextSpan(text: '  Age: ', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                pw.TextSpan(text: '$age ans', style: const pw.TextStyle(fontSize: 12)),
               ],
             ],
           ),
@@ -1002,9 +1002,9 @@ class PrescriptionPrintService {
         pw.SizedBox(height: 5),
         pw.Row(
           children: [
-            pw.Text('Le $date', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text('Le $date', style: const pw.TextStyle(fontSize: 12)),
             pw.SizedBox(width: 15),
-            pw.BarcodeWidget(data: barcode, barcode: pw.Barcode.code128(), width: 45, height: 14, drawText: false),
+            pw.BarcodeWidget(data: barcode, barcode: pw.Barcode.code128(), width: 50, height: 16, drawText: false),
           ],
         ),
       ],
@@ -1017,13 +1017,13 @@ class PrescriptionPrintService {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(eyeLabel, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+        pw.Text(eyeLabel, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 2),
         pw.Table(
           border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey400),
           columnWidths: {
-            0: const pw.FixedColumnWidth(50),
-            1: const pw.FixedColumnWidth(50),
+            0: const pw.FixedColumnWidth(70),
+            1: const pw.FixedColumnWidth(60),
           },
           children: [
             _proTableRow('SPHÈRE', '$sphere D'),
@@ -1046,13 +1046,13 @@ class PrescriptionPrintService {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(eyeLabel, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+        pw.Text(eyeLabel, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 2),
         pw.Table(
           border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey400),
           columnWidths: {
-            0: const pw.FixedColumnWidth(55),
-            1: const pw.FixedColumnWidth(55),
+            0: const pw.FixedColumnWidth(75),
+            1: const pw.FixedColumnWidth(60),
           },
           children: [
             _proTableRow('PUISSANCE', '$cleanPuissance D'),
@@ -1093,12 +1093,12 @@ class PrescriptionPrintService {
   static pw.TableRow _proTableRow(String label, String value) {
     return pw.TableRow(children: [
       pw.Container(
-        padding: const pw.EdgeInsets.all(3),
-        child: pw.Text(label, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+        padding: const pw.EdgeInsets.all(4),
+        child: pw.Text(label, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
       ),
       pw.Container(
-        padding: const pw.EdgeInsets.all(3),
-        child: pw.Text(value, style: const pw.TextStyle(fontSize: 9)),
+        padding: const pw.EdgeInsets.all(4),
+        child: pw.Text(value, style: const pw.TextStyle(fontSize: 11)),
       ),
     ]);
   }

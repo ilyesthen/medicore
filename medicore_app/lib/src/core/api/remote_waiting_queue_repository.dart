@@ -1,10 +1,11 @@
 import 'dart:async';
 import '../generated/medicore.pb.dart';
 import 'medicore_client.dart';
+import 'realtime_sync_service.dart';
 import '../database/app_database.dart' show WaitingPatient;
 
 /// Remote Waiting Queue Repository - Uses REST API to communicate with admin server
-/// Used in CLIENT mode only
+/// Used in CLIENT mode only - now with SSE-powered instant updates!
 class RemoteWaitingQueueRepository {
   final MediCoreClient _client;
   
@@ -12,8 +13,15 @@ class RemoteWaitingQueueRepository {
   final Map<String, StreamController<List<WaitingPatient>>> _roomStreams = {};
   final Map<String, Timer> _roomTimers = {};
   
+  // SSE callback for instant refresh
+  void Function(String? roomId)? _sseRefreshCallback;
+  
   RemoteWaitingQueueRepository([MediCoreClient? client])
-      : _client = client ?? MediCoreClient.instance;
+      : _client = client ?? MediCoreClient.instance {
+    // Register for SSE waiting queue events for instant updates
+    _sseRefreshCallback = (roomId) => _forceRefreshAllRooms(roomId);
+    RealtimeSyncService.instance.onWaitingRefresh(_sseRefreshCallback!);
+  }
 
   /// List of consultation motifs (same as local)
   static const List<String> motifs = [
@@ -80,27 +88,60 @@ class RemoteWaitingQueueRepository {
   void _forceRefreshRoom(String roomId) {
     // Refresh all related streams immediately
     for (final key in _roomStreams.keys.where((k) => k.contains(roomId))) {
-      _roomTimers[key]?.cancel();
-      // Fetch immediately then restart timer
-      Future<void> fetchData() async {
-        try {
-          final response = await _client.getWaitingPatientsByRoom(roomId);
-          final patients = response.patients.map(_grpcWaitingPatientToLocal).toList();
-          
-          if (key.startsWith('waiting_')) {
-            _roomStreams[key]?.add(patients.where((p) => !p.isUrgent && !p.isDilatation && p.isActive).toList());
-          } else if (key.startsWith('urgent_')) {
-            _roomStreams[key]?.add(patients.where((p) => p.isUrgent && p.isActive).toList());
-          } else if (key.startsWith('dilatation_')) {
-            _roomStreams[key]?.add(patients.where((p) => p.isDilatation && p.isActive).toList());
-          }
-        } catch (e) {
-          print('❌ [RemoteWaitingQueue] Force refresh failed: $e');
+      _refreshStreamKey(key, roomId);
+    }
+  }
+
+  /// Force refresh all active rooms (called by SSE)
+  void _forceRefreshAllRooms(String? targetRoomId) {
+    print('🔄 [RemoteWaitingQueue] SSE triggered instant refresh for room: $targetRoomId');
+    
+    if (targetRoomId != null) {
+      // Refresh specific room
+      _forceRefreshRoom(targetRoomId);
+    } else {
+      // Refresh all active streams
+      for (final key in _roomStreams.keys.toList()) {
+        // Extract room ID from key
+        final roomId = _extractRoomIdFromKey(key);
+        if (roomId != null) {
+          _refreshStreamKey(key, roomId);
         }
       }
-      fetchData();
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
     }
+  }
+
+  /// Extract room ID from stream key
+  String? _extractRoomIdFromKey(String key) {
+    // Keys are like: waiting_room1, urgent_room1, dilatation_room1, dilatation_multi_room1_room2
+    if (key.startsWith('waiting_')) return key.substring('waiting_'.length);
+    if (key.startsWith('urgent_')) return key.substring('urgent_'.length);
+    if (key.startsWith('dilatation_') && !key.startsWith('dilatation_multi_')) {
+      return key.substring('dilatation_'.length);
+    }
+    return null;
+  }
+
+  /// Refresh a specific stream key
+  void _refreshStreamKey(String key, String roomId) {
+    // Fetch immediately (no need to restart timer - SSE handles real-time)
+    Future<void> fetchData() async {
+      try {
+        final response = await _client.getWaitingPatientsByRoom(roomId);
+        final patients = response.patients.map(_grpcWaitingPatientToLocal).toList();
+        
+        if (key.startsWith('waiting_')) {
+          _roomStreams[key]?.add(patients.where((p) => !p.isUrgent && !p.isDilatation && p.isActive).toList());
+        } else if (key.startsWith('urgent_')) {
+          _roomStreams[key]?.add(patients.where((p) => p.isUrgent && p.isActive).toList());
+        } else if (key.startsWith('dilatation_')) {
+          _roomStreams[key]?.add(patients.where((p) => p.isDilatation && p.isActive).toList());
+        }
+      } catch (e) {
+        print('❌ [RemoteWaitingQueue] Refresh failed: $e');
+      }
+    }
+    fetchData();
   }
 
   /// Add patient to dilatation queue
@@ -200,7 +241,7 @@ class RemoteWaitingQueueRepository {
       fetchData();
       
       // Then poll every 2 seconds
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 5), (_) => fetchData());
     }
     
     return _roomStreams[key]!.stream;
@@ -231,10 +272,11 @@ class RemoteWaitingQueueRepository {
   /// Toggle checked status
   Future<void> toggleChecked(int id) async {
     // Get current state, toggle, and update
-    // For simplicity, we'll just toggle based on local knowledge
     try {
       final patient = GrpcWaitingPatient(id: id, isChecked: true);
       await _client.updateWaitingPatient(patient);
+      // Force immediate refresh (don't wait for SSE)
+      _forceRefreshAllRooms(null);
     } catch (e) {
       print('❌ [RemoteWaitingQueue] toggleChecked failed: $e');
     }
@@ -244,6 +286,8 @@ class RemoteWaitingQueueRepository {
   Future<void> removeFromQueue(int id) async {
     try {
       await _client.removeWaitingPatient(id);
+      // Force immediate refresh (don't wait for SSE)
+      _forceRefreshAllRooms(null);
     } catch (e) {
       print('❌ [RemoteWaitingQueue] removeFromQueue failed: $e');
     }
@@ -253,6 +297,8 @@ class RemoteWaitingQueueRepository {
   Future<void> removeByPatientCode(int patientCode) async {
     try {
       await _client.removeWaitingPatientByCode(patientCode);
+      // Force immediate refresh (don't wait for SSE)
+      _forceRefreshAllRooms(null);
     } catch (e) {
       print('❌ [RemoteWaitingQueue] removeByPatientCode failed: $e');
     }
@@ -262,6 +308,8 @@ class RemoteWaitingQueueRepository {
   Future<void> markDilatationsAsNotified(List<String> roomIds) async {
     try {
       await _client.markDilatationsAsNotified(roomIds);
+      // Force immediate refresh (don't wait for SSE)
+      _forceRefreshAllRooms(null);
     } catch (e) {
       print('❌ [RemoteWaitingQueue] markDilatationsAsNotified failed: $e');
     }
@@ -297,7 +345,7 @@ class RemoteWaitingQueueRepository {
       fetchData();
       
       // Then poll every 2 seconds
-      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 5), (_) => fetchData());
     }
     
     return _roomStreams[key]!.stream;
@@ -328,6 +376,11 @@ class RemoteWaitingQueueRepository {
   }
 
   void dispose() {
+    // Unregister SSE callback
+    if (_sseRefreshCallback != null) {
+      RealtimeSyncService.instance.removeWaitingRefresh(_sseRefreshCallback!);
+    }
+    
     for (final timer in _roomTimers.values) {
       timer.cancel();
     }

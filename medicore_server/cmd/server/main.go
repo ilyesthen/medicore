@@ -80,16 +80,18 @@ func main() {
 	restHandler := api.NewRESTHandler(db)
 	mux := http.NewServeMux()
 	restHandler.SetupRoutes(mux)
+	restHandler.SetupSSERoutes(mux) // Real-time events via Server-Sent Events
 
 	log.Println("")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	log.Println("✅ MEDICORE SERVER READY FOR LAN CONNECTIONS")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	log.Printf("🌐 REST API:    http://%s:%d", localIP, restPort)
+	log.Printf("📡 SSE Events:  http://%s:%d/api/events", localIP, restPort)
 	log.Printf("🔌 Test Port:   %s:%d", localIP, testPort)
 	log.Printf("💻 Computer:    %s", getHostname())
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	log.Println("📡 Flutter clients connect via REST API (port 50052)")
+	log.Println("📡 Real-time sync enabled via Server-Sent Events")
 	log.Println("")
 
 	if err := http.ListenAndServe(restAddr, mux); err != nil {

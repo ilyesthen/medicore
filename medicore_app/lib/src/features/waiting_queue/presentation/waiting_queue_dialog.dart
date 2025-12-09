@@ -6,10 +6,11 @@ import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
 import '../../patients/data/patients_repository.dart';
 import '../../consultation/presentation/patient_consultation_page.dart';
+import '../../messages/services/notification_service.dart';
 import 'waiting_queue_provider.dart';
 
 /// Dialog showing waiting patients for a specific room
-class WaitingQueueDialog extends ConsumerWidget {
+class WaitingQueueDialog extends ConsumerStatefulWidget {
   final Room room;
   final bool isDoctor;
 
@@ -20,8 +21,22 @@ class WaitingQueueDialog extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final waitingPatientsAsync = ref.watch(waitingPatientsProvider(room.id));
+  ConsumerState<WaitingQueueDialog> createState() => _WaitingQueueDialogState();
+}
+
+class _WaitingQueueDialogState extends ConsumerState<WaitingQueueDialog> {
+  final NotificationService _notificationService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Stop notification sound when viewing waiting patients list
+    _notificationService.stopNotificationSound();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final waitingPatientsAsync = ref.watch(waitingPatientsProvider(widget.room.id));
 
     return Dialog(
       backgroundColor: MediCoreColors.canvasGrey,
@@ -46,7 +61,7 @@ class WaitingQueueDialog extends ConsumerWidget {
                   const Icon(Icons.schedule, color: Colors.white, size: 22),
                   const SizedBox(width: 12),
                   Text(
-                    '📋 EN ATTENTE CONSULTATION - ${room.name}',
+                    '📋 EN ATTENTE CONSULTATION - ${widget.room.name}',
                     style: MediCoreTypography.pageTitle.copyWith(color: Colors.white, fontSize: 16),
                   ),
                   const Spacer(),
@@ -87,7 +102,7 @@ class WaitingQueueDialog extends ConsumerWidget {
                   _HeaderCell('NOM', flex: 2),
                   _HeaderCell('ÂGE', width: 60),
                   _HeaderCell('MOTIF DE CONSULTATION', flex: 2),
-                  if (isDoctor) _HeaderCell('OUVRIR', width: 80),
+                  if (widget.isDoctor) _HeaderCell('OUVRIR', width: 80),
                   _HeaderCell('', width: 50), // Delete
                 ],
               ),
@@ -116,8 +131,8 @@ class WaitingQueueDialog extends ConsumerWidget {
                       final patient = patients[index];
                       return _PatientRow(
                         patient: patient,
-                        isDoctor: isDoctor,
-                        onOpenFile: () => _openPatientFile(context, ref, patient),
+                        isDoctor: widget.isDoctor,
+                        onOpenFile: () => _openPatientFile(context, patient),
                       );
                     },
                   );
@@ -132,7 +147,7 @@ class WaitingQueueDialog extends ConsumerWidget {
     );
   }
 
-  Future<void> _openPatientFile(BuildContext context, WidgetRef ref, WaitingPatient waitingPatient) async {
+  Future<void> _openPatientFile(BuildContext context, WaitingPatient waitingPatient) async {
     // Get the full patient data
     final patientsRepo = PatientsRepository(AppDatabase());
     final patient = await patientsRepo.getPatientByCode(waitingPatient.patientCode);

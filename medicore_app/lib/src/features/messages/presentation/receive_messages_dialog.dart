@@ -127,6 +127,9 @@ class _ReceiveMessagesDialogState extends ConsumerState<ReceiveMessagesDialog> {
   }
 
   void _markAllAsRead() async {
+    // Stop notification sound immediately
+    _notificationService.stopNotificationSound();
+    
     final isNurse = widget.nurseRoomIds != null;
     
     if (isNurse) {

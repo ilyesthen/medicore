@@ -7,6 +7,7 @@ import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
 import '../../patients/data/patients_repository.dart';
 import '../../consultation/presentation/patient_consultation_page.dart';
+import '../../messages/services/notification_service.dart';
 import '../data/waiting_queue_repository.dart';
 import 'waiting_queue_provider.dart';
 
@@ -29,10 +30,14 @@ class DilatationDialog extends ConsumerStatefulWidget {
 
 class _DilatationDialogState extends ConsumerState<DilatationDialog> {
   Timer? _timer;
+  final NotificationService _notificationService = NotificationService();
 
   @override
   void initState() {
     super.initState();
+    // Stop notification sound when dialog opens (user is viewing dilatations)
+    _notificationService.stopNotificationSound();
+    
     // Update timer every second
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});

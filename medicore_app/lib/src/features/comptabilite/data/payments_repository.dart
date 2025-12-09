@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
+import '../../../core/api/realtime_sync_service.dart';
 
 /// Repository for managing payments (Comptabilité)
 /// Handles all database operations for payment records
@@ -578,15 +579,37 @@ class PaymentsRepository {
   
   // ==================== REMOTE API HELPERS ====================
   
-  /// Watch payments from remote server with polling
-  Stream<List<Payment>> _watchPaymentsRemote(String userName, String dateStr, String timeFilter) async* {
-    // Fetch immediately
-    yield await _fetchPaymentsRemote(userName, dateStr, timeFilter);
+  /// Watch payments from remote server with SSE + fallback polling
+  Stream<List<Payment>> _watchPaymentsRemote(String userName, String dateStr, String timeFilter) {
+    final controller = StreamController<List<Payment>>.broadcast();
+    Timer? pollTimer;
+    void Function()? sseCallback;
     
-    // Then poll every 3 seconds
-    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
-      yield await _fetchPaymentsRemote(userName, dateStr, timeFilter);
+    Future<void> fetch() async {
+      final payments = await _fetchPaymentsRemote(userName, dateStr, timeFilter);
+      if (!controller.isClosed) {
+        controller.add(payments);
+      }
     }
+    
+    // Register SSE callback for instant refresh
+    sseCallback = () => fetch();
+    RealtimeSyncService.instance.onPaymentRefresh(sseCallback!);
+    
+    // Initial fetch
+    fetch();
+    
+    // Fallback poll every 10 seconds (SSE handles real-time)
+    pollTimer = Timer.periodic(const Duration(seconds: 10), (_) => fetch());
+    
+    controller.onCancel = () {
+      pollTimer?.cancel();
+      if (sseCallback != null) {
+        RealtimeSyncService.instance.removePaymentRefresh(sseCallback!);
+      }
+    };
+    
+    return controller.stream;
   }
   
   /// Fetch payments from remote server

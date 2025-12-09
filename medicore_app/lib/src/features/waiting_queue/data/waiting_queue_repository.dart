@@ -4,6 +4,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/generated/medicore.pb.dart';
+import '../../../core/api/realtime_sync_service.dart';
 
 /// Repository for waiting patients queue operations
 class WaitingQueueRepository {
@@ -164,7 +165,7 @@ class WaitingQueueRepository {
         .watch();
   }
   
-  /// Remote polling stream for waiting patients
+  /// Remote stream for waiting patients with SSE support
   Stream<List<WaitingPatient>> _watchWaitingPatientsRemote(
     String key,
     String roomId,
@@ -187,11 +188,19 @@ class WaitingQueueRepository {
         }
       }
       
+      // Register SSE callback for instant refresh
+      void sseCallback(String? eventRoomId) {
+        if (eventRoomId == null || eventRoomId == roomId) {
+          fetchData();
+        }
+      }
+      RealtimeSyncService.instance.onWaitingRefresh(sseCallback);
+      
       // Immediate fetch
       fetchData();
       
-      // Poll every 2 seconds
-      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
+      // Fallback poll every 10 seconds (SSE handles real-time)
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 10), (_) => fetchData());
     }
     
     return _remoteStreams[key]!.stream;

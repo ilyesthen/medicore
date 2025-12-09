@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
+import '../../../core/api/realtime_sync_service.dart';
 
 /// Repository for medical acts (Honoraires) operations
 class MedicalActsRepository {
@@ -35,12 +36,37 @@ class MedicalActsRepository {
         .get();
   }
   
-  // Remote helpers
-  Stream<List<MedicalAct>> _watchMedicalActsRemote() async* {
-    yield await _fetchMedicalActsRemote();
-    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
-      yield await _fetchMedicalActsRemote();
+  // Remote helpers with SSE support
+  Stream<List<MedicalAct>> _watchMedicalActsRemote() {
+    final controller = StreamController<List<MedicalAct>>.broadcast();
+    Timer? pollTimer;
+    void Function()? sseCallback;
+    
+    Future<void> fetch() async {
+      final acts = await _fetchMedicalActsRemote();
+      if (!controller.isClosed) {
+        controller.add(acts);
+      }
     }
+    
+    // Register SSE callback for instant refresh
+    sseCallback = () => fetch();
+    RealtimeSyncService.instance.onMedicalActRefresh(sseCallback!);
+    
+    // Initial fetch
+    fetch();
+    
+    // Fallback poll every 30 seconds (SSE handles real-time)
+    pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => fetch());
+    
+    controller.onCancel = () {
+      pollTimer?.cancel();
+      if (sseCallback != null) {
+        RealtimeSyncService.instance.removeMedicalActRefresh(sseCallback!);
+      }
+    };
+    
+    return controller.stream;
   }
   
   Future<List<MedicalAct>> _fetchMedicalActsRemote() async {

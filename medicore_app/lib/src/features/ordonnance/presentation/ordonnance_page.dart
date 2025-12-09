@@ -59,6 +59,11 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   final _printPrenomController = TextEditingController();
   final _printAgeController = TextEditingController();
   
+  // Focus nodes for print fields (Enter key navigation)
+  final _printNameFocus = FocusNode();
+  final _printPrenomFocus = FocusNode();
+  final _printAgeFocus = FocusNode();
+  
   // Bilan shortcuts
   final _jourController = TextEditingController(text: '0');
   
@@ -278,6 +283,9 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     _printNameController.dispose();
     _printPrenomController.dispose();
     _printAgeController.dispose();
+    _printNameFocus.dispose();
+    _printPrenomFocus.dispose();
+    _printAgeFocus.dispose();
     super.dispose();
   }
 
@@ -909,21 +917,36 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   }
 
   /// Print existing document (no save needed)
+  /// Tab 0 (Prescriptions) uses A5, Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background
   Future<void> _printExistingDocument(OrdonnanceDocument doc) async {
     final printContent = _stripSeparatorsForPrint(doc.content);
     final p = widget.patient;
     final tabIndex = _tabController.index;
+    bool success;
     
-    final success = await PrescriptionPrintService.printOrdonnance(
-      patientName: '${p.firstName} ${p.lastName}',
-      patientCode: p.code.toString(),
-      barcode: p.code.toString(),
-      date: doc.formattedDate,
-      content: printContent,
-      documentType: doc.type ?? 'ORDONNANCE',
-      age: p.age?.toString(),
-      useA4: tabIndex == 2,
-    );
+    // Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background image and multi-page
+    if (tabIndex == 1 || tabIndex == 2) {
+      success = await PrescriptionPrintService.printCompteRendu(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        date: doc.formattedDate,
+        content: printContent,
+        documentType: doc.type ?? 'ORDONNANCE',
+        age: p.age?.toString(),
+      );
+    } else {
+      // Tab 0 (Prescriptions) uses A5
+      success = await PrescriptionPrintService.printOrdonnance(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        date: doc.formattedDate,
+        content: printContent,
+        documentType: doc.type ?? 'ORDONNANCE',
+        age: p.age?.toString(),
+      );
+    }
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -934,22 +957,38 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   }
 
   /// Download existing document as PDF
+  /// Tab 0 (Prescriptions) uses A5, Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background
   Future<void> _downloadExistingDocument(OrdonnanceDocument doc) async {
     final pdfContent = _stripSeparatorsForPrint(doc.content);
     final p = widget.patient;
     final tabIndex = _tabController.index;
     
     try {
-      final pdf = await PrescriptionPrintService.generateOrdonnancePdf(
-        patientName: '${p.firstName} ${p.lastName}',
-        patientCode: p.code.toString(),
-        barcode: p.code.toString(),
-        date: doc.formattedDate,
-        content: pdfContent,
-        documentType: doc.type ?? 'ORDONNANCE',
-        age: p.age?.toString(),
-        useA4: tabIndex == 2,
-      );
+      Uint8List pdf;
+      
+      // Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background image and multi-page
+      if (tabIndex == 1 || tabIndex == 2) {
+        pdf = await PrescriptionPrintService.generateCompteRenduPdf(
+          patientName: '${p.firstName} ${p.lastName}',
+          patientCode: p.code.toString(),
+          barcode: p.code.toString(),
+          date: doc.formattedDate,
+          content: pdfContent,
+          documentType: doc.type ?? 'ORDONNANCE',
+          age: p.age?.toString(),
+        );
+      } else {
+        // Tab 0 (Prescriptions) uses A5
+        pdf = await PrescriptionPrintService.generateOrdonnancePdf(
+          patientName: '${p.firstName} ${p.lastName}',
+          patientCode: p.code.toString(),
+          barcode: p.code.toString(),
+          date: doc.formattedDate,
+          content: pdfContent,
+          documentType: doc.type ?? 'ORDONNANCE',
+          age: p.age?.toString(),
+        );
+      }
       
       final cleanType = (doc.type ?? 'ORDONNANCE').replaceAll(' ', '_').replaceAll("'", '');
       final path = await PrescriptionPrintService.downloadPdf(pdf, '${cleanType}_${p.code}.pdf');
@@ -1049,11 +1088,11 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
         Row(children: [Icon(Icons.print, color: Colors.orange.shade700, size: 16), const SizedBox(width: 6), Icon(Icons.description, color: Colors.orange.shade600, size: 14), const SizedBox(width: 8), Text('Imprimer avec un autre nom', style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600))]),
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: _SmallField(controller: _printNameController, label: 'Nom')),
+          Expanded(child: _SmallField(controller: _printNameController, label: 'Nom', focusNode: _printNameFocus, nextFocus: _printPrenomFocus)),
           const SizedBox(width: 8),
-          Expanded(child: _SmallField(controller: _printPrenomController, label: 'Prénom')),
+          Expanded(child: _SmallField(controller: _printPrenomController, label: 'Prénom', focusNode: _printPrenomFocus, nextFocus: _printAgeFocus)),
           const SizedBox(width: 8),
-          SizedBox(width: 80, child: _SmallField(controller: _printAgeController, label: 'Âge')),
+          SizedBox(width: 80, child: _SmallField(controller: _printAgeController, label: 'Âge', focusNode: _printAgeFocus)),
         ]),
         const SizedBox(height: 12),
         Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -1244,7 +1283,7 @@ Sauf complications.
   }
 
   /// Print document - saves to DB first, uses "print with another name" fields if filled
-  /// Tab 2 (Comptes) uses A4, others use A5
+  /// Tab 0 (Prescriptions) uses A5, Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background
   Future<void> _printDocumentTab(int tabIndex, String documentType) async {
     final newDoc = _getNewDocForTab(tabIndex);
     if (newDoc == null || newDoc.plainText.isEmpty) {
@@ -1268,20 +1307,35 @@ Sauf complications.
     final p = widget.patient;
     bool success;
     
-    // All tabs use same A5 design for PDF, but Comptes (tab 2) prints on A4 paper
-    success = await PrescriptionPrintService.printOrdonnance(
-      patientName: '${p.firstName} ${p.lastName}',
-      patientCode: p.code.toString(),
-      barcode: p.code.toString(),
-      date: DateFormat('dd/MM/yyyy').format(_selectedDate),
-      content: printContent,
-      documentType: documentType,
-      printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
-      printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
-      printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
-      age: p.age?.toString(),
-      useA4: tabIndex == 2,  // Comptes uses A4 paper
-    );
+    // Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background image and multi-page
+    if (tabIndex == 1 || tabIndex == 2) {
+      success = await PrescriptionPrintService.printCompteRendu(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+        content: printContent,
+        documentType: documentType,
+        printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
+        printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
+        printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
+        age: p.age?.toString(),
+      );
+    } else {
+      // Tab 0 (Prescriptions) uses A5
+      success = await PrescriptionPrintService.printOrdonnance(
+        patientName: '${p.firstName} ${p.lastName}',
+        patientCode: p.code.toString(),
+        barcode: p.code.toString(),
+        date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+        content: printContent,
+        documentType: documentType,
+        printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
+        printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
+        printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
+        age: p.age?.toString(),
+      );
+    }
     
     // Clear print with another name fields after printing
     _printNameController.clear();
@@ -1300,7 +1354,7 @@ Sauf complications.
   }
 
   /// Download document as PDF
-  /// Tab 2 (Comptes) uses A4, others use A5
+  /// Tab 0 (Prescriptions) uses A5, Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background
   Future<void> _downloadDocument(int tabIndex, String documentType) async {
     final newDoc = _getNewDocForTab(tabIndex);
     if (newDoc == null || newDoc.plainText.isEmpty) {
@@ -1315,21 +1369,37 @@ Sauf complications.
     
     try {
       final p = widget.patient;
+      Uint8List pdf;
       
-      // All tabs use same design, Comptes (tab 2) uses A4 paper
-      final pdf = await PrescriptionPrintService.generateOrdonnancePdf(
-        patientName: '${p.firstName} ${p.lastName}',
-        patientCode: p.code.toString(),
-        barcode: p.code.toString(),
-        date: DateFormat('dd/MM/yyyy').format(_selectedDate),
-        content: pdfContent,
-        documentType: documentType,
-        printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
-        printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
-        printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
-        age: p.age?.toString(),
-        useA4: tabIndex == 2,  // Comptes uses A4 paper
-      );
+      // Tab 1 (Bilan) and Tab 2 (Comptes) use A4 with background image and multi-page
+      if (tabIndex == 1 || tabIndex == 2) {
+        pdf = await PrescriptionPrintService.generateCompteRenduPdf(
+          patientName: '${p.firstName} ${p.lastName}',
+          patientCode: p.code.toString(),
+          barcode: p.code.toString(),
+          date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+          content: pdfContent,
+          documentType: documentType,
+          printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
+          printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
+          printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
+          age: p.age?.toString(),
+        );
+      } else {
+        // Tab 0 (Prescriptions) uses A5
+        pdf = await PrescriptionPrintService.generateOrdonnancePdf(
+          patientName: '${p.firstName} ${p.lastName}',
+          patientCode: p.code.toString(),
+          barcode: p.code.toString(),
+          date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+          content: pdfContent,
+          documentType: documentType,
+          printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
+          printPrenom: _printPrenomController.text.isNotEmpty ? _printPrenomController.text : null,
+          printAge: _printAgeController.text.isNotEmpty ? _printAgeController.text : null,
+          age: p.age?.toString(),
+        );
+      }
       
       // Clean filename: replace spaces and special chars
       final cleanType = documentType.replaceAll(' ', '_').replaceAll("'", '');
@@ -1673,7 +1743,7 @@ class _CompactBtn extends StatelessWidget { final IconData icon; final String la
 class _NavBtn extends StatelessWidget { final IconData icon; final VoidCallback onTap; const _NavBtn({required this.icon, required this.onTap}); @override Widget build(BuildContext context) => Material(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(4), child: Container(width: 28, height: 28, alignment: Alignment.center, child: Icon(icon, color: Colors.white, size: 20)))); }
 class _EyeChip extends StatelessWidget { final String label; final bool isSelected; final VoidCallback onTap; final Color color; const _EyeChip({required this.label, required this.isSelected, required this.onTap, required this.color}); @override Widget build(BuildContext context) => Material(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(20), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? color : MediCoreColors.steelOutline, width: 1.5)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : MediCoreColors.deepNavy, fontSize: 12, fontWeight: FontWeight.w600))))); }
 class _EyeChipWithInsert extends StatelessWidget { final String label; final bool isSelected; final VoidCallback onTap; final VoidCallback onDoubleTap; final Color color; const _EyeChipWithInsert({required this.label, required this.isSelected, required this.onTap, required this.onDoubleTap, required this.color}); @override Widget build(BuildContext context) => Tooltip(message: 'Double-clic pour insérer', child: Material(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(20), child: InkWell(onTap: onTap, onDoubleTap: onDoubleTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? color : MediCoreColors.steelOutline, width: 1.5)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : MediCoreColors.deepNavy, fontSize: 12, fontWeight: FontWeight.w600)))))); }
-class _SmallField extends StatelessWidget { final TextEditingController controller; final String label; const _SmallField({required this.controller, required this.label}); @override Widget build(BuildContext context) => TextField(controller: controller, style: const TextStyle(fontSize: 13), decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(fontSize: 11, color: Colors.grey), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), isDense: true)); }
+class _SmallField extends StatelessWidget { final TextEditingController controller; final String label; final FocusNode? focusNode; final FocusNode? nextFocus; const _SmallField({required this.controller, required this.label, this.focusNode, this.nextFocus}); @override Widget build(BuildContext context) => TextField(controller: controller, focusNode: focusNode, style: const TextStyle(fontSize: 13), textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done, onSubmitted: (_) { if (nextFocus != null) nextFocus!.requestFocus(); }, decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(fontSize: 11, color: Colors.grey), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), isDense: true)); }
 class _ToolbarBtn extends StatelessWidget { final IconData icon; final VoidCallback onTap; const _ToolbarBtn({required this.icon, required this.onTap}); @override Widget build(BuildContext context) => Material(color: Colors.transparent, borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, child: Icon(icon, size: 20, color: const Color(0xFF424242))))); }
 class _ActionBtn extends StatelessWidget { final IconData icon; final String label; final Color color; final VoidCallback onTap; final bool large; const _ActionBtn({required this.icon, required this.label, required this.color, required this.onTap, this.large = false}); @override Widget build(BuildContext context) => Material(color: color, borderRadius: BorderRadius.circular(6), elevation: 2, child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(6), child: Container(padding: EdgeInsets.symmetric(horizontal: large ? 24 : 12, vertical: 10), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 16), const SizedBox(width: 6), Text(label, style: TextStyle(color: Colors.white, fontSize: large ? 13 : 12, fontWeight: FontWeight.w600))])))); }
 

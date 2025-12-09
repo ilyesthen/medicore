@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../api/grpc_client.dart';
 import '../api/medicore_client.dart';
+import '../api/realtime_sync_service.dart';
 import '../database/app_database.dart';
 
 /// Data source mode - determines where data comes from
@@ -50,6 +51,9 @@ class DataSourceManager {
       await MediCoreClient.instance.initialize(
         host: GrpcClientConfig.serverHost,
       );
+      
+      // Initialize real-time sync via SSE for instant updates
+      await RealtimeSyncService.instance.initialize();
     }
     
     _initialized = true;

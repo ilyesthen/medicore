@@ -4,6 +4,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/generated/medicore.pb.dart';
+import '../../../core/api/realtime_sync_service.dart';
 
 /// Repository for message operations
 class MessagesRepository {
@@ -169,7 +170,7 @@ class MessagesRepository {
         });
   }
   
-  /// Remote polling stream for messages
+  /// Remote stream for messages with SSE support
   Stream<List<Message>> _watchMessagesRemote(String key, List<String> roomIds, String direction) {
     if (!_remoteStreams.containsKey(key)) {
       _remoteStreams[key] = StreamController<List<Message>>.broadcast();
@@ -192,11 +193,19 @@ class MessagesRepository {
         }
       }
       
+      // Register SSE callback for instant refresh
+      void sseCallback(String? roomId) {
+        if (roomId == null || roomIds.contains(roomId)) {
+          fetchMessages();
+        }
+      }
+      RealtimeSyncService.instance.onMessageRefresh(sseCallback);
+      
       // Immediate fetch
       fetchMessages();
       
-      // Poll every 2 seconds
-      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchMessages());
+      // Fallback poll every 10 seconds (SSE handles real-time)
+      _remoteTimers[key] = Timer.periodic(const Duration(seconds: 10), (_) => fetchMessages());
     }
     
     return _remoteStreams[key]!.stream;

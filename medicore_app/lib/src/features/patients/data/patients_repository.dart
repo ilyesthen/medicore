@@ -5,6 +5,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/generated/medicore.pb.dart';
+import '../../../core/api/realtime_sync_service.dart';
 
 /// Repository for patient data operations
 class PatientsRepository {
@@ -91,15 +92,37 @@ class PatientsRepository {
     }
   }
   
-  /// Remote polling stream for patients
-  Stream<List<Patient>> _watchPatientsRemote() async* {
-    // Initial fetch
-    yield await _fetchPatientsRemote();
+  /// Remote stream for patients with SSE support
+  Stream<List<Patient>> _watchPatientsRemote() {
+    final controller = StreamController<List<Patient>>.broadcast();
+    Timer? pollTimer;
+    void Function()? sseCallback;
     
-    // Poll every 5 seconds
-    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
-      yield await _fetchPatientsRemote();
+    Future<void> fetch() async {
+      final patients = await _fetchPatientsRemote();
+      if (!controller.isClosed) {
+        controller.add(patients);
+      }
     }
+    
+    // Register SSE callback for instant refresh
+    sseCallback = () => fetch();
+    RealtimeSyncService.instance.onPatientRefresh(sseCallback!);
+    
+    // Initial fetch
+    fetch();
+    
+    // Fallback poll every 30 seconds (SSE handles real-time)
+    pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => fetch());
+    
+    controller.onCancel = () {
+      pollTimer?.cancel();
+      if (sseCallback != null) {
+        RealtimeSyncService.instance.removePatientRefresh(sseCallback!);
+      }
+    };
+    
+    return controller.stream;
   }
   
   /// Fetch patients from remote server (server returns in code ASC order)

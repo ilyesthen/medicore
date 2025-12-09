@@ -2,6 +2,7 @@ import 'dart:async';
 import '../generated/medicore.pb.dart';
 import 'medicore_client.dart';
 import '../database/app_database.dart' show Room;
+import 'realtime_sync_service.dart';
 
 /// Remote Rooms Repository - Uses REST API to communicate with admin server
 /// Used in CLIENT mode only
@@ -12,8 +13,31 @@ class RemoteRoomsRepository {
   List<Room> _cachedRooms = [];
   DateTime? _lastFetch;
   
+  // SSE callback for real-time updates
+  void Function()? _sseCallback;
+  bool _sseRegistered = false;
+
   RemoteRoomsRepository([MediCoreClient? client])
-      : _client = client ?? MediCoreClient.instance;
+      : _client = client ?? MediCoreClient.instance {
+    _registerSSE();
+  }
+
+  void _registerSSE() {
+    if (_sseRegistered) return;
+    _sseCallback = () {
+      clearCache();
+    };
+    RealtimeSyncService.instance.onRoomRefresh(_sseCallback!);
+    _sseRegistered = true;
+  }
+
+  void dispose() {
+    if (_sseCallback != null) {
+      RealtimeSyncService.instance.removeRoomRefresh(_sseCallback!);
+      _sseCallback = null;
+    }
+    _sseRegistered = false;
+  }
 
   /// Get all rooms
   Future<List<Room>> getAllRooms() async {
@@ -120,6 +144,7 @@ class RemoteRoomsRepository {
 
   /// Clear cache (force refresh on next call)
   void clearCache() {
+    print('🔄 [RemoteRooms] Cache cleared via SSE');
     _cachedRooms.clear();
     _lastFetch = null;
   }

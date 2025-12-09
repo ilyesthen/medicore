@@ -8,6 +8,7 @@ import '../../../core/ui/data_grid.dart';
 import '../../../core/ui/notification_badge.dart';
 import '../../../core/utils/keyboard_shortcuts.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/api/realtime_sync_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../rooms/presentation/rooms_provider.dart';
 import '../../rooms/presentation/room_presence_provider.dart';
@@ -43,6 +44,7 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
   bool _isLoading = false;  // Start as false, assign rooms immediately
   int _previousUnreadCount = 0;
   int _previousDilatationCount = -1; // Start at -1 to skip first load
+  int _previousWaitingCount = -1; // Start at -1 to skip first load
   bool _hasPlayedLoginSound = false;
   bool _roomsInitialized = false;
 
@@ -50,6 +52,9 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
   void initState() {
     super.initState();
     _notificationService.initialize();
+    
+    // Register as nurse with SSE for real-time notifications
+    RealtimeSyncService.instance.setUserRole('nurse');
   }
 
   void _initializeRooms() {
@@ -86,6 +91,9 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
         _activeRoomIds = newActiveIds;
       });
       print('🔄 NURSE: Updated active room IDs: $_activeRoomIds');
+      
+      // Register active rooms with SSE for targeted notifications
+      RealtimeSyncService.instance.setActiveRooms(newActiveIds);
     }
   }
 
@@ -157,6 +165,11 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
         });
         _previousUnreadCount = currentCount;
       }
+    } else if (currentCount == 0 && _previousUnreadCount > 0) {
+      // All messages read - stop sound
+      print('🔇 NURSE: All messages read, stopping sound');
+      _notificationService.stopNotificationSound();
+      _previousUnreadCount = currentCount;
     } else if (currentCount != _previousUnreadCount) {
       _previousUnreadCount = currentCount;
     }
@@ -178,8 +191,39 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
         _notificationService.playNotificationSound();
       });
       _previousDilatationCount = dilatationCount;
+    } else if (dilatationCount == 0 && _previousDilatationCount > 0) {
+      // All dilatations cleared - stop sound
+      print('🔇 NURSE: All dilatations cleared, stopping sound');
+      _notificationService.stopNotificationSound();
+      _previousDilatationCount = dilatationCount;
     } else if (dilatationCount != _previousDilatationCount) {
       _previousDilatationCount = dilatationCount;
+    }
+
+    // Watch total waiting count across all nurse rooms (for sound notification)
+    final totalWaitingCountAsync = _activeRoomIds.isNotEmpty
+        ? ref.watch(totalWaitingCountProvider(_activeRoomIds))
+        : const AsyncValue.data(0);
+    final totalWaitingCount = totalWaitingCountAsync.valueOrNull ?? 0;
+
+    // Play notification sound when NEW patient is sent to waiting queue
+    if (_previousWaitingCount == -1) {
+      // First load - just record the count, don't play sound
+      _previousWaitingCount = totalWaitingCount;
+    } else if (totalWaitingCount > _previousWaitingCount) {
+      // New patient arrived - play sound
+      print('🔊 NURSE: Playing new waiting patient sound (count increased from $_previousWaitingCount to $totalWaitingCount)');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _notificationService.playNotificationSound();
+      });
+      _previousWaitingCount = totalWaitingCount;
+    } else if (totalWaitingCount == 0 && _previousWaitingCount > 0) {
+      // All waiting patients cleared - stop sound
+      print('🔇 NURSE: All waiting patients cleared, stopping sound');
+      _notificationService.stopNotificationSound();
+      _previousWaitingCount = totalWaitingCount;
+    } else if (totalWaitingCount != _previousWaitingCount) {
+      _previousWaitingCount = totalWaitingCount;
     }
 
     // Get rooms for display

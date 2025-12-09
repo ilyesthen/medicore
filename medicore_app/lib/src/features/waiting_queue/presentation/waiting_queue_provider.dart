@@ -311,3 +311,16 @@ final allDilatationPatientsProvider = StreamProvider.family<List<WaitingPatient>
   final repository = ref.watch(waitingQueueRepositoryProvider);
   return repository.watchDilatationPatientsForRooms(roomIds);
 });
+
+/// Provider for total waiting count across multiple rooms (for nurse)
+final totalWaitingCountProvider = StreamProvider.family<int, List<String>>((ref, roomIds) {
+  if (roomIds.isEmpty) return Stream.value(0);
+  
+  // Watch all individual room counts and sum them
+  final streams = roomIds.map((roomId) {
+    final countAsync = ref.watch(waitingCountProvider(roomId));
+    return countAsync.valueOrNull ?? 0;
+  });
+  
+  return Stream.value(streams.fold(0, (sum, count) => sum + count));
+});
