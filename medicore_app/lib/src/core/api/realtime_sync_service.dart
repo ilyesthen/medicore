@@ -171,6 +171,14 @@ class RealtimeSyncService {
     _paymentRefreshCallbacks.remove(callback);
   }
 
+  void removeUserRefresh(void Function() callback) {
+    _userRefreshCallbacks.remove(callback);
+  }
+
+  void removeRoomRefresh(void Function() callback) {
+    _roomRefreshCallbacks.remove(callback);
+  }
+
   void removeNotification(void Function(SSEEvent event) callback) {
     _notificationCallbacks.remove(callback);
   }
