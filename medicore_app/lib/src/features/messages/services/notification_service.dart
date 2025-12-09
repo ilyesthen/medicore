@@ -65,18 +65,36 @@ class NotificationService {
   /// Start macOS system sound loop
   void _startMacOSLoop() {
     _loopTimer?.cancel();
+    
+    // Play first sound IMMEDIATELY
+    _playMacOSSound();
+    
+    // Then loop every 2 seconds
     _loopTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       if (_isPlaying) {
-        try {
-          await Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
-        } catch (e) {
-          debugPrint('❌ Loop sound failed: $e');
-          timer.cancel();
-        }
+        _playMacOSSound();
       } else {
         timer.cancel();
       }
     });
+  }
+  
+  /// Play macOS sound - try multiple methods for reliability
+  Future<void> _playMacOSSound() async {
+    try {
+      // Method 1: Try afplay (system command)
+      await Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
+      debugPrint('🔊 macOS sound played via afplay');
+    } catch (e) {
+      debugPrint('⚠️ afplay failed: $e, trying AudioPlayer...');
+      // Method 2: Fallback to audioplayer with asset
+      try {
+        await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
+        debugPrint('🔊 Sound played via AudioPlayer');
+      } catch (e2) {
+        debugPrint('❌ All sound methods failed: $e2');
+      }
+    }
   }
 
   /// Stop notification sound

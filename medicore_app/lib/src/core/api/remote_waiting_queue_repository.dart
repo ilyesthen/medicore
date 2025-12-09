@@ -17,7 +17,7 @@ class RemoteWaitingQueueRepository {
 
   /// List of consultation motifs (same as local)
   static const List<String> motifs = [
-    'BAV loin', 'Certificat', 'Bav loin', 'FO', 'RAS', 'Bav de près',
+    'Consultation', 'BAV loin', 'Certificat', 'Bav loin', 'FO', 'RAS', 'Bav de près',
     'Douleurs oculaires', 'Calcul OD', 'Calcul', 'Calcul OG', 'OR',
     'Céphalées', 'Allergie', 'Contrôle', 'Pentacam', 'Picotement',
     'Strabisme', 'BAV loin OD', 'BAV loin OG', 'Larmoiement', 'ORD',
@@ -48,6 +48,7 @@ class RemoteWaitingQueueRepository {
     bool isUrgent = false,
   }) async {
     try {
+      print('📤 [RemoteWaitingQueue] Adding patient $patientCode to room $roomId (age: $patientAge)');
       final request = CreateWaitingPatientRequest(
         patientCode: patientCode,
         patientFirstName: patientFirstName,
@@ -62,10 +63,43 @@ class RemoteWaitingQueueRepository {
         isDilatation: false,
       );
       
-      return await _client.addWaitingPatient(request);
+      final result = await _client.addWaitingPatient(request);
+      print('✅ [RemoteWaitingQueue] Patient added with ID: $result');
+      
+      // Force immediate refresh of all streams for this room
+      _forceRefreshRoom(roomId);
+      
+      return result;
     } catch (e) {
       print('❌ [RemoteWaitingQueue] addToQueue failed: $e');
       rethrow;
+    }
+  }
+  
+  /// Force refresh all streams for a room
+  void _forceRefreshRoom(String roomId) {
+    // Refresh all related streams immediately
+    for (final key in _roomStreams.keys.where((k) => k.contains(roomId))) {
+      _roomTimers[key]?.cancel();
+      // Fetch immediately then restart timer
+      Future<void> fetchData() async {
+        try {
+          final response = await _client.getWaitingPatientsByRoom(roomId);
+          final patients = response.patients.map(_grpcWaitingPatientToLocal).toList();
+          
+          if (key.startsWith('waiting_')) {
+            _roomStreams[key]?.add(patients.where((p) => !p.isUrgent && !p.isDilatation && p.isActive).toList());
+          } else if (key.startsWith('urgent_')) {
+            _roomStreams[key]?.add(patients.where((p) => p.isUrgent && p.isActive).toList());
+          } else if (key.startsWith('dilatation_')) {
+            _roomStreams[key]?.add(patients.where((p) => p.isDilatation && p.isActive).toList());
+          }
+        } catch (e) {
+          print('❌ [RemoteWaitingQueue] Force refresh failed: $e');
+        }
+      }
+      fetchData();
+      _roomTimers[key] = Timer.periodic(const Duration(seconds: 1), (_) => fetchData());
     }
   }
 
@@ -83,6 +117,7 @@ class RemoteWaitingQueueRepository {
     required String sentByUserName,
   }) async {
     try {
+      print('📤 [RemoteWaitingQueue] Adding dilatation patient $patientCode to room $roomId');
       final dilatationLabel = dilatationLabels[dilatationType] ?? dilatationType;
       
       final request = CreateWaitingPatientRequest(
@@ -100,7 +135,13 @@ class RemoteWaitingQueueRepository {
         dilatationType: dilatationType,
       );
       
-      return await _client.addWaitingPatient(request);
+      final result = await _client.addWaitingPatient(request);
+      print('✅ [RemoteWaitingQueue] Dilatation patient added with ID: $result');
+      
+      // Force immediate refresh
+      _forceRefreshRoom(roomId);
+      
+      return result;
     } catch (e) {
       print('❌ [RemoteWaitingQueue] addToDilatation failed: $e');
       rethrow;

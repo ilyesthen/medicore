@@ -407,19 +407,26 @@ class PrescriptionPrintService {
     
     try {
       // Load from bundled assets
+      print('📄 Loading background image from: $_assetBackgroundPath');
       final data = await rootBundle.load(_assetBackgroundPath);
       _cachedBackground = data.buffer.asUint8List();
+      print('✅ Background image loaded: ${_cachedBackground!.length} bytes');
       return _cachedBackground;
     } catch (e) {
+      print('⚠️ Failed to load from bundle: $e');
       // Fallback: try loading from file system (dev mode)
       try {
         final file = File('assets/images/prescription_bg.jpg');
         if (await file.exists()) {
           _cachedBackground = await file.readAsBytes();
+          print('✅ Background image loaded from file: ${_cachedBackground!.length} bytes');
           return _cachedBackground;
         }
-      } catch (_) {}
+      } catch (e2) {
+        print('⚠️ Failed to load from file: $e2');
+      }
     }
+    print('❌ Background image not found');
     return null;
   }
 
@@ -721,11 +728,12 @@ class PrescriptionPrintService {
       displayAge = age;
     }
 
-    // Adjust padding for A4 - MOVED UP for better positioning
-    final leftPad = useA4 ? 260.0 : 200.0;  // More right
-    final topPad = useA4 ? 250.0 : 175.0;   // Moved UP (was 280/195)
-    final fontSize = useA4 ? 12.0 : 10.0;   // Bigger text
-    final titleSize = useA4 ? 15.0 : 11.0;  // Bigger title
+    // Adjust padding for A4 - REDUCED LEFT PADDING to preserve formatting
+    final leftPad = useA4 ? 60.0 : 45.0;    // Reduced for wider text area
+    final rightPad = useA4 ? 40.0 : 30.0;   // Right margin
+    final topPad = useA4 ? 200.0 : 160.0;   // Moved UP for header space
+    final fontSize = useA4 ? 12.0 : 10.0;   // Text size
+    final titleSize = useA4 ? 15.0 : 11.0;  // Title size
 
     doc.addPage(
       pw.Page(
@@ -739,7 +747,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: pw.EdgeInsets.only(left: leftPad, right: 15, top: topPad, bottom: 12),
+                padding: pw.EdgeInsets.only(left: leftPad, right: rightPad, top: topPad, bottom: 12),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [

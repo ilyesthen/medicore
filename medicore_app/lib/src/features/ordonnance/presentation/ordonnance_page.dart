@@ -1021,19 +1021,8 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
           ),
         ]),
       ),
-      // Simple toolbar for common formatting actions
-      Container(
-        decoration: const BoxDecoration(color: Color(0xFFF8F9FA), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(children: [
-          _ToolbarBtn(icon: Icons.format_list_bulleted, onTap: () => newDoc.insertText('\n• ')),
-          _ToolbarBtn(icon: Icons.format_list_numbered, onTap: () => newDoc.insertText('\n1. ')),
-          const SizedBox(width: 8),
-          _ToolbarBtn(icon: Icons.horizontal_rule, onTap: () => newDoc.insertText('\n────────────────────────────────────\n')),
-          const Spacer(),
-          Text('Police: ${newDoc.fontSize.toInt()}pt', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        ]),
-      ),
+      // Word-like professional toolbar
+      _ProfessionalToolbar(doc: newDoc, onChanged: () => setState(() {})),
       // Text Editor - preserves exact formatting
       Expanded(
         child: Container(
@@ -1499,8 +1488,181 @@ Sauf complications.
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PROFESSIONAL TOOLBAR
+// PROFESSIONAL TOOLBAR (Word-like)
 // ═══════════════════════════════════════════════════════════════════════════════
+
+class _ProfessionalToolbar extends StatefulWidget {
+  final DocumentData doc;
+  final VoidCallback onChanged;
+  const _ProfessionalToolbar({required this.doc, required this.onChanged});
+  @override
+  State<_ProfessionalToolbar> createState() => _ProfessionalToolbarState();
+}
+
+class _ProfessionalToolbarState extends State<_ProfessionalToolbar> {
+  static const fonts = ['Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Helvetica'];
+  static const sizes = [8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0];
+  static const colors = [Colors.black, Colors.grey, Colors.red, Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.brown];
+
+  DocumentData get _doc => widget.doc;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(color: Color(0xFFF8F9FA), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
+      child: Column(children: [
+        // Row 1: Font, Size, Bold, Italic, Underline, Color
+        Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(children: [
+            _fontDropdown(),
+            const SizedBox(width: 6),
+            _sizeDropdown(),
+            _divider(),
+            _formatBtn(Icons.format_bold, _doc.isBold, () => setState(() => _doc.isBold = !_doc.isBold)),
+            _formatBtn(Icons.format_italic, _doc.isItalic, () => setState(() => _doc.isItalic = !_doc.isItalic)),
+            _formatBtn(Icons.format_underline, _doc.isUnderline, () => setState(() => _doc.isUnderline = !_doc.isUnderline)),
+            _divider(),
+            _colorBtn(),
+          ]),
+        ),
+        // Row 2: Alignment, Lists, Line, Clear
+        Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE0E0E0)))),
+          child: Row(children: [
+            _alignBtn(Icons.format_align_left, TextAlign.left),
+            _alignBtn(Icons.format_align_center, TextAlign.center),
+            _alignBtn(Icons.format_align_right, TextAlign.right),
+            _divider(),
+            _actionBtn(Icons.format_list_bulleted, () => _doc.insertText('\n• ')),
+            _actionBtn(Icons.format_list_numbered, () => _doc.insertText('\n1. ')),
+            _divider(),
+            _actionBtn(Icons.horizontal_rule, () => _doc.insertText('\n────────────────────────────────────\n')),
+            _divider(),
+            _actionBtn(Icons.format_clear, _clearFormatting),
+            const Spacer(),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _fontDropdown() => Container(
+    width: 120, height: 28,
+    padding: const EdgeInsets.symmetric(horizontal: 6),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))),
+    child: DropdownButtonHideUnderline(child: DropdownButton<String>(
+      value: fonts.contains(_doc.fontFamily) ? _doc.fontFamily : 'Arial',
+      isExpanded: true, isDense: true,
+      style: const TextStyle(fontSize: 11, color: Colors.black87),
+      icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
+      items: fonts.map((f) => DropdownMenuItem(value: f, child: Text(f, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: f, fontSize: 11)))).toList(),
+      onChanged: (v) { setState(() => _doc.fontFamily = v ?? 'Arial'); widget.onChanged(); },
+    )),
+  );
+
+  Widget _sizeDropdown() => Container(
+    width: 55, height: 28,
+    padding: const EdgeInsets.symmetric(horizontal: 6),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))),
+    child: DropdownButtonHideUnderline(child: DropdownButton<double>(
+      value: sizes.contains(_doc.fontSize) ? _doc.fontSize : 14.0,
+      isExpanded: true, isDense: true,
+      style: const TextStyle(fontSize: 11, color: Colors.black87),
+      icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
+      items: sizes.map((s) => DropdownMenuItem(value: s, child: Text('${s.toInt()}'))).toList(),
+      onChanged: (v) { setState(() => _doc.fontSize = v ?? 14); widget.onChanged(); },
+    )),
+  );
+
+  Widget _divider() => Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 6), color: const Color(0xFFBDBDBD));
+
+  Widget _formatBtn(IconData icon, bool active, VoidCallback onTap) => Material(
+    color: active ? const Color(0xFFE3F2FD) : Colors.transparent,
+    borderRadius: BorderRadius.circular(4),
+    child: InkWell(
+      onTap: () { onTap(); widget.onChanged(); },
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 28, height: 28, alignment: Alignment.center,
+        decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null,
+        child: Icon(icon, size: 18, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242)),
+      ),
+    ),
+  );
+
+  Widget _alignBtn(IconData icon, TextAlign align) {
+    final active = _doc.alignment == align;
+    return Material(
+      color: active ? const Color(0xFFE3F2FD) : Colors.transparent,
+      borderRadius: BorderRadius.circular(4),
+      child: InkWell(
+        onTap: () { setState(() => _doc.alignment = align); widget.onChanged(); },
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          width: 28, height: 28, alignment: Alignment.center,
+          decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null,
+          child: Icon(icon, size: 18, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242)),
+        ),
+      ),
+    );
+  }
+
+  Widget _actionBtn(IconData icon, VoidCallback onTap) => Material(
+    color: Colors.transparent,
+    borderRadius: BorderRadius.circular(4),
+    child: InkWell(
+      onTap: () { onTap(); widget.onChanged(); },
+      borderRadius: BorderRadius.circular(4),
+      child: Container(width: 28, height: 28, alignment: Alignment.center, child: Icon(icon, size: 18, color: const Color(0xFF424242))),
+    ),
+  );
+
+  Widget _colorBtn() => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: _showColorPicker,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 28, height: 28, alignment: Alignment.center,
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.format_color_text, size: 16, color: Color(0xFF424242)),
+          Container(height: 3, width: 16, decoration: BoxDecoration(color: _doc.textColor, borderRadius: BorderRadius.circular(1))),
+        ]),
+      ),
+    ),
+  );
+
+  void _showColorPicker() => showDialog(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: const Text('Couleur du texte'),
+      content: SizedBox(
+        width: 200,
+        child: Wrap(spacing: 8, runSpacing: 8, children: colors.map((col) => InkWell(
+          onTap: () { setState(() => _doc.textColor = col); Navigator.pop(c); widget.onChanged(); },
+          child: Container(width: 32, height: 32, decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(4), border: Border.all(color: col == _doc.textColor ? const Color(0xFF1565C0) : Colors.grey.shade300, width: col == _doc.textColor ? 2 : 1))),
+        )).toList()),
+      ),
+    ),
+  );
+
+  void _clearFormatting() {
+    setState(() {
+      _doc.isBold = false;
+      _doc.isItalic = false;
+      _doc.isUnderline = false;
+      _doc.alignment = TextAlign.left;
+      _doc.textColor = Colors.black;
+      _doc.fontSize = 14;
+      _doc.fontFamily = 'Arial';
+    });
+    widget.onChanged();
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPER WIDGETS & DATA

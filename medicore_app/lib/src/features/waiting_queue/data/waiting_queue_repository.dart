@@ -59,6 +59,7 @@ class WaitingQueueRepository {
 
   /// List of consultation motifs in order (same as doctor's new_visit_page)
   static const List<String> motifs = [
+    'Consultation',
     'BAV loin',
     'Certificat',
     'FO',

@@ -34,6 +34,8 @@ class RemotePatientsRepository {
       final response = await _client.getAllPatients();
       _cachedPatients = response.patients.map(_grpcPatientToLocal).toList();
       _lastFetch = DateTime.now();
+      // Notify stream listeners
+      _patientsController.add(_cachedPatients);
     } catch (e) {
       print('❌ [RemotePatients] Failed to refresh: $e');
     }
