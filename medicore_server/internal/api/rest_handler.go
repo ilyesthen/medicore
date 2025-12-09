@@ -169,6 +169,10 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/MarkNurseActive", cors(h.MarkNurseActive))
 	mux.HandleFunc("/api/MarkNurseInactive", cors(h.MarkNurseInactive))
 
+	// Templates CR endpoints (Compte Rendu templates)
+	mux.HandleFunc("/api/GetAllTemplatesCR", cors(h.GetAllTemplatesCR))
+	mux.HandleFunc("/api/IncrementTemplateCRUsage", cors(h.IncrementTemplateCRUsage))
+
 	log.Println("📡 REST API endpoints registered")
 }
 
@@ -1873,6 +1877,7 @@ func (h *RESTHandler) UpdateVisit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
+	id := int(req["id"].(float64))
 	_, err := h.db.Exec(`
 		UPDATE visits SET 
 			doctor_name = ?, motif = ?, diagnosis = ?, conduct = ?,
@@ -1883,7 +1888,7 @@ func (h *RESTHandler) UpdateVisit(w http.ResponseWriter, r *http.Request) {
 		req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"],
 		req["od_sv"], req["od_av"], req["od_sphere"], req["od_cylinder"], req["od_axis"], req["od_vl"], req["od_k1"], req["od_k2"], req["od_r1"], req["od_r2"], req["od_r0"], req["od_pachy"], req["od_toc"], req["od_notes"], req["od_gonio"], req["od_to"], req["od_laf"], req["od_fo"],
 		req["og_sv"], req["og_av"], req["og_sphere"], req["og_cylinder"], req["og_axis"], req["og_vl"], req["og_k1"], req["og_k2"], req["og_r1"], req["og_r2"], req["og_r0"], req["og_pachy"], req["og_toc"], req["og_notes"], req["og_gonio"], req["og_to"], req["og_laf"], req["og_fo"],
-		req["addition"], req["dip"], req["id"])
+		req["addition"], req["dip"], id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1897,7 +1902,8 @@ func (h *RESTHandler) DeleteVisit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
-	_, err := h.db.Exec(`UPDATE visits SET is_active = 0 WHERE id = ?`, req["id"])
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`UPDATE visits SET is_active = 0, updated_at = datetime('now') WHERE id = ?`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2817,6 +2823,49 @@ func (h *RESTHandler) MarkNurseInactive(w http.ResponseWriter, r *http.Request) 
 
 	nurseId := req["nurse_id"].(string)
 	h.db.Exec(`DELETE FROM active_nurses WHERE nurse_id = ?`, nurseId)
+	respondJSON(w, map[string]interface{}{})
+}
+
+// ==================== TEMPLATES CR HANDLERS ====================
+
+func (h *RESTHandler) GetAllTemplatesCR(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(`SELECT id, code, content, usage_count FROM templates_cr ORDER BY usage_count DESC`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	templates := []map[string]interface{}{}
+	for rows.Next() {
+		var id, usageCount int
+		var code, content string
+		if err := rows.Scan(&id, &code, &content, &usageCount); err != nil {
+			continue
+		}
+		templates = append(templates, map[string]interface{}{
+			"id":          id,
+			"code":        code,
+			"content":     content,
+			"usage_count": usageCount,
+		})
+	}
+	respondJSON(w, map[string]interface{}{"templates": templates})
+}
+
+func (h *RESTHandler) IncrementTemplateCRUsage(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`UPDATE templates_cr SET usage_count = usage_count + 1 WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
 	respondJSON(w, map[string]interface{}{})
 }
 

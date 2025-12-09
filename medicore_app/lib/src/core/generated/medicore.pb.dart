@@ -18,7 +18,7 @@ class IntId {
   IntId({this.id = 0});
   
   factory IntId.fromJson($core.Map<$core.String, $core.dynamic> json) => IntId(
-    id: json['id'] as $core.int? ?? 0,
+    id: (json['id'] as $core.num?)?.toInt() ?? 0,
   );
   $core.Map<$core.String, $core.dynamic> toJson() => {'id': id};
 }
@@ -28,7 +28,7 @@ class IntCode {
   IntCode({this.code = 0});
   
   factory IntCode.fromJson($core.Map<$core.String, $core.dynamic> json) => IntCode(
-    code: json['code'] as $core.int? ?? 0,
+    code: (json['code'] as $core.num?)?.toInt() ?? 0,
   );
   $core.Map<$core.String, $core.dynamic> toJson() => {'code': code};
 }
@@ -99,7 +99,7 @@ class GrpcUser {
       passwordHash: json['password_hash'] as $core.String? ?? json['passwordHash'] as $core.String? ?? '',
       fullName: json['full_name'] as $core.String? ?? json['fullName'] as $core.String? ?? '',
       role: json['role'] as $core.String? ?? '',
-      roomId: json['room_id'] as $core.int? ?? json['roomId'] as $core.int?,
+      roomId: (json['room_id'] as $core.num?)?.toInt() ?? (json['roomId'] as $core.num?)?.toInt(),
       percentage: (json['percentage'] as $core.num?)?.toDouble(),
     );
   }
@@ -192,7 +192,7 @@ class GrpcRoom {
       stringId: strId,
       name: json['name'] as $core.String? ?? '',
       type: json['type'] as $core.String? ?? '',
-      doctorId: json['doctor_id'] as $core.int? ?? json['doctorId'] as $core.int?,
+      doctorId: (json['doctor_id'] as $core.num?)?.toInt() ?? (json['doctorId'] as $core.num?)?.toInt(),
     );
   }
   
@@ -259,7 +259,7 @@ class GrpcPatient {
   });
   
   factory GrpcPatient.fromJson($core.Map<$core.String, $core.dynamic> json) => GrpcPatient(
-    code: json['code'] as $core.int? ?? 0,
+    code: (json['code'] as $core.num?)?.toInt() ?? 0,
     firstName: json['first_name'] as $core.String? ?? json['firstName'] as $core.String? ?? '',
     lastName: json['last_name'] as $core.String? ?? json['lastName'] as $core.String? ?? '',
     dateOfBirth: json['date_of_birth'] as $core.String? ?? json['dateOfBirth'] as $core.String?,
@@ -268,7 +268,7 @@ class GrpcPatient {
     insurance: json['insurance'] as $core.String?,
     notes: json['notes'] as $core.String?,
     barcode: json['barcode'] as $core.String?,
-    age: json['age'] as $core.int?,
+    age: (json['age'] as $core.num?)?.toInt(),
   );
   
   $core.Map<$core.String, $core.dynamic> toJson() => {
@@ -368,7 +368,7 @@ class GrpcMessage {
   });
   
   factory GrpcMessage.fromJson($core.Map<$core.String, $core.dynamic> json) => GrpcMessage(
-    id: json['id'] as $core.int? ?? 0,
+    id: (json['id'] as $core.num?)?.toInt() ?? 0,
     roomId: json['room_id'] as $core.String? ?? json['roomId'] as $core.String? ?? '',
     senderId: json['sender_id'] as $core.String? ?? json['senderId'] as $core.String? ?? '',
     senderName: json['sender_name'] as $core.String? ?? json['senderName'] as $core.String? ?? '',
@@ -377,7 +377,7 @@ class GrpcMessage {
     direction: json['direction'] as $core.String? ?? '',
     sentAt: json['sent_at'] as $core.String? ?? json['sentAt'] as $core.String? ?? '',
     isRead: json['is_read'] as $core.bool? ?? json['isRead'] as $core.bool? ?? false,
-    patientCode: json['patient_code'] as $core.int? ?? json['patientCode'] as $core.int?,
+    patientCode: (json['patient_code'] as $core.num?)?.toInt() ?? (json['patientCode'] as $core.num?)?.toInt(),
     patientName: json['patient_name'] as $core.String? ?? json['patientName'] as $core.String?,
   );
   
@@ -491,8 +491,8 @@ class GrpcWaitingPatient {
   });
   
   factory GrpcWaitingPatient.fromJson($core.Map<$core.String, $core.dynamic> json) => GrpcWaitingPatient(
-    id: json['id'] as $core.int? ?? 0,
-    patientCode: json['patient_code'] as $core.int? ?? json['patientCode'] as $core.int? ?? 0,
+    id: (json['id'] as $core.num?)?.toInt() ?? 0,
+    patientCode: (json['patient_code'] as $core.num?)?.toInt() ?? (json['patientCode'] as $core.num?)?.toInt() ?? 0,
     patientFirstName: json['patient_first_name'] as $core.String? ?? json['patientFirstName'] as $core.String? ?? '',
     patientLastName: json['patient_last_name'] as $core.String? ?? json['patientLastName'] as $core.String? ?? '',
     sentAt: json['sent_at'] as $core.String? ?? json['sentAt'] as $core.String? ?? '',
@@ -501,7 +501,7 @@ class GrpcWaitingPatient {
     motif: json['motif'] as $core.String? ?? '',
     sentByUserId: json['sent_by_user_id'] as $core.String? ?? json['sentByUserId'] as $core.String? ?? '',
     sentByUserName: json['sent_by_user_name'] as $core.String? ?? json['sentByUserName'] as $core.String? ?? '',
-    patientAge: json['patient_age'] as $core.int? ?? json['patientAge'] as $core.int?,
+    patientAge: (json['patient_age'] as $core.num?)?.toInt() ?? (json['patientAge'] as $core.num?)?.toInt(),
     isUrgent: json['is_urgent'] as $core.bool? ?? json['isUrgent'] as $core.bool? ?? false,
     isDilatation: json['is_dilatation'] as $core.bool? ?? json['isDilatation'] as $core.bool? ?? false,
     dilatationType: json['dilatation_type'] as $core.String? ?? json['dilatationType'] as $core.String?,
@@ -606,10 +606,10 @@ class GrpcMedicalAct {
   });
   
   factory GrpcMedicalAct.fromJson($core.Map<$core.String, $core.dynamic> json) => GrpcMedicalAct(
-    id: json['id'] as $core.int? ?? 0,
+    id: (json['id'] as $core.num?)?.toInt() ?? 0,
     name: json['name'] as $core.String? ?? '',
-    feeAmount: json['fee_amount'] as $core.int? ?? json['feeAmount'] as $core.int? ?? 0,
-    displayOrder: json['display_order'] as $core.int? ?? json['displayOrder'] as $core.int? ?? 0,
+    feeAmount: (json['fee_amount'] as $core.num?)?.toInt() ?? (json['feeAmount'] as $core.num?)?.toInt() ?? 0,
+    displayOrder: (json['display_order'] as $core.num?)?.toInt() ?? (json['displayOrder'] as $core.num?)?.toInt() ?? 0,
   );
   
   $core.Map<$core.String, $core.dynamic> toJson() => {

@@ -165,9 +165,9 @@ class OrdonnancesRepository {
     
     for (final ord in ordonnances) {
       final json = ord as Map<String, dynamic>;
-      final id = json['id'] as int;
-      final patientCode = json['patient_code'] as int;
-      final sequence = json['sequence'] as int? ?? 0;
+      final id = (json['id'] as num).toInt();
+      final patientCode = (json['patient_code'] as num).toInt();
+      final sequence = (json['sequence'] as num?)?.toInt() ?? 0;
       final documentDate = json['document_date'] != null 
           ? DateTime.tryParse(json['document_date'] as String) 
           : null;

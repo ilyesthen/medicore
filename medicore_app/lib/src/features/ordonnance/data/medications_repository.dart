@@ -61,11 +61,11 @@ class MedicationsRepository {
     return jsonList.map((json) {
       final m = json as Map<String, dynamic>;
       return Medication(
-        id: m['id'] as int,
-        originalId: m['original_id'] as int?,
+        id: (m['id'] as num).toInt(),
+        originalId: (m['original_id'] as num?)?.toInt(),
         code: m['name'] as String? ?? m['code'] as String? ?? '',
         prescription: m['dosage'] as String? ?? m['prescription'] as String? ?? '',
-        usageCount: m['usage_count'] as int? ?? 0,
+        usageCount: (m['usage_count'] as num?)?.toInt() ?? 0,
         nature: m['nature'] as String? ?? 'O',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -119,11 +119,11 @@ class MedicationsRepository {
         final response = await MediCoreClient.instance.getMedicationById(id);
         if (response.isEmpty) return null;
         return Medication(
-          id: response['id'] as int,
-          originalId: response['original_id'] as int?,
+          id: (response['id'] as num).toInt(),
+          originalId: (response['original_id'] as num?)?.toInt(),
           code: response['code'] as String? ?? '',
           prescription: response['prescription'] as String? ?? '',
-          usageCount: response['usage_count'] as int? ?? 0,
+          usageCount: (response['usage_count'] as num?)?.toInt() ?? 0,
           nature: response['nature'] as String? ?? 'O',
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),

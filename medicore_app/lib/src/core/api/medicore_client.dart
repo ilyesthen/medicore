@@ -120,7 +120,7 @@ class MediCoreClient {
   /// Create user
   Future<int> createUser(CreateUserRequest request) async {
     final response = await _request('CreateUser', request.toJson());
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Update user
@@ -224,7 +224,7 @@ class MediCoreClient {
   /// Create room
   Future<int> createRoom(CreateRoomRequest request) async {
     final response = await _request('CreateRoom', request.toJson());
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Update room
@@ -261,7 +261,7 @@ class MediCoreClient {
   /// Create patient
   Future<int> createPatient(CreatePatientRequest request) async {
     final response = await _request('CreatePatient', request.toJson());
-    return response['id'] as int? ?? response['code'] as int;
+    return (response['id'] as num?)?.toInt() ?? (response['code'] as num).toInt();
   }
   
   /// Update patient
@@ -285,7 +285,7 @@ class MediCoreClient {
   /// Create message
   Future<int> createMessage(CreateMessageRequest request) async {
     final response = await _request('CreateMessage', request.toJson());
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Delete message
@@ -316,7 +316,7 @@ class MediCoreClient {
       'content': content,
       if (createdBy != null) 'created_by': createdBy,
     });
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Update message template
@@ -354,7 +354,7 @@ class MediCoreClient {
   /// Create visit
   Future<int> createVisit(Map<String, dynamic> visit) async {
     final response = await _request('CreateVisit', visit);
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Update visit
@@ -377,7 +377,7 @@ class MediCoreClient {
   /// Create ordonnance
   Future<int> createOrdonnance(Map<String, dynamic> ordonnance) async {
     final response = await _request('CreateOrdonnance', ordonnance);
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Update ordonnance
@@ -410,7 +410,7 @@ class MediCoreClient {
   /// Create payment
   Future<int> createPayment(Map<String, dynamic> payment) async {
     final response = await _request('CreatePayment', payment);
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Update payment
@@ -436,19 +436,19 @@ class MediCoreClient {
   /// Delete payments by patient and date
   Future<int> deletePaymentsByPatientAndDate(int patientCode, String date) async {
     final response = await _request('DeletePaymentsByPatientAndDate', {'patient_code': patientCode, 'date': date});
-    return response['deleted'] as int;
+    return (response['deleted'] as num).toInt();
   }
   
   /// Count payments by patient and date
   Future<int> countPaymentsByPatientAndDate(int patientCode, String date) async {
     final response = await _request('CountPaymentsByPatientAndDate', {'patient_code': patientCode, 'date': date});
-    return response['count'] as int;
+    return (response['count'] as num).toInt();
   }
   
   /// Get max payment ID
   Future<int> getMaxPaymentId() async {
     final response = await _request('GetMaxPaymentId', {});
-    return response['max_id'] as int;
+    return (response['max_id'] as num).toInt();
   }
   
   // ==================== MEDICATION OPERATIONS ====================
@@ -471,7 +471,7 @@ class MediCoreClient {
   /// Get medication count
   Future<int> getMedicationCount() async {
     final response = await _request('GetMedicationCount', {});
-    return response['count'] as int;
+    return (response['count'] as num).toInt();
   }
   
   /// Increment medication usage
@@ -489,19 +489,19 @@ class MediCoreClient {
   /// Get total visit count
   Future<int> getTotalVisitCount() async {
     final response = await _request('GetTotalVisitCount', {});
-    return response['count'] as int;
+    return (response['count'] as num).toInt();
   }
   
   /// Clear all visits
   Future<int> clearAllVisits() async {
     final response = await _request('ClearAllVisits', {});
-    return response['deleted'] as int;
+    return (response['deleted'] as num).toInt();
   }
   
   /// Insert visits (batch)
   Future<int> insertVisits(List<Map<String, dynamic>> visits) async {
     final response = await _request('InsertVisits', {'visits': visits});
-    return response['inserted'] as int;
+    return (response['inserted'] as num).toInt();
   }
   
   // ==================== ADDITIONAL MESSAGE OPERATIONS ====================
@@ -516,7 +516,7 @@ class MediCoreClient {
   /// Import patient
   Future<int> importPatient(Map<String, dynamic> patient) async {
     final response = await _request('ImportPatient', patient);
-    return response['code'] as int;
+    return (response['code'] as num).toInt();
   }
   
   // ==================== NURSE PREFERENCES OPERATIONS ====================
@@ -555,6 +555,20 @@ class MediCoreClient {
     await _request('MarkNurseInactive', {'nurse_id': nurseId});
   }
   
+  // ==================== TEMPLATES CR OPERATIONS ====================
+  
+  /// Get all templates CR (Compte Rendu templates)
+  Future<List<Map<String, dynamic>>> getAllTemplatesCR() async {
+    final response = await _request('GetAllTemplatesCR', {});
+    final templates = (response['templates'] as List<dynamic>?) ?? [];
+    return templates.map((t) => t as Map<String, dynamic>).toList();
+  }
+  
+  /// Increment template CR usage count
+  Future<void> incrementTemplateCRUsage(int id) async {
+    await _request('IncrementTemplateCRUsage', {'id': id});
+  }
+  
   // ==================== ADDITIONAL PAYMENT OPERATIONS ====================
   
   /// Import payment
@@ -585,7 +599,7 @@ class MediCoreClient {
       'is_dilatation': request.isDilatation,
       'dilatation_type': request.dilatationType,
     });
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Get waiting patients by room - returns object with patients list
@@ -638,7 +652,7 @@ class MediCoreClient {
   /// Create medical act
   Future<int> createMedicalAct({required String name, required int feeAmount}) async {
     final response = await _request('CreateMedicalAct', {'name': name, 'fee_amount': feeAmount});
-    return response['id'] as int;
+    return (response['id'] as num).toInt();
   }
   
   /// Update medical act

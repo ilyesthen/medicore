@@ -40,9 +40,9 @@ class VisitsRepository {
   /// Map JSON to Visit object (includes ALL fields)
   Visit _mapToVisit(Map<String, dynamic> json) {
     return Visit(
-      id: json['id'] as int,
-      patientCode: json['patient_code'] as int,
-      visitSequence: json['visit_sequence'] as int? ?? 1,
+      id: (json['id'] as num).toInt(),
+      patientCode: (json['patient_code'] as num).toInt(),
+      visitSequence: (json['visit_sequence'] as num?)?.toInt() ?? 1,
       visitDate: DateTime.tryParse(json['visit_date'] as String? ?? '') ?? DateTime.now(),
       doctorName: json['doctor_name'] as String? ?? '',
       motif: json['motif'] as String?,

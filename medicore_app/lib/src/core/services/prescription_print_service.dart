@@ -465,9 +465,9 @@ class PrescriptionPrintService {
               // if (bgImage != null)
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
-              // Content - more right (165pt) and more down (195pt)
+              // Content - more right (200pt) and more down (195pt)
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 185, right: 8, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 195, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -543,7 +543,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 185, right: 8, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 195, bottom: 8),
                 child: pw.Builder(builder: (context) {
                   // Check if addition is valid (not empty and not "0" or "0.00")
                   final hasAddition = addition.isNotEmpty && 
@@ -638,7 +638,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 185, right: 8, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 195, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -720,11 +720,11 @@ class PrescriptionPrintService {
       displayAge = age;
     }
 
-    // Adjust padding for A4 (more right, more down)
-    final leftPad = useA4 ? 240.0 : 185.0;
+    // Adjust padding for A4 (more right, more down) - INCREASED for better positioning
+    final leftPad = useA4 ? 260.0 : 200.0;  // More right
     final topPad = useA4 ? 280.0 : 195.0;
-    final fontSize = useA4 ? 11.0 : 9.0;
-    final titleSize = useA4 ? 14.0 : 10.0;
+    final fontSize = useA4 ? 12.0 : 10.0;   // Bigger text
+    final titleSize = useA4 ? 15.0 : 11.0;  // Bigger title
 
     doc.addPage(
       pw.Page(
@@ -738,24 +738,42 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: pw.EdgeInsets.only(left: leftPad, right: 12, top: topPad, bottom: 12),
+                padding: pw.EdgeInsets.only(left: leftPad, right: 15, top: topPad, bottom: 12),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     _buildPatientInfoBox(displayName, patientCode, barcode, date, age: displayAge),
-                    pw.SizedBox(height: 12),
+                    pw.SizedBox(height: 14),
                     
-                    // Centered title - uses the document type selected
-                    pw.Center(child: pw.Text(_sanitizeForPrint(documentType), style: pw.TextStyle(fontSize: titleSize, fontWeight: pw.FontWeight.bold, color: _titleColor))),
-                    pw.SizedBox(height: 12),
+                    // Centered title with document icon - uses the document type selected
+                    pw.Center(
+                      child: pw.Row(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          pw.Container(
+                            width: titleSize,
+                            height: titleSize,
+                            decoration: pw.BoxDecoration(
+                              border: pw.Border.all(color: PdfColors.black, width: 0.8),
+                            ),
+                            child: pw.Center(
+                              child: pw.Text('≡', style: pw.TextStyle(fontSize: titleSize * 0.7, fontWeight: pw.FontWeight.bold)),
+                            ),
+                          ),
+                          pw.SizedBox(width: 6),
+                          pw.Text(_sanitizeForPrint(documentType), style: pw.TextStyle(fontSize: titleSize, fontWeight: pw.FontWeight.bold, color: _titleColor)),
+                        ],
+                      ),
+                    ),
+                    pw.SizedBox(height: 14),
                     
                     // Content - the prescription text, preserving formatting
                     pw.Expanded(
                       child: pw.Container(
-                        padding: const pw.EdgeInsets.all(4),
+                        padding: const pw.EdgeInsets.all(6),
                         child: pw.Text(
                           _sanitizeForPrint(content),
-                          style: pw.TextStyle(fontSize: fontSize),
+                          style: pw.TextStyle(fontSize: fontSize, lineSpacing: 1.3),
                         ),
                       ),
                     ),
@@ -851,26 +869,42 @@ class PrescriptionPrintService {
               ),
               pw.SizedBox(height: 20),
               
-              // Document title
+              // Document title with icon
               pw.Center(
-                child: pw.Text(
-                  _sanitizeForPrint(documentType),
-                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _titleColor),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Container(
+                      width: 18,
+                      height: 18,
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.black, width: 0.8),
+                      ),
+                      child: pw.Center(
+                        child: pw.Text('≡', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                      ),
+                    ),
+                    pw.SizedBox(width: 8),
+                    pw.Text(
+                      _sanitizeForPrint(documentType),
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _titleColor),
+                    ),
+                  ],
                 ),
               ),
               pw.SizedBox(height: 20),
               
-              // Content
+              // Content - bigger text with better spacing
               pw.Expanded(
                 child: pw.Container(
                   width: double.infinity,
-                  padding: const pw.EdgeInsets.all(12),
+                  padding: const pw.EdgeInsets.all(16),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: PdfColors.grey300),
                   ),
                   child: pw.Text(
                     _sanitizeForPrint(content),
-                    style: const pw.TextStyle(fontSize: 12, lineSpacing: 1.5),
+                    style: const pw.TextStyle(fontSize: 13, lineSpacing: 1.6),
                   ),
                 ),
               ),

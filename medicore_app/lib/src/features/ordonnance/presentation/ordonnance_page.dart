@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/api/grpc_client.dart';
+import '../../../core/api/medicore_client.dart';
 import '../../../core/services/prescription_print_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../messages/presentation/send_message_dialog.dart';
@@ -198,10 +200,25 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     return tabIndex == 0 ? _isCreatingNewTab1 : tabIndex == 1 ? _isCreatingNewTab2 : _isCreatingNewTab3;
   }
 
-  /// Load templates CR from database
+  /// Load templates CR from database (remote in client mode)
   Future<void> _loadTemplatesCR() async {
     setState(() => _isLoadingTemplates = true);
     try {
+      // Client mode: use remote API
+      if (!GrpcClientConfig.isServer) {
+        final templates = await MediCoreClient.instance.getAllTemplatesCR();
+        setState(() {
+          _templatesCR = templates.map((t) => {
+            'id': (t['id'] as num).toInt(),
+            'code': t['code'] as String,
+            'content': t['content'] as String,
+            'usageCount': (t['usage_count'] as num?)?.toInt() ?? 0,
+          }).toList();
+          _isLoadingTemplates = false;
+        });
+        return;
+      }
+      // Server mode: use local DB
       final db = AppDatabase.instance;
       final results = await db.customSelect(
         'SELECT id, code, content, usage_count FROM templates_cr ORDER BY usage_count DESC'
@@ -238,10 +255,16 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     
     // Increment usage count
     final id = template['id'] as int;
-    await AppDatabase.instance.customStatement(
-      'UPDATE templates_cr SET usage_count = usage_count + 1 WHERE id = ?',
-      [id],
-    );
+    if (!GrpcClientConfig.isServer) {
+      // Client mode: use remote API
+      await MediCoreClient.instance.incrementTemplateCRUsage(id);
+    } else {
+      // Server mode: use local DB
+      await AppDatabase.instance.customStatement(
+        'UPDATE templates_cr SET usage_count = usage_count + 1 WHERE id = ?',
+        [id],
+      );
+    }
     _loadTemplatesCR();
     
     setState(() {});

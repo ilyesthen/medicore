@@ -48,10 +48,10 @@ class MedicalActsRepository {
       final response = await MediCoreClient.instance.getAllMedicalActs();
       final acts = (response['acts'] as List<dynamic>?) ?? [];
       return acts.map((a) => MedicalAct(
-        id: a['id'] as int,
+        id: (a['id'] as num).toInt(),
         name: a['name'] as String,
-        feeAmount: a['fee_amount'] as int,
-        displayOrder: a['display_order'] as int? ?? 0,
+        feeAmount: (a['fee_amount'] as num).toInt(),
+        displayOrder: (a['display_order'] as num?)?.toInt() ?? 0,
         isActive: true,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -70,10 +70,10 @@ class MedicalActsRepository {
         final response = await MediCoreClient.instance.getMedicalActById(id);
         if (response.isEmpty) return null;
         return MedicalAct(
-          id: response['id'] as int,
+          id: (response['id'] as num).toInt(),
           name: response['name'] as String,
-          feeAmount: response['fee_amount'] as int,
-          displayOrder: response['display_order'] as int? ?? 0,
+          feeAmount: (response['fee_amount'] as num).toInt(),
+          displayOrder: (response['display_order'] as num?)?.toInt() ?? 0,
           isActive: true,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),

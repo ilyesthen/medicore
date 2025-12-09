@@ -311,13 +311,13 @@ class PaymentsRepository {
         final response = await MediCoreClient.instance.getPaymentById(id);
         if (response.isEmpty) return null;
         return Payment(
-          id: response['id'] as int,
-          medicalActId: response['medical_act_id'] as int,
+          id: (response['id'] as num).toInt(),
+          medicalActId: (response['medical_act_id'] as num).toInt(),
           medicalActName: response['medical_act_name'] as String,
-          amount: response['amount'] as int,
+          amount: (response['amount'] as num).toInt(),
           userId: response['user_id'] as String,
           userName: response['user_name'] as String,
-          patientCode: response['patient_code'] as int,
+          patientCode: (response['patient_code'] as num).toInt(),
           patientFirstName: response['patient_first_name'] as String,
           patientLastName: response['patient_last_name'] as String,
           paymentTime: DateTime.tryParse(response['payment_time'] as String) ?? DateTime.now(),
@@ -347,13 +347,13 @@ class PaymentsRepository {
         return payments.map((p) {
           final json = p as Map<String, dynamic>;
           return Payment(
-            id: json['id'] as int,
-            medicalActId: json['medical_act_id'] as int,
+            id: (json['id'] as num).toInt(),
+            medicalActId: (json['medical_act_id'] as num).toInt(),
             medicalActName: json['medical_act_name'] as String,
-            amount: json['amount'] as int,
+            amount: (json['amount'] as num).toInt(),
             userId: userId,
             userName: userId,
-            patientCode: json['patient_code'] as int,
+            patientCode: (json['patient_code'] as num).toInt(),
             patientFirstName: json['patient_first_name'] as String,
             patientLastName: json['patient_last_name'] as String,
             paymentTime: DateTime.tryParse(json['payment_time'] as String) ?? DateTime.now(),
@@ -621,13 +621,13 @@ class PaymentsRepository {
     }
     
     return Payment(
-      id: json['id'] as int,
-      medicalActId: json['medical_act_id'] as int? ?? 0,
+      id: (json['id'] as num).toInt(),
+      medicalActId: (json['medical_act_id'] as num?)?.toInt() ?? 0,
       medicalActName: json['medical_act_name'] as String? ?? '',
-      amount: json['amount'] as int? ?? 0,
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
       userId: json['user_id'] as String? ?? '',
       userName: json['user_name'] as String? ?? '',
-      patientCode: json['patient_code'] as int? ?? 0,
+      patientCode: (json['patient_code'] as num?)?.toInt() ?? 0,
       patientFirstName: json['patient_first_name'] as String? ?? '',
       patientLastName: json['patient_last_name'] as String? ?? '',
       paymentTime: parseTime(json['payment_time']),

@@ -36,9 +36,9 @@ class MessageTemplatesRepository {
       return templates.map((t) {
         final json = t as Map<String, dynamic>;
         return MessageTemplate(
-          id: json['id'] as int,
+          id: (json['id'] as num).toInt(),
           content: json['content'] as String,
-          displayOrder: json['display_order'] as int? ?? 0,
+          displayOrder: (json['display_order'] as num?)?.toInt() ?? 0,
           createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
           createdBy: json['created_by'] as String?,
         );
@@ -57,9 +57,9 @@ class MessageTemplatesRepository {
         final response = await MediCoreClient.instance.getMessageTemplateById(id);
         if (response.isEmpty) return null;
         return MessageTemplate(
-          id: response['id'] as int,
+          id: (response['id'] as num).toInt(),
           content: response['content'] as String,
-          displayOrder: response['display_order'] as int? ?? 0,
+          displayOrder: (response['display_order'] as num?)?.toInt() ?? 0,
           createdAt: DateTime.tryParse(response['created_at'] as String? ?? '') ?? DateTime.now(),
           createdBy: response['created_by'] as String?,
         );
