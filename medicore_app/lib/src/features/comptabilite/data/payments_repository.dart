@@ -592,8 +592,10 @@ class PaymentsRepository {
   /// Fetch payments from remote server
   Future<List<Payment>> _fetchPaymentsRemote(String userName, String dateStr, String timeFilter) async {
     try {
+      print('📤 [PaymentsRepository] Fetching payments: user=$userName, date=$dateStr, filter=$timeFilter');
       final response = await MediCoreClient.instance.getPaymentsByUserAndDate(userName, dateStr);
       final paymentsJson = (response['payments'] as List<dynamic>?) ?? [];
+      print('📥 [PaymentsRepository] Received ${paymentsJson.length} payments');
       
       var payments = paymentsJson.map((json) => _mapJsonToPayment(json as Map<String, dynamic>)).toList();
       
@@ -604,9 +606,11 @@ class PaymentsRepository {
         payments = payments.where((p) => p.paymentTime.hour >= 13).toList();
       }
       
+      print('✅ [PaymentsRepository] Returning ${payments.length} payments after filter');
       return payments;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ [PaymentsRepository] Remote fetch failed: $e');
+      print('📍 Stack trace: $stackTrace');
       return [];
     }
   }

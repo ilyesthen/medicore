@@ -248,10 +248,10 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     final doc = _getNewDocForTab(tabIndex);
     if (doc == null) return;
     
-    final text = doc.controller.text;
+    final currentText = doc.plainText;
     final content = template['content'] as String;
-    doc.controller.text = text.isEmpty ? content : '$text\n\n$content';
-    doc.controller.selection = TextSelection.collapsed(offset: doc.controller.text.length);
+    final newContent = currentText.isEmpty ? content : '$currentText\n\n$content';
+    doc.setPlainText(newContent);
     
     // Increment usage count
     final id = template['id'] as int;
@@ -368,12 +368,12 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     final doc = _getNewDocForTab(tabIndex);
     if (doc == null) return;
     
-    final text = doc.controller.text;
+    final currentText = doc.plainText;
     // Use the prescription text from DB, preserving format
     final line = med.prescription;
     // Add separator line between medications
-    doc.controller.text = text.isEmpty ? line : '$text\n\n────────────────────────────────────\n\n$line';
-    doc.controller.selection = TextSelection.collapsed(offset: doc.controller.text.length);
+    final newContent = currentText.isEmpty ? line : '$currentText\n\n────────────────────────────────────\n\n$line';
+    doc.setPlainText(newContent);
     
     // Increment usage count
     final repo = ref.read(medicationsRepositoryProvider);
@@ -1021,9 +1021,20 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
           ),
         ]),
       ),
-      // Toolbar - pass DocumentData to update formatting
-      _ProfessionalToolbar(doc: newDoc, onChanged: () => setState(() {})),
-      // Editor
+      // Simple toolbar for common formatting actions
+      Container(
+        decoration: const BoxDecoration(color: Color(0xFFF8F9FA), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(children: [
+          _ToolbarBtn(icon: Icons.format_list_bulleted, onTap: () => newDoc.insertText('\n• ')),
+          _ToolbarBtn(icon: Icons.format_list_numbered, onTap: () => newDoc.insertText('\n1. ')),
+          const SizedBox(width: 8),
+          _ToolbarBtn(icon: Icons.horizontal_rule, onTap: () => newDoc.insertText('\n────────────────────────────────────\n')),
+          const Spacer(),
+          Text('Police: ${newDoc.fontSize.toInt()}pt', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ]),
+      ),
+      // Text Editor - preserves exact formatting
       Expanded(
         child: Container(
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -1135,16 +1146,8 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     final newDoc = _getNewDocForTab(tabIndex);
     if (newDoc == null) return;
     
-    final controller = newDoc.controller;
-    final currentText = controller.text;
-    final selection = controller.selection;
-    
-    // Insert at cursor position or at end
-    final insertPos = selection.isValid ? selection.start : currentText.length;
-    final newText = currentText.substring(0, insertPos) + text + currentText.substring(insertPos);
-    
-    controller.text = newText;
-    controller.selection = TextSelection.collapsed(offset: insertPos + text.length);
+    // Insert text at current cursor position using Quill
+    newDoc.insertText(text);
     setState(() {});
   }
 
@@ -1255,7 +1258,7 @@ Sauf complications.
   /// Tab 2 (Comptes) uses A4, others use A5
   Future<void> _printDocumentTab(int tabIndex, String documentType) async {
     final newDoc = _getNewDocForTab(tabIndex);
-    if (newDoc == null || newDoc.controller.text.isEmpty) {
+    if (newDoc == null || newDoc.plainText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Rien à imprimer'), backgroundColor: Colors.orange),
       );
@@ -1265,13 +1268,13 @@ Sauf complications.
     // Only save if not already saved OR if content was edited
     bool didSave = false;
     if (!newDoc.isSaved || newDoc.wasEdited) {
-      await _saveDocumentToDb(tabIndex, documentType, newDoc.controller.text);
+      await _saveDocumentToDb(tabIndex, documentType, newDoc.plainText);
       newDoc.markSaved();
       didSave = true;
     }
     
     // Strip separators for printing
-    final printContent = _stripSeparatorsForPrint(newDoc.controller.text);
+    final printContent = _stripSeparatorsForPrint(newDoc.plainText);
     
     final p = widget.patient;
     bool success;
@@ -1311,7 +1314,7 @@ Sauf complications.
   /// Tab 2 (Comptes) uses A4, others use A5
   Future<void> _downloadDocument(int tabIndex, String documentType) async {
     final newDoc = _getNewDocForTab(tabIndex);
-    if (newDoc == null || newDoc.controller.text.isEmpty) {
+    if (newDoc == null || newDoc.plainText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Rien à télécharger'), backgroundColor: Colors.orange),
       );
@@ -1319,7 +1322,7 @@ Sauf complications.
     }
     
     // Strip separators for PDF
-    final pdfContent = _stripSeparatorsForPrint(newDoc.controller.text);
+    final pdfContent = _stripSeparatorsForPrint(newDoc.plainText);
     
     try {
       final p = widget.patient;
@@ -1499,45 +1502,6 @@ Sauf complications.
 // PROFESSIONAL TOOLBAR
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _ProfessionalToolbar extends StatefulWidget {
-  final DocumentData doc;
-  final VoidCallback onChanged;
-  const _ProfessionalToolbar({required this.doc, required this.onChanged});
-  @override
-  State<_ProfessionalToolbar> createState() => _ProfessionalToolbarState();
-}
-
-class _ProfessionalToolbarState extends State<_ProfessionalToolbar> {
-  static const fonts = ['Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Helvetica', 'Palatino'];
-  static const sizes = [8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 28.0, 32.0, 36.0, 48.0, 72.0];
-  static const colors = [Colors.black, Colors.grey, Colors.white, Colors.red, Colors.pink, Colors.purple, Colors.deepPurple, Colors.indigo, Colors.blue, Colors.lightBlue, Colors.cyan, Colors.teal, Colors.green, Colors.lightGreen, Colors.lime, Colors.yellow, Colors.amber, Colors.orange, Colors.deepOrange, Colors.brown];
-
-  DocumentData get _doc => widget.doc;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(color: Color(0xFFF8F9FA), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
-      child: Column(children: [
-        Container(height: 44, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), child: Row(children: [_fontDrop(), const SizedBox(width: 6), _sizeDrop(), _div(), _fmtBtn(Icons.format_bold, _doc.isBold, () { _doc.isBold = !_doc.isBold; }), _fmtBtn(Icons.format_italic, _doc.isItalic, () { _doc.isItalic = !_doc.isItalic; }), _fmtBtn(Icons.format_underline, _doc.isUnderline, () { _doc.isUnderline = !_doc.isUnderline; }), _div(), _colorBtn(Icons.format_color_text, _doc.textColor, (c) { _doc.textColor = c; })])),
-        Container(height: 44, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE0E0E0)))), child: Row(children: [_alignBtn(Icons.format_align_left, TextAlign.left), _alignBtn(Icons.format_align_center, TextAlign.center), _alignBtn(Icons.format_align_right, TextAlign.right), _alignBtn(Icons.format_align_justify, TextAlign.justify), _div(), _fmtBtn(Icons.format_list_bulleted, false, _insertBullet), _fmtBtn(Icons.format_list_numbered, false, _insertNumber), _div(), _fmtBtn(Icons.horizontal_rule, false, _insertLine), _div(), _fmtBtn(Icons.format_clear, false, _clear), const Spacer()])),
-      ]),
-    );
-  }
-
-  Widget _fontDrop() => Container(width: 130, height: 30, padding: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: _doc.fontFamily, isExpanded: true, isDense: true, style: const TextStyle(fontSize: 12, color: Colors.black87), icon: const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey), items: fonts.map((f) => DropdownMenuItem(value: f, child: Text(f, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: f)))).toList(), onChanged: (v) { _doc.fontFamily = v ?? 'Arial'; widget.onChanged(); })));
-  Widget _sizeDrop() => Container(width: 65, height: 30, padding: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))), child: DropdownButtonHideUnderline(child: DropdownButton<double>(value: _doc.fontSize, isExpanded: true, isDense: true, style: const TextStyle(fontSize: 12, color: Colors.black87), icon: const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey), items: sizes.map((s) => DropdownMenuItem(value: s, child: Text('${s.toInt()}'))).toList(), onChanged: (v) { _doc.fontSize = v ?? 14; widget.onChanged(); })));
-  Widget _div() => Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 6), color: const Color(0xFFBDBDBD));
-  Widget _fmtBtn(IconData icon, bool active, VoidCallback onTap) => Material(color: active ? const Color(0xFFE3F2FD) : Colors.transparent, borderRadius: BorderRadius.circular(4), child: InkWell(onTap: () { onTap(); widget.onChanged(); }, borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null, child: Icon(icon, size: 20, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242)))));
-  Widget _alignBtn(IconData icon, TextAlign a) { final active = _doc.alignment == a; return Material(color: active ? const Color(0xFFE3F2FD) : Colors.transparent, borderRadius: BorderRadius.circular(4), child: InkWell(onTap: () { _doc.alignment = a; widget.onChanged(); }, borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null, child: Icon(icon, size: 20, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242))))); }
-  Widget _colorBtn(IconData icon, Color cur, ValueChanged<Color> onSel) => Material(color: Colors.transparent, child: InkWell(onTap: () => _showPicker(cur, onSel), borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 18, color: const Color(0xFF424242)), Container(height: 4, width: 18, decoration: BoxDecoration(color: cur, borderRadius: BorderRadius.circular(1)))]))));
-  void _showPicker(Color cur, ValueChanged<Color> onSel) => showDialog(context: context, builder: (c) => AlertDialog(title: const Text('Couleur'), content: SizedBox(width: 300, child: Wrap(spacing: 8, runSpacing: 8, children: colors.map((col) => InkWell(onTap: () { onSel(col); Navigator.pop(c); widget.onChanged(); }, child: Container(width: 36, height: 36, decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(4), border: Border.all(color: col == cur ? const Color(0xFF1565C0) : Colors.grey.shade300, width: col == cur ? 3 : 1))))).toList()))));
-  void _insertBullet() { final t = _doc.controller.text; final s = _doc.controller.selection; _doc.controller.text = '${t.substring(0, s.start)}• ${t.substring(s.end)}'; _doc.controller.selection = TextSelection.collapsed(offset: s.start + 2); }
-  void _insertNumber() { final t = _doc.controller.text; final s = _doc.controller.selection; _doc.controller.text = '${t.substring(0, s.start)}1. ${t.substring(s.end)}'; _doc.controller.selection = TextSelection.collapsed(offset: s.start + 3); }
-  void _insertLine() { final t = _doc.controller.text; final s = _doc.controller.selection; _doc.controller.text = '${t.substring(0, s.start)}\n────────────────────────────────────\n${t.substring(s.end)}'; _doc.controller.selection = TextSelection.collapsed(offset: s.start + 40); }
-  void _clear() { _doc.isBold = false; _doc.isItalic = false; _doc.isUnderline = false; _doc.alignment = TextAlign.left; _doc.textColor = Colors.black; _doc.fontSize = 14; _doc.fontFamily = 'Arial'; widget.onChanged(); }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPER WIDGETS & DATA
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1548,6 +1512,7 @@ class _NavBtn extends StatelessWidget { final IconData icon; final VoidCallback 
 class _EyeChip extends StatelessWidget { final String label; final bool isSelected; final VoidCallback onTap; final Color color; const _EyeChip({required this.label, required this.isSelected, required this.onTap, required this.color}); @override Widget build(BuildContext context) => Material(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(20), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? color : MediCoreColors.steelOutline, width: 1.5)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : MediCoreColors.deepNavy, fontSize: 12, fontWeight: FontWeight.w600))))); }
 class _EyeChipWithInsert extends StatelessWidget { final String label; final bool isSelected; final VoidCallback onTap; final VoidCallback onDoubleTap; final Color color; const _EyeChipWithInsert({required this.label, required this.isSelected, required this.onTap, required this.onDoubleTap, required this.color}); @override Widget build(BuildContext context) => Tooltip(message: 'Double-clic pour insérer', child: Material(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(20), child: InkWell(onTap: onTap, onDoubleTap: onDoubleTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? color : MediCoreColors.steelOutline, width: 1.5)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : MediCoreColors.deepNavy, fontSize: 12, fontWeight: FontWeight.w600)))))); }
 class _SmallField extends StatelessWidget { final TextEditingController controller; final String label; const _SmallField({required this.controller, required this.label}); @override Widget build(BuildContext context) => TextField(controller: controller, style: const TextStyle(fontSize: 13), decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(fontSize: 11, color: Colors.grey), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), isDense: true)); }
+class _ToolbarBtn extends StatelessWidget { final IconData icon; final VoidCallback onTap; const _ToolbarBtn({required this.icon, required this.onTap}); @override Widget build(BuildContext context) => Material(color: Colors.transparent, borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, child: Icon(icon, size: 20, color: const Color(0xFF424242))))); }
 class _ActionBtn extends StatelessWidget { final IconData icon; final String label; final Color color; final VoidCallback onTap; final bool large; const _ActionBtn({required this.icon, required this.label, required this.color, required this.onTap, this.large = false}); @override Widget build(BuildContext context) => Material(color: color, borderRadius: BorderRadius.circular(6), elevation: 2, child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(6), child: Container(padding: EdgeInsets.symmetric(horizontal: large ? 24 : 12, vertical: 10), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 16), const SizedBox(width: 6), Text(label, style: TextStyle(color: Colors.white, fontSize: large ? 13 : 12, fontWeight: FontWeight.w600))])))); }
 
 class DocumentData {
@@ -1563,6 +1528,15 @@ class DocumentData {
   String? savedContent;  // Content when last saved (to detect edits)
   DocumentData({required this.type});
   
+  /// Get plain text content
+  String get plainText => controller.text;
+  
+  /// Set plain text content
+  void setPlainText(String text) {
+    controller.text = text;
+    controller.selection = TextSelection.collapsed(offset: text.length);
+  }
+  
   /// Check if content was edited since last save
   bool get wasEdited => savedContent != null && controller.text != savedContent;
   
@@ -1570,6 +1544,16 @@ class DocumentData {
   void markSaved() {
     isSaved = true;
     savedContent = controller.text;
+  }
+  
+  /// Insert text at current cursor position
+  void insertText(String text) {
+    final currentText = controller.text;
+    final selection = controller.selection;
+    final insertPos = selection.isValid ? selection.start : currentText.length;
+    final newText = currentText.substring(0, insertPos) + text + currentText.substring(selection.isValid ? selection.end : currentText.length);
+    controller.text = newText;
+    controller.selection = TextSelection.collapsed(offset: insertPos + text.length);
   }
 }
 

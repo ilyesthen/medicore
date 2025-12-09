@@ -465,9 +465,9 @@ class PrescriptionPrintService {
               // if (bgImage != null)
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
-              // Content - more right (200pt) and more down (195pt)
+              // Content - more right (200pt) and moved UP (175pt)
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 175, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -543,7 +543,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 175, bottom: 8),
                 child: pw.Builder(builder: (context) {
                   // Check if addition is valid (not empty and not "0" or "0.00")
                   final hasAddition = addition.isNotEmpty && 
@@ -638,7 +638,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 195, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: 10, top: 175, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -707,8 +707,9 @@ class PrescriptionPrintService {
     // Determine what name to use for printing
     String displayName;
     String? displayAge;
+    final bool isPrintingWithAnotherName = (printName != null && printName.isNotEmpty) || (printPrenom != null && printPrenom.isNotEmpty);
     
-    if ((printName != null && printName.isNotEmpty) || (printPrenom != null && printPrenom.isNotEmpty)) {
+    if (isPrintingWithAnotherName) {
       // Use "print with another person" info
       final nom = printName ?? '';
       final prenom = printPrenom ?? '';
@@ -720,9 +721,9 @@ class PrescriptionPrintService {
       displayAge = age;
     }
 
-    // Adjust padding for A4 (more right, more down) - INCREASED for better positioning
+    // Adjust padding for A4 - MOVED UP for better positioning
     final leftPad = useA4 ? 260.0 : 200.0;  // More right
-    final topPad = useA4 ? 280.0 : 195.0;
+    final topPad = useA4 ? 250.0 : 175.0;   // Moved UP (was 280/195)
     final fontSize = useA4 ? 12.0 : 10.0;   // Bigger text
     final titleSize = useA4 ? 15.0 : 11.0;  // Bigger title
 
@@ -745,25 +746,27 @@ class PrescriptionPrintService {
                     _buildPatientInfoBox(displayName, patientCode, barcode, date, age: displayAge),
                     pw.SizedBox(height: 14),
                     
-                    // Centered title with document icon - uses the document type selected
+                    // Title with document icon ONLY when printing with another name
                     pw.Center(
-                      child: pw.Row(
-                        mainAxisSize: pw.MainAxisSize.min,
-                        children: [
-                          pw.Container(
-                            width: titleSize,
-                            height: titleSize,
-                            decoration: pw.BoxDecoration(
-                              border: pw.Border.all(color: PdfColors.black, width: 0.8),
-                            ),
-                            child: pw.Center(
-                              child: pw.Text('≡', style: pw.TextStyle(fontSize: titleSize * 0.7, fontWeight: pw.FontWeight.bold)),
-                            ),
-                          ),
-                          pw.SizedBox(width: 6),
-                          pw.Text(_sanitizeForPrint(documentType), style: pw.TextStyle(fontSize: titleSize, fontWeight: pw.FontWeight.bold, color: _titleColor)),
-                        ],
-                      ),
+                      child: isPrintingWithAnotherName
+                        ? pw.Row(
+                            mainAxisSize: pw.MainAxisSize.min,
+                            children: [
+                              pw.Container(
+                                width: titleSize,
+                                height: titleSize,
+                                decoration: pw.BoxDecoration(
+                                  border: pw.Border.all(color: PdfColors.black, width: 0.8),
+                                ),
+                                child: pw.Center(
+                                  child: pw.Text('≡', style: pw.TextStyle(fontSize: titleSize * 0.7, fontWeight: pw.FontWeight.bold)),
+                                ),
+                              ),
+                              pw.SizedBox(width: 6),
+                              pw.Text(_sanitizeForPrint(documentType), style: pw.TextStyle(fontSize: titleSize, fontWeight: pw.FontWeight.bold, color: _titleColor)),
+                            ],
+                          )
+                        : pw.Text(_sanitizeForPrint(documentType), style: pw.TextStyle(fontSize: titleSize, fontWeight: pw.FontWeight.bold, color: _titleColor)),
                     ),
                     pw.SizedBox(height: 14),
                     
@@ -813,7 +816,15 @@ class PrescriptionPrintService {
       creator: 'MediCore v1.0',
     );
     
-    const pageFormat = PdfPageFormat.a4;  // A4 for Compte Rendu
+    // Load background image for A4 Compte Rendu
+    final bgImage = await _loadBackgroundImage();
+    const pageFormat = PdfPageFormat.a4;
+    
+    // Margins: top ~200pt for header space, bottom ~150pt for footer space
+    const topMargin = 200.0;
+    const bottomMargin = 150.0;
+    const leftMargin = 60.0;
+    const rightMargin = 40.0;
 
     // Determine what name to use for printing
     String displayName;
@@ -829,110 +840,104 @@ class PrescriptionPrintService {
       displayAge = age;
     }
 
+    // Use MultiPage for automatic page breaks with background on each page
     doc.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: pageFormat,
-        margin: const pw.EdgeInsets.all(40),
-        build: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+        margin: pw.EdgeInsets.only(
+          top: topMargin,
+          bottom: bottomMargin,
+          left: leftMargin,
+          right: rightMargin,
+        ),
+        header: (context) => pw.Container(), // Empty header (space reserved by margin)
+        footer: (context) => pw.Container(), // Empty footer (space reserved by margin)
+        build: (context) => [
+          // Patient info box
+          pw.Container(
+            padding: const pw.EdgeInsets.all(10),
+            margin: const pw.EdgeInsets.only(bottom: 15),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.grey400),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('Patient: $displayName', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    if (displayAge != null && displayAge.isNotEmpty)
+                      pw.Text('Âge: $displayAge ans', style: const pw.TextStyle(fontSize: 10)),
+                    pw.Text('Code: $patientCode', style: const pw.TextStyle(fontSize: 10)),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Date: $date', style: const pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 4),
+                    pw.BarcodeWidget(data: barcode, barcode: pw.Barcode.code128(), width: 70, height: 18, drawText: false),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Document title
+          pw.Center(
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 15),
+              child: pw.Text(
+                _sanitizeForPrint(documentType),
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _titleColor),
+              ),
+            ),
+          ),
+          
+          // Content - preserves exact formatting with line breaks
+          pw.Text(
+            _sanitizeForPrint(content),
+            style: const pw.TextStyle(fontSize: 12, lineSpacing: 1.4),
+          ),
+          
+          // Signature area at bottom
+          pw.SizedBox(height: 30),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.end,
             children: [
-              // Header with patient info
-              pw.Container(
-                padding: const pw.EdgeInsets.all(12),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey400),
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text('Patient: $displayName', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-                        if (displayAge != null && displayAge.isNotEmpty)
-                          pw.Text('Âge: $displayAge ans', style: const pw.TextStyle(fontSize: 11)),
-                        pw.Text('Code: $patientCode', style: const pw.TextStyle(fontSize: 11)),
-                      ],
-                    ),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text('Date: $date', style: const pw.TextStyle(fontSize: 11)),
-                        pw.SizedBox(height: 4),
-                        pw.BarcodeWidget(data: barcode, barcode: pw.Barcode.code128(), width: 80, height: 20, drawText: false),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 20),
-              
-              // Document title with icon
-              pw.Center(
-                child: pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Container(
-                      width: 18,
-                      height: 18,
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.black, width: 0.8),
-                      ),
-                      child: pw.Center(
-                        child: pw.Text('≡', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                      ),
-                    ),
-                    pw.SizedBox(width: 8),
-                    pw.Text(
-                      _sanitizeForPrint(documentType),
-                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _titleColor),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 20),
-              
-              // Content - bigger text with better spacing
-              pw.Expanded(
-                child: pw.Container(
-                  width: double.infinity,
-                  padding: const pw.EdgeInsets.all(16),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey300),
-                  ),
-                  child: pw.Text(
-                    _sanitizeForPrint(content),
-                    style: const pw.TextStyle(fontSize: 13, lineSpacing: 1.6),
-                  ),
-                ),
-              ),
-              
-              pw.SizedBox(height: 20),
-              
-              // Footer with signature area
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.end,
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      pw.Text('Signature et cachet', style: const pw.TextStyle(fontSize: 11)),
-                      pw.SizedBox(height: 40),
-                      pw.Container(
-                        width: 150,
-                        decoration: const pw.BoxDecoration(
-                          border: pw.Border(top: pw.BorderSide(color: PdfColors.grey400)),
-                        ),
-                      ),
-                    ],
+                  pw.Text('Signature et cachet', style: const pw.TextStyle(fontSize: 10)),
+                  pw.SizedBox(height: 35),
+                  pw.Container(
+                    width: 130,
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(top: pw.BorderSide(color: PdfColors.grey400)),
+                    ),
                   ),
                 ],
               ),
             ],
-          );
-        },
+          ),
+        ],
+        pageTheme: pw.PageTheme(
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.only(
+            top: topMargin,
+            bottom: bottomMargin,
+            left: leftMargin,
+            right: rightMargin,
+          ),
+          buildBackground: bgImage != null
+              ? (context) => pw.FullPage(
+                    ignoreMargins: true,
+                    child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover),
+                  )
+              : null,
+        ),
       ),
     );
 

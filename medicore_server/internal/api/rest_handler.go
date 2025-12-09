@@ -733,9 +733,10 @@ func (h *RESTHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 // ==================== PATIENT HANDLERS ====================
 
 func (h *RESTHandler) GetAllPatients(w http.ResponseWriter, r *http.Request) {
+	// Order by created_at DESC so newest patients appear first, fallback to code DESC
 	rows, err := h.db.Query(`
 		SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, other_info, created_at
-		FROM patients ORDER BY code ASC
+		FROM patients ORDER BY COALESCE(created_at, '1970-01-01') DESC, code DESC
 	`)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -1659,13 +1660,21 @@ func (h *RESTHandler) GetVisitsForPatient(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	patientCode := int(req["patient_code"].(float64))
+	// Safe type conversion for patient_code
+	patientCode := 0
+	if pc, ok := req["patient_code"].(float64); ok {
+		patientCode = int(pc)
+	} else {
+		respondError(w, 400, "patient_code is required")
+		return
+	}
+	// Include old visits that might have NULL is_active (not explicitly deleted)
 	rows, err := h.db.Query(`
 		SELECT id, patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct,
 			   od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
 			   og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
 			   addition, dip, created_at
-		FROM visits WHERE patient_code = ? AND is_active = 1 ORDER BY visit_date DESC
+		FROM visits WHERE patient_code = ? AND (is_active = 1 OR is_active IS NULL) ORDER BY visit_date DESC
 	`, patientCode)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -1852,6 +1861,18 @@ func (h *RESTHandler) CreateVisit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, err.Error())
 		return
 	}
+	// Convert numeric values from float64 to int with nil checks
+	patientCode := 0
+	if pc, ok := req["patient_code"].(float64); ok {
+		patientCode = int(pc)
+	} else {
+		respondError(w, 400, "patient_code is required")
+		return
+	}
+	visitSequence := 1
+	if vs, ok := req["visit_sequence"].(float64); ok {
+		visitSequence = int(vs)
+	}
 	result, err := h.db.Exec(`
 		INSERT INTO visits (
 			patient_code, visit_sequence, visit_date, doctor_name, motif, diagnosis, conduct,
@@ -1859,7 +1880,7 @@ func (h *RESTHandler) CreateVisit(w http.ResponseWriter, r *http.Request) {
 			og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
 			addition, dip, created_at, updated_at, is_active
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
-	`, req["patient_code"], req["visit_sequence"], req["visit_date"], req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"],
+	`, patientCode, visitSequence, req["visit_date"], req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"],
 		req["od_sv"], req["od_av"], req["od_sphere"], req["od_cylinder"], req["od_axis"], req["od_vl"], req["od_k1"], req["od_k2"], req["od_r1"], req["od_r2"], req["od_r0"], req["od_pachy"], req["od_toc"], req["od_notes"], req["od_gonio"], req["od_to"], req["od_laf"], req["od_fo"],
 		req["og_sv"], req["og_av"], req["og_sphere"], req["og_cylinder"], req["og_axis"], req["og_vl"], req["og_k1"], req["og_k2"], req["og_r1"], req["og_r2"], req["og_r0"], req["og_pachy"], req["og_toc"], req["og_notes"], req["og_gonio"], req["og_to"], req["og_laf"], req["og_fo"],
 		req["addition"], req["dip"])
@@ -2043,10 +2064,11 @@ func (h *RESTHandler) GetPaymentsForPatient(w http.ResponseWriter, r *http.Reque
 	}
 
 	patientCode := int(req["patient_code"].(float64))
+	// Include old payments that might have NULL is_active (not explicitly deleted)
 	rows, err := h.db.Query(`
 		SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name,
-			   patient_code, patient_first_name, patient_last_name, payment_time, is_active
-		FROM payments WHERE patient_code = ? AND is_active = 1 ORDER BY payment_time DESC
+			   patient_code, patient_first_name, patient_last_name, payment_time, COALESCE(is_active, 1) as is_active
+		FROM payments WHERE patient_code = ? AND (is_active = 1 OR is_active IS NULL) ORDER BY payment_time DESC
 	`, patientCode)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -2109,11 +2131,12 @@ func (h *RESTHandler) GetPaymentsByUserAndDate(w http.ResponseWriter, r *http.Re
 	userName := req["user_name"].(string)
 	dateStr := req["date"].(string) // Format: YYYY-MM-DD
 
+	// Include old payments that might have NULL is_active (not explicitly deleted)
 	rows, err := h.db.Query(`
 		SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name,
-			   patient_code, patient_first_name, patient_last_name, payment_time, is_active
+			   patient_code, patient_first_name, patient_last_name, payment_time, COALESCE(is_active, 1) as is_active
 		FROM payments 
-		WHERE user_name = ? AND date(payment_time) = ? AND is_active = 1
+		WHERE user_name = ? AND date(payment_time) = ? AND (is_active = 1 OR is_active IS NULL)
 		ORDER BY payment_time ASC
 	`, userName, dateStr)
 	if err != nil {
@@ -2401,7 +2424,8 @@ func (h *RESTHandler) GetAllPaymentsByUser(w http.ResponseWriter, r *http.Reques
 	}
 
 	userName := req["user_name"].(string)
-	rows, err := h.db.Query(`SELECT id, medical_act_id, medical_act_name, amount, patient_code, patient_first_name, patient_last_name, payment_time FROM payments WHERE user_name = ? AND is_active = 1 ORDER BY payment_time DESC`, userName)
+	// Include old payments that might have NULL or missing is_active (not explicitly deleted)
+	rows, err := h.db.Query(`SELECT id, medical_act_id, medical_act_name, amount, patient_code, patient_first_name, patient_last_name, payment_time FROM payments WHERE user_name = ? AND (is_active = 1 OR is_active IS NULL) ORDER BY payment_time DESC`, userName)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return

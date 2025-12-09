@@ -126,7 +126,12 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
   
   /// Show payment reminder dialog if no payment today. Returns true if action should proceed.
   Future<bool> _showPaymentReminderIfNeeded() async {
-    if (_hasPaymentToday) return true;  // Check for BOTH new and edit mode
+    // If payment already validated today, skip completely
+    if (_hasPaymentToday) return true;
+    
+    // Re-check payment status first (in case it was validated elsewhere)
+    await _checkPaymentStatus();
+    if (_hasPaymentToday) return true;
     
     final result = await showDialog<bool>(
       context: context,
@@ -140,8 +145,10 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
       ),
     );
     
-    // Re-check payment status after dialog
-    await _checkPaymentStatus();
+    // If user validated payment (result == true), mark as done for this session
+    if (result == true) {
+      setState(() => _hasPaymentToday = true);
+    }
     
     return result ?? true; // If dismissed, allow action
   }

@@ -20,11 +20,14 @@ class VisitsRepository {
     // Client mode: use REST API
     if (!GrpcClientConfig.isServer) {
       try {
+        print('📤 [VisitsRepository] Fetching visits for patient: $patientCode');
         final response = await MediCoreClient.instance.getVisitsForPatient(patientCode);
         final visits = (response['visits'] as List<dynamic>?) ?? [];
+        print('📥 [VisitsRepository] Received ${visits.length} visits');
         return visits.map((v) => _mapToVisit(v as Map<String, dynamic>)).toList();
-      } catch (e) {
+      } catch (e, stackTrace) {
         print('❌ [VisitsRepository] Remote fetch failed: $e');
+        print('📍 Stack trace: $stackTrace');
         return [];
       }
     }
@@ -134,9 +137,14 @@ class VisitsRepository {
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
       try {
-        return await MediCoreClient.instance.createVisit(_visitCompanionToJson(visit));
-      } catch (e) {
+        final json = _visitCompanionToJson(visit);
+        print('📤 [VisitsRepository] Creating visit: patient_code=${json['patient_code']}, date=${json['visit_date']}');
+        final result = await MediCoreClient.instance.createVisit(json);
+        print('✅ [VisitsRepository] Visit created with ID: $result');
+        return result;
+      } catch (e, stackTrace) {
         print('❌ [VisitsRepository] Remote insert failed: $e');
+        print('📍 Stack trace: $stackTrace');
         return -1;
       }
     }
@@ -222,10 +230,13 @@ class VisitsRepository {
       try {
         final data = _visitCompanionToJson(visit);
         data['id'] = id;
+        print('📤 [VisitsRepository] Updating visit ID: $id');
         await MediCoreClient.instance.updateVisit(data);
+        print('✅ [VisitsRepository] Visit updated successfully');
         return true;
-      } catch (e) {
+      } catch (e, stackTrace) {
         print('❌ [VisitsRepository] Remote update failed: $e');
+        print('📍 Stack trace: $stackTrace');
         return false;
       }
     }

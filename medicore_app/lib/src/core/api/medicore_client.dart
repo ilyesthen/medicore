@@ -67,11 +67,18 @@ class MediCoreClient {
   
   /// Make HTTP request to server (gRPC-Web style)
   Future<Map<String, dynamic>> _request(String method, Map<String, dynamic> body) async {
+    // Auto-initialize if not already
     if (_httpClient == null || _serverHost == null) {
-      throw Exception('Client not initialized');
+      debugPrint('⚠️ [MediCoreClient] Client not initialized, initializing now...');
+      await initialize(host: GrpcClientConfig.serverHost);
+    }
+    
+    if (_httpClient == null || _serverHost == null) {
+      throw Exception('Client not initialized - check server configuration');
     }
     
     try {
+      debugPrint('📡 [MediCoreClient] $method -> $serverUrl/api/$method');
       final request = await _httpClient!.postUrl(
         Uri.parse('$serverUrl/api/$method'),
       );
@@ -83,12 +90,14 @@ class MediCoreClient {
       final responseBody = await response.transform(utf8.decoder).join();
       
       if (response.statusCode == 200) {
+        _isConnected = true;
         return jsonDecode(responseBody) as Map<String, dynamic>;
       } else {
-        throw Exception('Server error: ${response.statusCode}');
+        debugPrint('❌ [MediCoreClient] Server error ${response.statusCode}: $responseBody');
+        throw Exception('Server error ${response.statusCode}: $responseBody');
       }
     } catch (e) {
-      debugPrint('❌ [MediCoreClient] Request failed: $e');
+      debugPrint('❌ [MediCoreClient] Request $method failed: $e');
       _isConnected = false;
       _connectionController.add(false);
       rethrow;
