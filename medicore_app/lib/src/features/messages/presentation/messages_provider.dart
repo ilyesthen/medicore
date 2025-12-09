@@ -151,14 +151,20 @@ class RemoteMessagesAdapter implements IMessagesRepository {
   Future<void> deleteMessage(int id) => _remote.deleteMessage(id);
 }
 
+// Singleton instances to prevent multiple SSE registrations
+RemoteMessagesRepository? _remoteMessagesRepo;
+MessagesRepository? _localMessagesRepo;
+
 /// Messages repository provider - switches between local and remote
 final messagesRepositoryProvider = Provider<IMessagesRepository>((ref) {
   if (GrpcClientConfig.isServer) {
     print('✓ [MessagesRepository] Using LOCAL database (Admin mode)');
-    return LocalMessagesAdapter(MessagesRepository());
+    _localMessagesRepo ??= MessagesRepository();
+    return LocalMessagesAdapter(_localMessagesRepo!);
   } else {
     print('✓ [MessagesRepository] Using REMOTE API (Client mode)');
-    return RemoteMessagesAdapter(RemoteMessagesRepository());
+    _remoteMessagesRepo ??= RemoteMessagesRepository();
+    return RemoteMessagesAdapter(_remoteMessagesRepo!);
   }
 });
 

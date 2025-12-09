@@ -253,14 +253,20 @@ class RemoteWaitingQueueAdapter implements IWaitingQueueRepository {
     _remote.markDilatationsAsNotified(roomIds);
 }
 
+// Singleton instances to prevent multiple SSE registrations
+RemoteWaitingQueueRepository? _remoteWaitingQueueRepo;
+WaitingQueueRepository? _localWaitingQueueRepo;
+
 /// Waiting queue repository provider - switches between local and remote
 final waitingQueueRepositoryProvider = Provider<IWaitingQueueRepository>((ref) {
   if (GrpcClientConfig.isServer) {
     print('✓ [WaitingQueueRepository] Using LOCAL database (Admin mode)');
-    return LocalWaitingQueueAdapter(WaitingQueueRepository(AppDatabase.instance));
+    _localWaitingQueueRepo ??= WaitingQueueRepository(AppDatabase.instance);
+    return LocalWaitingQueueAdapter(_localWaitingQueueRepo!);
   } else {
     print('✓ [WaitingQueueRepository] Using REMOTE API (Client mode)');
-    return RemoteWaitingQueueAdapter(RemoteWaitingQueueRepository());
+    _remoteWaitingQueueRepo ??= RemoteWaitingQueueRepository();
+    return RemoteWaitingQueueAdapter(_remoteWaitingQueueRepo!);
   }
 });
 

@@ -155,14 +155,20 @@ class RemotePatientsAdapter implements IPatientsRepository {
   Future<int> getPatientCount() => _remote.getPatientCount();
 }
 
+// Singleton instances to prevent multiple SSE registrations
+RemotePatientsRepository? _remotePatientsRepo;
+PatientsRepository? _localPatientsRepo;
+
 /// Patients repository provider - switches between local and remote
 final patientsRepositoryProvider = Provider<IPatientsRepository>((ref) {
   if (GrpcClientConfig.isServer) {
     print('✓ [PatientsRepository] Using LOCAL database (Admin mode)');
-    return LocalPatientsAdapter(PatientsRepository());
+    _localPatientsRepo ??= PatientsRepository();
+    return LocalPatientsAdapter(_localPatientsRepo!);
   } else {
     print('✓ [PatientsRepository] Using REMOTE API (Client mode)');
-    return RemotePatientsAdapter(RemotePatientsRepository());
+    _remotePatientsRepo ??= RemotePatientsRepository();
+    return RemotePatientsAdapter(_remotePatientsRepo!);
   }
 });
 
