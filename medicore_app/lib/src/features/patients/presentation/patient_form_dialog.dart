@@ -149,73 +149,61 @@ class _PatientFormDialogState extends ConsumerState<PatientFormDialog> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    final repository = ref.read(patientsRepositoryProvider);
 
-    try {
-      final repository = ref.read(patientsRepositoryProvider);
+    final age = _ageController.text.isEmpty 
+        ? null 
+        : int.tryParse(_ageController.text);
 
-      final age = _ageController.text.isEmpty 
-          ? null 
-          : int.tryParse(_ageController.text);
-
-      // Parse age - could be number or date format
-      final parsedAge = _parseAgeInput(_ageController.text);
-      final finalAge = parsedAge ?? age;
+    // Parse age - could be number or date format
+    final parsedAge = _parseAgeInput(_ageController.text);
+    final finalAge = parsedAge ?? age;
+    
+    // Default address to "Batna" if empty
+    final address = _addressController.text.trim().isEmpty 
+        ? 'Batna' 
+        : _addressController.text.trim();
+    
+    // Capture values before closing dialog
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final phone = _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim();
+    final otherInfo = _otherInfoController.text.trim().isEmpty ? null : _otherInfoController.text.trim();
+    final dateOfBirth = _dateOfBirth;
+    
+    if (widget.patient == null) {
+      // CREATE: Close dialog IMMEDIATELY (no waiting)
+      Navigator.of(context).pop(true);
       
-      // Default address to "Batna" if empty
-      final address = _addressController.text.trim().isEmpty 
-          ? 'Batna' 
-          : _addressController.text.trim();
+      // Create in background - don't await
+      repository.createPatient(
+        firstName: firstName,
+        lastName: lastName,
+        age: finalAge,
+        dateOfBirth: dateOfBirth,
+        address: address,
+        phoneNumber: phone,
+        otherInfo: otherInfo,
+      ).catchError((e) {
+        print('❌ Create patient failed: $e');
+      });
+    } else {
+      // UPDATE: Close dialog IMMEDIATELY (no waiting)
+      Navigator.of(context).pop(true);
       
-      if (widget.patient == null) {
-        // Create new patient
-        await repository.createPatient(
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          age: finalAge,
-          dateOfBirth: _dateOfBirth,
-          address: address,
-          phoneNumber: _phoneController.text.trim().isEmpty 
-              ? null 
-              : _phoneController.text.trim(),
-          otherInfo: _otherInfoController.text.trim().isEmpty 
-              ? null 
-              : _otherInfoController.text.trim(),
-        );
-      } else {
-        // Update existing patient
-        await repository.updatePatient(
-          code: widget.patient!.code,
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          age: finalAge,
-          dateOfBirth: _dateOfBirth,
-          address: address,
-          phoneNumber: _phoneController.text.trim().isEmpty 
-              ? null 
-              : _phoneController.text.trim(),
-          otherInfo: _otherInfoController.text.trim().isEmpty 
-              ? null 
-              : _otherInfoController.text.trim(),
-        );
-      }
-
-      if (mounted) {
-        Navigator.of(context).pop(true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: MediCoreColors.criticalRed,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      // Update in background - don't await
+      repository.updatePatient(
+        code: widget.patient!.code,
+        firstName: firstName,
+        lastName: lastName,
+        age: finalAge,
+        dateOfBirth: dateOfBirth,
+        address: address,
+        phoneNumber: phone,
+        otherInfo: otherInfo,
+      ).catchError((e) {
+        print('❌ Update patient failed: $e');
+      });
     }
   }
 

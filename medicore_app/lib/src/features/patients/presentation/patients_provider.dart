@@ -1,8 +1,18 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_patients_repository.dart';
 import '../data/patients_repository.dart';
+
+/// Global refresh trigger for instant CRUD updates
+final _patientsRefreshController = StreamController<void>.broadcast();
+
+/// Call this to trigger an instant refresh of the patients list
+void refreshPatientsList() {
+  _patientsRefreshController.add(null);
+  print('🔄 Patients list refresh triggered');
+}
 
 /// Abstract interface for patient operations
 /// Allows switching between local (admin) and remote (client) implementations
@@ -172,10 +182,46 @@ final patientsRepositoryProvider = Provider<IPatientsRepository>((ref) {
   }
 });
 
-/// All patients stream provider
+/// All patients stream provider with instant refresh support
 final patientsListProvider = StreamProvider<List<Patient>>((ref) {
   final repository = ref.watch(patientsRepositoryProvider);
-  return repository.watchAllPatients();
+  
+  // Create a merged stream that responds to both data changes and manual refresh
+  final controller = StreamController<List<Patient>>.broadcast();
+  StreamSubscription<List<Patient>>? dataSub;
+  StreamSubscription<void>? refreshSub;
+  
+  void fetchAndEmit() async {
+    await for (final patients in repository.watchAllPatients()) {
+      if (!controller.isClosed) {
+        controller.add(patients);
+      }
+      break; // Just get the first emission
+    }
+  }
+  
+  // Listen for data changes
+  dataSub = repository.watchAllPatients().listen(
+    (patients) {
+      if (!controller.isClosed) controller.add(patients);
+    },
+    onError: (e) {
+      if (!controller.isClosed) controller.addError(e);
+    },
+  );
+  
+  // Listen for manual refresh triggers
+  refreshSub = _patientsRefreshController.stream.listen((_) {
+    fetchAndEmit();
+  });
+  
+  ref.onDispose(() {
+    dataSub?.cancel();
+    refreshSub?.cancel();
+    controller.close();
+  });
+  
+  return controller.stream;
 });
 
 /// Search patients provider

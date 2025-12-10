@@ -6,6 +6,7 @@ import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/generated/medicore.pb.dart';
 import '../../../core/api/realtime_sync_service.dart';
+import '../presentation/patients_provider.dart' show refreshPatientsList;
 
 /// Repository for patient data operations
 /// Optimized with in-memory cache for instant CRUD operations
@@ -106,10 +107,8 @@ class PatientsRepository {
     return age;
   }
 
-  /// Get all patients with smart ordering:
-  /// - Today's patients first (newest code first for easy access)
-  /// - Then all other patients (oldest code first)
-  /// OPTIMIZED: Uses cache for instant loading
+  /// Get all patients with ordering: oldest first (ascending by code)
+  /// OPTIMIZED: Uses cache for instant loading with periodic refresh
   Stream<List<Patient>> watchAllPatients() async* {
     // First, yield cached data immediately if available
     if (_isCacheValid) {
@@ -118,6 +117,7 @@ class PatientsRepository {
     
     // Then fetch fresh data
     try {
+      _invalidateCache(); // Force fresh fetch
       final patients = await _getCachedPatients();
       yield _applySmartOrdering(patients);
     } catch (e) {
@@ -130,28 +130,12 @@ class PatientsRepository {
     }
   }
   
-  /// Apply smart ordering: today's patients first (newest first), then others (oldest first)
+  /// Apply ordering: newest first (descending order by code)
+  /// New patients appear at the TOP of the list
   List<Patient> _applySmartOrdering(List<Patient> patients) {
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
-    
-    final todayPatients = <Patient>[];
-    final otherPatients = <Patient>[];
-    
-    for (final p in patients) {
-      if (p.createdAt.isAfter(todayStart) || p.createdAt.isAtSameMomentAs(todayStart)) {
-        todayPatients.add(p);
-      } else {
-        otherPatients.add(p);
-      }
-    }
-    
-    // Today's: newest code first
-    todayPatients.sort((a, b) => b.code.compareTo(a.code));
-    // Others: oldest code first
-    otherPatients.sort((a, b) => a.code.compareTo(b.code));
-    
-    return [...todayPatients, ...otherPatients];
+    final sorted = List<Patient>.from(patients);
+    sorted.sort((a, b) => b.code.compareTo(a.code)); // Newest first (highest code = newest)
+    return sorted;
   }
   
   /// Remote stream for patients with SSE support
@@ -210,14 +194,9 @@ class PatientsRepository {
         }
       }
       
-      // Today's patients: newest code first (descending)
-      todayPatients.sort((a, b) => b.code.compareTo(a.code));
-      
-      // Other patients: oldest code first (ascending)
-      otherPatients.sort((a, b) => a.code.compareTo(b.code));
-      
-      // Combine: today's first, then others
-      return [...todayPatients, ...otherPatients];
+      // Sort all patients: newest first (descending order by code)
+      allPatients.sort((a, b) => b.code.compareTo(a.code));
+      return allPatients;
     } catch (e) {
       print('❌ [PatientsRepository] Remote fetch failed: $e');
       return [];
@@ -312,24 +291,9 @@ class PatientsRepository {
       }).toList();
     }
     
-    // Apply smart ordering
-    final todayPatients = <Patient>[];
-    final otherPatients = <Patient>[];
-    
-    for (final p in filtered) {
-      if (p.createdAt.isAfter(todayStart) || p.createdAt.isAtSameMomentAs(todayStart)) {
-        todayPatients.add(p);
-      } else {
-        otherPatients.add(p);
-      }
-    }
-    
-    // Today's patients: newest code first
-    todayPatients.sort((a, b) => b.code.compareTo(a.code));
-    // Other patients: oldest code first
-    otherPatients.sort((a, b) => a.code.compareTo(b.code));
-    
-    return [...todayPatients, ...otherPatients];
+    // Sort: newest first (descending order by code)
+    filtered.sort((a, b) => b.code.compareTo(a.code));
+    return filtered;
   }
 
   /// Create new patient
@@ -344,6 +308,33 @@ class PatientsRepository {
   }) async {
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
+      // Create temporary patient with placeholder code for INSTANT UI update
+      final tempCode = DateTime.now().millisecondsSinceEpoch;
+      final tempPatient = Patient(
+        code: tempCode,
+        barcode: '',
+        createdAt: DateTime.now(),
+        firstName: firstName,
+        lastName: lastName,
+        age: age,
+        dateOfBirth: dateOfBirth,
+        address: address,
+        phoneNumber: phoneNumber,
+        otherInfo: otherInfo,
+        updatedAt: DateTime.now(),
+        needsSync: true,
+      );
+      
+      // Add to cache IMMEDIATELY (before network call)
+      if (_cachedPatients != null) {
+        _cachedPatients!.insert(0, tempPatient); // Insert at TOP
+      } else {
+        _cachedPatients = [tempPatient];
+        _cacheTime = DateTime.now();
+      }
+      // Trigger INSTANT UI refresh
+      refreshPatientsList();
+      
       try {
         final request = CreatePatientRequest(
           code: 0, // Server will assign
@@ -354,10 +345,31 @@ class PatientsRepository {
           address: address,
           phone: phoneNumber,
         );
-        final code = await MediCoreClient.instance.createPatient(request);
-        _invalidateCache(); // Clear cache after create
-        final newPatient = Patient(
-          code: code,
+        final realCode = await MediCoreClient.instance.createPatient(request);
+        
+        // Update temp patient with real code
+        if (_cachedPatients != null) {
+          final idx = _cachedPatients!.indexWhere((p) => p.code == tempCode);
+          if (idx >= 0) {
+            _cachedPatients![idx] = Patient(
+              code: realCode,
+              barcode: '',
+              createdAt: DateTime.now(),
+              firstName: firstName,
+              lastName: lastName,
+              age: age,
+              dateOfBirth: dateOfBirth,
+              address: address,
+              phoneNumber: phoneNumber,
+              otherInfo: otherInfo,
+              updatedAt: DateTime.now(),
+              needsSync: false,
+            );
+          }
+        }
+        
+        return Patient(
+          code: realCode,
           barcode: '',
           createdAt: DateTime.now(),
           firstName: firstName,
@@ -370,17 +382,16 @@ class PatientsRepository {
           updatedAt: DateTime.now(),
           needsSync: false,
         );
-        // Add to cache immediately for instant visibility
-        if (_cachedPatients != null) {
-          _cachedPatients!.insert(0, newPatient);
-        }
-        return newPatient;
       } catch (e) {
+        // Remove temp patient on error
+        _cachedPatients?.removeWhere((p) => p.code == tempCode);
+        refreshPatientsList();
         print('❌ [PatientsRepository] Remote createPatient failed: $e');
         rethrow;
       }
     }
     
+    // Admin mode: INSTANT UI update with optimistic cache
     final code = await _getNextPatientCode();
     final barcode = await _generateUniqueBarcode();
     final now = DateTime.now();
@@ -388,6 +399,33 @@ class PatientsRepository {
     // Calculate age from date of birth if provided
     final finalAge = dateOfBirth != null ? _calculateAge(dateOfBirth) : age;
 
+    // Create patient object for INSTANT UI update
+    final newPatient = Patient(
+      code: code,
+      barcode: barcode,
+      createdAt: now,
+      firstName: firstName,
+      lastName: lastName,
+      age: finalAge,
+      dateOfBirth: dateOfBirth,
+      address: address,
+      phoneNumber: phoneNumber,
+      otherInfo: otherInfo,
+      updatedAt: now,
+      needsSync: true,
+    );
+    
+    // Add to cache IMMEDIATELY (before DB insert)
+    if (_cachedPatients != null) {
+      _cachedPatients!.insert(0, newPatient); // Insert at TOP
+    } else {
+      _cachedPatients = [newPatient];
+      _cacheTime = DateTime.now();
+    }
+    // Trigger INSTANT UI refresh
+    refreshPatientsList();
+
+    // Insert to DB in background
     final companion = PatientsCompanion.insert(
       code: Value(code),
       barcode: barcode,
@@ -404,12 +442,6 @@ class PatientsRepository {
     );
 
     await _db.into(_db.patients).insert(companion);
-    _invalidateCache(); // Clear cache after create
-    final newPatient = (await getPatientByCode(code))!;
-    // Add to cache immediately
-    if (_cachedPatients != null) {
-      _cachedPatients!.insert(0, newPatient);
-    }
     return newPatient;
   }
 
@@ -424,8 +456,34 @@ class PatientsRepository {
     String? phoneNumber,
     String? otherInfo,
   }) async {
-    // Client mode: use remote
+    // Client mode: use remote - INSTANT UI update
     if (!GrpcClientConfig.isServer) {
+      // Update cache IMMEDIATELY (before network call)
+      Patient? oldPatient;
+      if (_cachedPatients != null) {
+        final idx = _cachedPatients!.indexWhere((p) => p.code == code);
+        if (idx >= 0) {
+          oldPatient = _cachedPatients![idx];
+          _cachedPatients![idx] = Patient(
+            code: code,
+            barcode: oldPatient.barcode,
+            createdAt: oldPatient.createdAt,
+            firstName: firstName,
+            lastName: lastName,
+            age: age,
+            dateOfBirth: dateOfBirth,
+            address: address,
+            phoneNumber: phoneNumber,
+            otherInfo: otherInfo,
+            updatedAt: DateTime.now(),
+            needsSync: true,
+          );
+        }
+      }
+      // Trigger INSTANT UI refresh
+      refreshPatientsList();
+      
+      // Network call in background
       try {
         final patient = GrpcPatient(
           code: code,
@@ -437,9 +495,14 @@ class PatientsRepository {
           phone: phoneNumber,
         );
         await MediCoreClient.instance.updatePatient(patient);
-        _invalidateCache(); // Clear cache after update
         return;
       } catch (e) {
+        // Revert on error
+        if (oldPatient != null && _cachedPatients != null) {
+          final idx = _cachedPatients!.indexWhere((p) => p.code == code);
+          if (idx >= 0) _cachedPatients![idx] = oldPatient;
+          refreshPatientsList();
+        }
         print('❌ [PatientsRepository] Remote updatePatient failed: $e');
         rethrow;
       }
@@ -464,29 +527,66 @@ class PatientsRepository {
     await (_db.update(_db.patients)
           ..where((p) => p.code.equals(code)))
         .write(companion);
-    _invalidateCache(); // Clear cache after update
+    // Update cache immediately
+    if (_cachedPatients != null) {
+      final idx = _cachedPatients!.indexWhere((p) => p.code == code);
+      if (idx >= 0) {
+        final updated = await getPatientByCode(code);
+        if (updated != null) {
+          _cachedPatients![idx] = updated;
+        }
+      }
+    }
+    // Trigger instant UI refresh
+    refreshPatientsList();
   }
 
-  /// Delete patient
+  /// Delete patient - INSTANT (optimistic delete)
   Future<void> deletePatient(int code) async {
+    // Save for rollback on error
+    Patient? deletedPatient;
+    int? deletedIndex;
+    
+    // Remove from cache IMMEDIATELY (before any network/DB call)
+    if (_cachedPatients != null) {
+      deletedIndex = _cachedPatients!.indexWhere((p) => p.code == code);
+      if (deletedIndex >= 0) {
+        deletedPatient = _cachedPatients![deletedIndex];
+        _cachedPatients!.removeAt(deletedIndex);
+      }
+    }
+    // Trigger INSTANT UI refresh
+    refreshPatientsList();
+    
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
       try {
         await MediCoreClient.instance.deletePatient(code);
-        _invalidateCache(); // Clear cache after delete
-        // Remove from cache immediately
-        _cachedPatients?.removeWhere((p) => p.code == code);
         return;
       } catch (e) {
+        // Revert on error
+        if (deletedPatient != null && deletedIndex != null && _cachedPatients != null) {
+          _cachedPatients!.insert(deletedIndex, deletedPatient);
+          refreshPatientsList();
+        }
         print('❌ [PatientsRepository] Remote deletePatient failed: $e');
         rethrow;
       }
     }
     
-    await (_db.delete(_db.patients)
-          ..where((p) => p.code.equals(code)))
-        .go();
-    _invalidateCache(); // Clear cache after delete
+    // Admin mode: delete from DB
+    try {
+      await (_db.delete(_db.patients)
+            ..where((p) => p.code.equals(code)))
+          .go();
+    } catch (e) {
+      // Revert on error
+      if (deletedPatient != null && deletedIndex != null && _cachedPatients != null) {
+        _cachedPatients!.insert(deletedIndex, deletedPatient);
+        refreshPatientsList();
+      }
+      rethrow;
+    }
   }
 
   /// Import patient from XML data (used for migration)

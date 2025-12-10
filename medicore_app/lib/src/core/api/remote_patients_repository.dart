@@ -76,7 +76,7 @@ class RemotePatientsRepository {
     }
   }
 
-  /// Create new patient
+  /// Create new patient - INSTANT UI update (optimistic)
   Future<Patient> createPatient({
     required String firstName,
     required String lastName,
@@ -86,42 +86,71 @@ class RemotePatientsRepository {
     String? phoneNumber,
     String? otherInfo,
   }) async {
-    final request = CreatePatientRequest(
-      code: 0, // Server will assign
+    // Create temp patient with placeholder code for INSTANT UI
+    final tempCode = DateTime.now().millisecondsSinceEpoch;
+    final tempPatient = Patient(
+      code: tempCode,
+      barcode: '',
+      createdAt: DateTime.now(),
       firstName: firstName,
       lastName: lastName,
       age: age,
-      dateOfBirth: dateOfBirth?.toIso8601String(),
+      dateOfBirth: dateOfBirth,
       address: address,
-      phone: phoneNumber,
+      phoneNumber: phoneNumber,
+      otherInfo: otherInfo,
+      updatedAt: DateTime.now(),
+      needsSync: true,
     );
     
-    final code = await _client.createPatient(request);
+    // Add to cache IMMEDIATELY (before network call)
+    _cachedPatients.insert(0, tempPatient); // Insert at TOP
+    _patientsController.add(_cachedPatients);
     
-    // Refresh cache
-    await _refreshPatients();
-    
-    // Return from cache or create placeholder
-    return _cachedPatients.firstWhere(
-      (p) => p.code == code,
-      orElse: () => Patient(
-        code: code,
-        barcode: '',
-        createdAt: DateTime.now(),
+    try {
+      final request = CreatePatientRequest(
+        code: 0, // Server will assign
         firstName: firstName,
         lastName: lastName,
         age: age,
-        dateOfBirth: dateOfBirth,
+        dateOfBirth: dateOfBirth?.toIso8601String(),
         address: address,
-        phoneNumber: phoneNumber,
-        otherInfo: otherInfo,
-        updatedAt: DateTime.now(),
-        needsSync: false,
-      ),
-    );
+        phone: phoneNumber,
+      );
+      
+      final realCode = await _client.createPatient(request);
+      
+      // Update temp patient with real code
+      final idx = _cachedPatients.indexWhere((p) => p.code == tempCode);
+      if (idx >= 0) {
+        _cachedPatients[idx] = Patient(
+          code: realCode,
+          barcode: '',
+          createdAt: DateTime.now(),
+          firstName: firstName,
+          lastName: lastName,
+          age: age,
+          dateOfBirth: dateOfBirth,
+          address: address,
+          phoneNumber: phoneNumber,
+          otherInfo: otherInfo,
+          updatedAt: DateTime.now(),
+          needsSync: false,
+        );
+        _patientsController.add(_cachedPatients);
+      }
+      
+      return _cachedPatients[idx >= 0 ? idx : 0];
+    } catch (e) {
+      // Remove temp patient on error
+      _cachedPatients.removeWhere((p) => p.code == tempCode);
+      _patientsController.add(_cachedPatients);
+      print('❌ [RemotePatients] createPatient failed: $e');
+      rethrow;
+    }
   }
 
-  /// Update patient
+  /// Update patient - INSTANT (optimistic update)
   Future<void> updatePatient({
     required int code,
     required String firstName,
@@ -132,24 +161,73 @@ class RemotePatientsRepository {
     String? phoneNumber,
     String? otherInfo,
   }) async {
-    final patient = GrpcPatient(
-      code: code,
-      firstName: firstName,
-      lastName: lastName,
-      age: age,
-      dateOfBirth: dateOfBirth?.toIso8601String(),
-      address: address,
-      phone: phoneNumber,
-    );
+    // Update cache IMMEDIATELY (before network call)
+    Patient? oldPatient;
+    final idx = _cachedPatients.indexWhere((p) => p.code == code);
+    if (idx >= 0) {
+      oldPatient = _cachedPatients[idx];
+      _cachedPatients[idx] = Patient(
+        code: code,
+        barcode: oldPatient.barcode,
+        createdAt: oldPatient.createdAt,
+        firstName: firstName,
+        lastName: lastName,
+        age: age,
+        dateOfBirth: dateOfBirth,
+        address: address,
+        phoneNumber: phoneNumber,
+        otherInfo: otherInfo,
+        updatedAt: DateTime.now(),
+        needsSync: true,
+      );
+      _patientsController.add(_cachedPatients);
+    }
     
-    await _client.updatePatient(patient);
-    await _refreshPatients();
+    // Network call in background
+    try {
+      final patient = GrpcPatient(
+        code: code,
+        firstName: firstName,
+        lastName: lastName,
+        age: age,
+        dateOfBirth: dateOfBirth?.toIso8601String(),
+        address: address,
+        phone: phoneNumber,
+      );
+      await _client.updatePatient(patient);
+    } catch (e) {
+      // Revert on error
+      if (oldPatient != null && idx >= 0) {
+        _cachedPatients[idx] = oldPatient;
+        _patientsController.add(_cachedPatients);
+      }
+      print('❌ [RemotePatients] updatePatient failed: $e');
+      rethrow;
+    }
   }
 
-  /// Delete patient
+  /// Delete patient - INSTANT (optimistic delete)
   Future<void> deletePatient(int code) async {
-    await _client.deletePatient(code);
-    await _refreshPatients();
+    // Remove from cache IMMEDIATELY (before network call)
+    Patient? deletedPatient;
+    final idx = _cachedPatients.indexWhere((p) => p.code == code);
+    if (idx >= 0) {
+      deletedPatient = _cachedPatients.removeAt(idx);
+      _patientsController.add(_cachedPatients);
+    }
+    
+    // Network call in background
+    try {
+      await _client.deletePatient(code);
+    } catch (e) {
+      // Revert on error
+      if (deletedPatient != null) {
+        _cachedPatients.insert(idx, deletedPatient);
+        _patientsController.add(_cachedPatients);
+      }
+      print('❌ [RemotePatients] deletePatient failed: $e');
+      rethrow;
+    }
   }
 
   /// Get patient count

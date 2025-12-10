@@ -13,6 +13,10 @@ class MessagesRepository {
   // Remote polling streams cache
   final Map<String, StreamController<List<Message>>> _remoteStreams = {};
   final Map<String, Timer> _remoteTimers = {};
+  
+  // In-memory cache for instant loading
+  static final Map<String, List<Message>> _cachedMessages = {};
+  static bool _cacheInitialized = false;
 
   MessagesRepository([AppDatabase? database]) 
       : _db = database ?? AppDatabase();
@@ -157,10 +161,15 @@ class MessagesRepository {
     return _watchMessagesLocalWithPolling('nurse_${roomIds.join('_')}', roomIds, 'to_nurse');
   }
   
-  /// Local stream with polling to detect changes from Go server
+  /// Local stream with polling to detect changes from Go server - INSTANT loading with cache
   Stream<List<Message>> _watchMessagesLocalWithPolling(String key, List<String> roomIds, String direction) {
     if (!_remoteStreams.containsKey(key)) {
       _remoteStreams[key] = StreamController<List<Message>>.broadcast();
+      
+      // Emit cached data IMMEDIATELY if available
+      if (_cachedMessages.containsKey(key)) {
+        _remoteStreams[key]?.add(_cachedMessages[key]!);
+      }
       
       Future<void> fetchMessages() async {
         try {
@@ -171,14 +180,19 @@ class MessagesRepository {
                     m.roomId.isIn(roomIds))
                 ..orderBy([(m) => OrderingTerm.desc(m.sentAt)]))
               .get();
+          // Update cache
+          _cachedMessages[key] = messages;
           _remoteStreams[key]?.add(messages);
         } catch (e) {
           print('❌ [MessagesRepository] Local poll failed: $e');
-          _remoteStreams[key]?.add([]);
+          // Don't emit empty on error if we have cache
+          if (!_cachedMessages.containsKey(key)) {
+            _remoteStreams[key]?.add([]);
+          }
         }
       }
       
-      // Immediate fetch
+      // Fetch in background (cache already shown)
       fetchMessages();
       
       // Poll every 2 seconds to detect Go server changes quickly
@@ -188,10 +202,15 @@ class MessagesRepository {
     return _remoteStreams[key]!.stream;
   }
   
-  /// Remote stream for messages with SSE support
+  /// Remote stream for messages with SSE support - INSTANT loading with cache
   Stream<List<Message>> _watchMessagesRemote(String key, List<String> roomIds, String direction) {
     if (!_remoteStreams.containsKey(key)) {
       _remoteStreams[key] = StreamController<List<Message>>.broadcast();
+      
+      // Emit cached data IMMEDIATELY if available
+      if (_cachedMessages.containsKey(key)) {
+        _remoteStreams[key]?.add(_cachedMessages[key]!);
+      }
       
       Future<void> fetchMessages() async {
         try {
@@ -204,10 +223,15 @@ class MessagesRepository {
                 .map(_grpcMessageToLocal)
             );
           }
+          // Update cache
+          _cachedMessages[key] = allMessages;
           _remoteStreams[key]?.add(allMessages);
         } catch (e) {
           print('❌ [MessagesRepository] Remote poll failed: $e');
-          _remoteStreams[key]?.add([]);
+          // Don't emit empty on error if we have cache
+          if (!_cachedMessages.containsKey(key)) {
+            _remoteStreams[key]?.add([]);
+          }
         }
       }
       
@@ -219,7 +243,7 @@ class MessagesRepository {
       }
       RealtimeSyncService.instance.onMessageRefresh(sseCallback);
       
-      // Immediate fetch
+      // Fetch in background (cache already shown)
       fetchMessages();
       
       // Fallback poll every 10 seconds (SSE handles real-time)
@@ -242,7 +266,7 @@ class MessagesRepository {
   }
 
   /// Get all messages for a room (for viewing history)
-  /// Uses polling for both modes to detect Go server changes
+  /// Uses polling for both modes to detect Go server changes - INSTANT loading with cache
   Stream<List<Message>> watchMessagesForRoom(String roomId) {
     // Client mode: use remote with polling
     if (!GrpcClientConfig.isServer) {
@@ -250,13 +274,22 @@ class MessagesRepository {
       if (!_remoteStreams.containsKey(key)) {
         _remoteStreams[key] = StreamController<List<Message>>.broadcast();
         
+        // Emit cached data IMMEDIATELY if available
+        if (_cachedMessages.containsKey(key)) {
+          _remoteStreams[key]?.add(_cachedMessages[key]!);
+        }
+        
         Future<void> fetchMessages() async {
           try {
             final response = await MediCoreClient.instance.getMessagesByRoom(roomId);
-            _remoteStreams[key]?.add(response.messages.map(_grpcMessageToLocal).toList());
+            final messages = response.messages.map(_grpcMessageToLocal).toList();
+            _cachedMessages[key] = messages;
+            _remoteStreams[key]?.add(messages);
           } catch (e) {
             print('❌ [MessagesRepository] Remote poll failed: $e');
-            _remoteStreams[key]?.add([]);
+            if (!_cachedMessages.containsKey(key)) {
+              _remoteStreams[key]?.add([]);
+            }
           }
         }
         
@@ -271,16 +304,24 @@ class MessagesRepository {
     if (!_remoteStreams.containsKey(key)) {
       _remoteStreams[key] = StreamController<List<Message>>.broadcast();
       
+      // Emit cached data IMMEDIATELY if available
+      if (_cachedMessages.containsKey(key)) {
+        _remoteStreams[key]?.add(_cachedMessages[key]!);
+      }
+      
       Future<void> fetchMessages() async {
         try {
           final messages = await (_db.select(_db.messages)
                 ..where((m) => m.roomId.equals(roomId))
                 ..orderBy([(m) => OrderingTerm.desc(m.sentAt)]))
               .get();
+          _cachedMessages[key] = messages;
           _remoteStreams[key]?.add(messages);
         } catch (e) {
           print('❌ [MessagesRepository] Local poll failed: $e');
-          _remoteStreams[key]?.add([]);
+          if (!_cachedMessages.containsKey(key)) {
+            _remoteStreams[key]?.add([]);
+          }
         }
       }
       

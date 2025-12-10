@@ -14,6 +14,9 @@ class WaitingQueueRepository {
   final Map<String, StreamController<List<WaitingPatient>>> _remoteStreams = {};
   final Map<String, StreamController<int>> _remoteCountStreams = {};
   final Map<String, Timer> _remoteTimers = {};
+  
+  // In-memory cache for INSTANT loading
+  static final Map<String, List<WaitingPatient>> _cachedData = {};
 
   WaitingQueueRepository([AppDatabase? database]) 
       : _database = database ?? AppDatabase();
@@ -157,10 +160,15 @@ class WaitingQueueRepository {
       return _watchWaitingPatientsRemote('waiting_$roomId', roomId, (p) => !p.isUrgent && !p.isDilatation && p.isActive);
     }
     
-    // Server/Admin mode: use local DB with polling to detect Go server changes
+    // Server/Admin mode: use local DB with polling - INSTANT loading with cache
     final key = 'waiting_local_$roomId';
     if (!_remoteStreams.containsKey(key)) {
       _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+      
+      // Emit cached data IMMEDIATELY if available
+      if (_cachedData.containsKey(key)) {
+        _remoteStreams[key]?.add(_cachedData[key]!);
+      }
       
       Future<void> fetchData() async {
         try {
@@ -171,10 +179,13 @@ class WaitingQueueRepository {
                 ..where((w) => w.isDilatation.equals(false))
                 ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
               .get();
+          _cachedData[key] = patients;
           _remoteStreams[key]?.add(patients);
         } catch (e) {
           print('❌ [WaitingQueueRepository] Local poll failed: $e');
-          _remoteStreams[key]?.add([]);
+          if (!_cachedData.containsKey(key)) {
+            _remoteStreams[key]?.add([]);
+          }
         }
       }
       
@@ -185,7 +196,7 @@ class WaitingQueueRepository {
     return _remoteStreams[key]!.stream;
   }
   
-  /// Remote stream for waiting patients with SSE support
+  /// Remote stream for waiting patients with SSE support - INSTANT loading with cache
   Stream<List<WaitingPatient>> _watchWaitingPatientsRemote(
     String key,
     String roomId,
@@ -194,6 +205,11 @@ class WaitingQueueRepository {
     if (!_remoteStreams.containsKey(key)) {
       _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
       
+      // Emit cached data IMMEDIATELY if available
+      if (_cachedData.containsKey(key)) {
+        _remoteStreams[key]?.add(_cachedData[key]!);
+      }
+      
       Future<void> fetchData() async {
         try {
           final response = await MediCoreClient.instance.getWaitingPatientsByRoom(roomId);
@@ -201,10 +217,14 @@ class WaitingQueueRepository {
             .map(_grpcWaitingPatientToLocal)
             .where(filter)
             .toList();
+          // Update cache
+          _cachedData[key] = filtered;
           _remoteStreams[key]?.add(filtered);
         } catch (e) {
           print('❌ [WaitingQueueRepository] Remote poll failed: $e');
-          _remoteStreams[key]?.add([]);
+          if (!_cachedData.containsKey(key)) {
+            _remoteStreams[key]?.add([]);
+          }
         }
       }
       
@@ -216,7 +236,7 @@ class WaitingQueueRepository {
       }
       RealtimeSyncService.instance.onWaitingRefresh(sseCallback);
       
-      // Immediate fetch
+      // Fetch in background (cache already shown)
       fetchData();
       
       // Fallback poll every 10 seconds (SSE handles real-time)
@@ -234,10 +254,15 @@ class WaitingQueueRepository {
       return _watchWaitingPatientsRemote('urgent_$roomId', roomId, (p) => p.isUrgent && p.isActive);
     }
     
-    // Server/Admin mode: use local DB with polling
+    // Server/Admin mode: use local DB with polling - INSTANT loading with cache
     final key = 'urgent_local_$roomId';
     if (!_remoteStreams.containsKey(key)) {
       _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+      
+      // Emit cached data IMMEDIATELY if available
+      if (_cachedData.containsKey(key)) {
+        _remoteStreams[key]?.add(_cachedData[key]!);
+      }
       
       Future<void> fetchData() async {
         try {
@@ -247,10 +272,13 @@ class WaitingQueueRepository {
                 ..where((w) => w.isUrgent.equals(true))
                 ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
               .get();
+          _cachedData[key] = patients;
           _remoteStreams[key]?.add(patients);
         } catch (e) {
           print('❌ [WaitingQueueRepository] Local poll failed: $e');
-          _remoteStreams[key]?.add([]);
+          if (!_cachedData.containsKey(key)) {
+            _remoteStreams[key]?.add([]);
+          }
         }
       }
       
@@ -351,10 +379,15 @@ class WaitingQueueRepository {
       return _watchWaitingPatientsRemote('dilatation_$roomId', roomId, (p) => p.isDilatation && p.isActive);
     }
     
-    // Server/Admin mode: use local DB with polling
+    // Server/Admin mode: use local DB with polling - INSTANT loading with cache
     final key = 'dilatation_local_$roomId';
     if (!_remoteStreams.containsKey(key)) {
       _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+      
+      // Emit cached data IMMEDIATELY if available
+      if (_cachedData.containsKey(key)) {
+        _remoteStreams[key]?.add(_cachedData[key]!);
+      }
       
       Future<void> fetchData() async {
         try {
@@ -364,10 +397,13 @@ class WaitingQueueRepository {
                 ..where((w) => w.isDilatation.equals(true))
                 ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
               .get();
+          _cachedData[key] = patients;
           _remoteStreams[key]?.add(patients);
         } catch (e) {
           print('❌ [WaitingQueueRepository] Local poll failed: $e');
-          _remoteStreams[key]?.add([]);
+          if (!_cachedData.containsKey(key)) {
+            _remoteStreams[key]?.add([]);
+          }
         }
       }
       
@@ -403,10 +439,15 @@ class WaitingQueueRepository {
     
     final key = 'dilatation_multi_${roomIds.join('_')}';
     
-    // Client mode: use remote with polling
+    // Client mode: use remote with polling - INSTANT loading with cache
     if (!GrpcClientConfig.isServer) {
       if (!_remoteStreams.containsKey(key)) {
         _remoteStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+        
+        // Emit cached data IMMEDIATELY if available
+        if (_cachedData.containsKey(key)) {
+          _remoteStreams[key]?.add(_cachedData[key]!);
+        }
         
         Future<void> fetchData() async {
           try {
@@ -419,10 +460,13 @@ class WaitingQueueRepository {
                   .map(_grpcWaitingPatientToLocal)
               );
             }
+            _cachedData[key] = allPatients;
             _remoteStreams[key]?.add(allPatients);
           } catch (e) {
             print('❌ [WaitingQueueRepository] Remote poll failed: $e');
-            _remoteStreams[key]?.add([]);
+            if (!_cachedData.containsKey(key)) {
+              _remoteStreams[key]?.add([]);
+            }
           }
         }
         
@@ -432,10 +476,15 @@ class WaitingQueueRepository {
       return _remoteStreams[key]!.stream;
     }
     
-    // Server/Admin mode: use local DB with polling
+    // Server/Admin mode: use local DB with polling - INSTANT loading with cache
     final localKey = 'dilatation_multi_local_${roomIds.join('_')}';
     if (!_remoteStreams.containsKey(localKey)) {
       _remoteStreams[localKey] = StreamController<List<WaitingPatient>>.broadcast();
+      
+      // Emit cached data IMMEDIATELY if available
+      if (_cachedData.containsKey(localKey)) {
+        _remoteStreams[localKey]?.add(_cachedData[localKey]!);
+      }
       
       Future<void> fetchData() async {
         try {
@@ -445,10 +494,13 @@ class WaitingQueueRepository {
                 ..where((w) => w.isDilatation.equals(true))
                 ..orderBy([(w) => OrderingTerm.asc(w.sentAt)]))
               .get();
+          _cachedData[localKey] = patients;
           _remoteStreams[localKey]?.add(patients);
         } catch (e) {
           print('❌ [WaitingQueueRepository] Local poll failed: $e');
-          _remoteStreams[localKey]?.add([]);
+          if (!_cachedData.containsKey(localKey)) {
+            _remoteStreams[localKey]?.add([]);
+          }
         }
       }
       
