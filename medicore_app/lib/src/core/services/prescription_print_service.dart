@@ -474,7 +474,7 @@ class PrescriptionPrintService {
               
               // Content - more right (200pt) and moved UP (155pt)
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 0, top: 155, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: -30, top: 155, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -550,7 +550,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 0, top: 155, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: -30, top: 155, bottom: 8),
                 child: pw.Builder(builder: (context) {
                   // Check if addition is valid (not empty and not "0" or "0.00")
                   final hasAddition = addition.isNotEmpty && 
@@ -645,7 +645,7 @@ class PrescriptionPrintService {
               //   pw.Positioned.fill(child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover)),
               
               pw.Padding(
-                padding: const pw.EdgeInsets.only(left: 200, right: 0, top: 155, bottom: 8),
+                padding: const pw.EdgeInsets.only(left: 200, right: -30, top: 155, bottom: 8),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -730,7 +730,7 @@ class PrescriptionPrintService {
 
     // Adjust padding - same as Optique/Lentilles (content on RIGHT side)
     final leftPad = useA4 ? 280.0 : 200.0;  // Same as Optique/Lentilles - content on RIGHT
-    final rightPad = useA4 ? 15.0 : 10.0;   // Small right margin
+    final rightPad = useA4 ? -15.0 : -20.0;   // Negative to push content further right
     final topPad = useA4 ? 200.0 : 155.0;   // Same as Optique/Lentilles
     final fontSize = useA4 ? 13.0 : 11.0;   // Text size
     final titleSize = useA4 ? 15.0 : 13.0;  // Title size
@@ -831,7 +831,7 @@ class PrescriptionPrintService {
     const topMargin = 200.0;
     const bottomMargin = 100.0;
     const leftMargin = 280.0;  // Same as Optique/Lentilles - content on RIGHT
-    const rightMargin = 15.0;  // Small right margin
+    const rightMargin = -15.0;  // Negative to push content further right
 
     // Determine what name to use for printing
     String displayName;
