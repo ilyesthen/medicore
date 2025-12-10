@@ -1,11 +1,29 @@
+import 'package:drift/drift.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
+import '../../../core/database/app_database.dart';
 
 /// Repository for storing nurse room preferences and tracking room usage
+/// Preferences are stored in the database so they persist per nurse across all machines
 class NursePreferencesRepository {
-  static const String _keyPrefix = 'nurse_room_prefs_';
   static const String _activeNursesKey = 'active_nurses';
+  static bool _tableCreated = false;
+
+  /// Ensure the nurse_preferences table exists
+  Future<void> _ensureTableExists() async {
+    if (_tableCreated) return;
+    final db = AppDatabase.instance;
+    await db.customStatement('''
+      CREATE TABLE IF NOT EXISTS nurse_preferences (
+        nurse_id TEXT,
+        box_index INTEGER,
+        room_id TEXT,
+        PRIMARY KEY(nurse_id, box_index)
+      )
+    ''');
+    _tableCreated = true;
+  }
 
   /// Get the room preferences for a nurse
   /// Returns a list of 3 room IDs (or nulls) representing which rooms to show in each box
@@ -19,11 +37,24 @@ class NursePreferencesRepository {
         return [null, null, null];
       }
     }
-    final prefs = await SharedPreferences.getInstance();
-    final room1 = prefs.getString('${_keyPrefix}${nurseId}_box1');
-    final room2 = prefs.getString('${_keyPrefix}${nurseId}_box2');
-    final room3 = prefs.getString('${_keyPrefix}${nurseId}_box3');
-    return [room1, room2, room3];
+    
+    // Admin mode: use database
+    await _ensureTableExists();
+    final db = AppDatabase.instance;
+    final results = await db.customSelect(
+      'SELECT box_index, room_id FROM nurse_preferences WHERE nurse_id = ? ORDER BY box_index',
+      variables: [Variable.withString(nurseId)],
+    ).get();
+    
+    final rooms = <String?>[null, null, null];
+    for (final row in results) {
+      final boxIndex = row.read<int>('box_index');
+      final roomId = row.read<String?>('room_id');
+      if (boxIndex >= 0 && boxIndex < 3) {
+        rooms[boxIndex] = roomId;
+      }
+    }
+    return rooms;
   }
 
   /// Get all room IDs currently in use by any nurse
@@ -43,6 +74,8 @@ class NursePreferencesRepository {
         return {};
       }
     }
+    
+    // Admin mode: get from database (rooms from active nurses)
     final prefs = await SharedPreferences.getInstance();
     final activeNurses = prefs.getStringList(_activeNursesKey) ?? [];
     final roomsInUse = <String>{};
@@ -67,6 +100,7 @@ class NursePreferencesRepository {
         return;
       }
     }
+    // Active nurses still use SharedPreferences (session-based, not persistent)
     final prefs = await SharedPreferences.getInstance();
     final activeNurses = prefs.getStringList(_activeNursesKey) ?? [];
     if (!activeNurses.contains(nurseId)) {
@@ -87,13 +121,14 @@ class NursePreferencesRepository {
         return;
       }
     }
+    // Active nurses still use SharedPreferences (session-based, not persistent)
     final prefs = await SharedPreferences.getInstance();
     final activeNurses = prefs.getStringList(_activeNursesKey) ?? [];
     activeNurses.remove(nurseId);
     await prefs.setStringList(_activeNursesKey, activeNurses);
   }
 
-  /// Save room preferences for a nurse
+  /// Save room preferences for a nurse - PERSISTENT in database
   Future<void> saveNurseRoomPreferences(
     String nurseId,
     List<String?> roomIds,
@@ -113,16 +148,26 @@ class NursePreferencesRepository {
       }
     }
 
-    final prefs = await SharedPreferences.getInstance();
+    // Admin mode: save to database for persistence
+    await _ensureTableExists();
+    final db = AppDatabase.instance;
     
+    // Clear existing preferences for this nurse
+    await db.customStatement(
+      'DELETE FROM nurse_preferences WHERE nurse_id = ?',
+      [nurseId],
+    );
+    
+    // Insert new preferences
     for (int i = 0; i < 3; i++) {
-      final key = '${_keyPrefix}${nurseId}_box${i + 1}';
       if (roomIds[i] != null) {
-        await prefs.setString(key, roomIds[i]!);
-      } else {
-        await prefs.remove(key);
+        await db.customStatement(
+          'INSERT INTO nurse_preferences (nurse_id, box_index, room_id) VALUES (?, ?, ?)',
+          [nurseId, i, roomIds[i]],
+        );
       }
     }
+    print('✓ Saved nurse room preferences for $nurseId: $roomIds');
   }
 
   /// Clear preferences for a nurse
@@ -137,9 +182,14 @@ class NursePreferencesRepository {
         return;
       }
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('${_keyPrefix}${nurseId}_box1');
-    await prefs.remove('${_keyPrefix}${nurseId}_box2');
-    await prefs.remove('${_keyPrefix}${nurseId}_box3');
+    
+    // Admin mode: clear from database
+    await _ensureTableExists();
+    final db = AppDatabase.instance;
+    await db.customStatement(
+      'DELETE FROM nurse_preferences WHERE nurse_id = ?',
+      [nurseId],
+    );
+    print('✓ Cleared nurse room preferences for $nurseId');
   }
 }

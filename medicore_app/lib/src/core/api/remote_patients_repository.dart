@@ -24,16 +24,19 @@ class RemotePatientsRepository {
     RealtimeSyncService.instance.onPatientRefresh(_sseRefreshCallback!);
   }
 
-  /// Watch all patients (with caching for performance)
+  /// Watch all patients with INSTANT reactive updates
   Stream<List<Patient>> watchAllPatients() async* {
-    // Initial fetch
-    await _refreshPatients();
-    yield _cachedPatients;
-    
-    // Fallback poll every 10 seconds (SSE handles real-time updates)
-    await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
-      await _refreshPatients();
+    // Emit cached data immediately if available
+    if (_cachedPatients.isNotEmpty) {
       yield _cachedPatients;
+    }
+    
+    // Fetch fresh data in background
+    _refreshPatients();
+    
+    // Listen to reactive stream for INSTANT updates
+    await for (final patients in _patientsController.stream) {
+      yield patients;
     }
   }
   
