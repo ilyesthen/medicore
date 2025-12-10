@@ -41,7 +41,7 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
   final NotificationService _notificationService = NotificationService();
   List<String?> _selectedRoomIds = [null, null, null];
   List<String> _activeRoomIds = [];  // Cached active room IDs for stable provider reference
-  bool _isLoading = false;  // Start as false, assign rooms immediately
+  bool _isLoading = true;  // Start as true to load preferences first
   int _previousUnreadCount = 0;
   int _previousDilatationCount = -1; // Start at -1 to skip first load
   int _previousWaitingCount = -1; // Start at -1 to skip first load
@@ -55,30 +55,79 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
     
     // Register as nurse with SSE for real-time notifications
     RealtimeSyncService.instance.setUserRole('nurse');
+    
+    // Load saved room preferences on startup
+    _loadSavedRoomsOnStartup();
+  }
+  
+  /// Load saved room preferences FIRST, then auto-assign if none saved
+  Future<void> _loadSavedRoomsOnStartup() async {
+    // Wait a bit for providers to initialize
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    final authState = ref.read(authStateProvider);
+    if (authState.user == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    
+    print('🔵 NURSE: Loading saved room preferences for ${authState.user!.name}...');
+    
+    try {
+      // Try to load saved preferences from database
+      final savedPrefs = await _prefsRepo.getNurseRoomPreferences(authState.user!.id);
+      
+      if (savedPrefs.any((id) => id != null)) {
+        // User has saved preferences - use them!
+        print('✅ NURSE: Found saved room preferences: $savedPrefs');
+        setState(() {
+          _selectedRoomIds = savedPrefs;
+          _roomsInitialized = true;
+          _isLoading = false;
+        });
+        _updateActiveRoomIds();
+        return;
+      }
+    } catch (e) {
+      print('⚠️ NURSE: Could not load saved preferences: $e');
+    }
+    
+    // No saved preferences - auto-assign first 3 rooms
+    print('ℹ️ NURSE: No saved preferences, will auto-assign when rooms load');
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   void _initializeRooms() {
     if (_roomsInitialized) return;
-    _roomsInitialized = true;
-
-    print('🔵 NURSE: Initializing rooms...');
+    
     final authState = ref.read(authStateProvider);
     final allRooms = ref.read(roomsListProvider);
     
     if (authState.user != null && allRooms.isNotEmpty) {
-      // Immediately assign first 3 rooms
+      _roomsInitialized = true;
+      
+      // Check if we already have preferences loaded
+      if (_selectedRoomIds.any((id) => id != null)) {
+        print('✅ NURSE: Rooms already initialized from saved preferences');
+        _updateActiveRoomIds();
+        return;
+      }
+      
+      // Auto-assign first 3 rooms as fallback
       final defaultIds = List.generate(
         3,
         (index) => index < allRooms.length ? allRooms[index].id : null,
       );
-      print('✅ NURSE: Auto-assigned rooms: $defaultIds');
+      print('✅ NURSE: Auto-assigned rooms (no saved prefs): $defaultIds');
       _selectedRoomIds = defaultIds;
       
       // Update cached active room IDs
       _updateActiveRoomIds();
       
-      // Try to load preferences in background (for future use if table exists)
-      _loadPreferencesInBackground();
+      // Save these as the initial preferences
+      _savePreferences();
     }
   }
 
@@ -87,9 +136,13 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
     // Only update if actually changed to maintain stable reference
     if (_activeRoomIds.length != newActiveIds.length || 
         !_activeRoomIds.every((id) => newActiveIds.contains(id))) {
-      setState(() {
+      if (mounted) {
+        setState(() {
+          _activeRoomIds = newActiveIds;
+        });
+      } else {
         _activeRoomIds = newActiveIds;
-      });
+      }
       print('🔄 NURSE: Updated active room IDs: $_activeRoomIds');
       
       // Register active rooms with SSE for targeted notifications
@@ -97,41 +150,41 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
     }
   }
 
-  Future<void> _loadPreferencesInBackground() async {
-    final authState = ref.read(authStateProvider);
-    if (authState.user != null) {
-      try {
-        final prefs = await _prefsRepo.getNurseRoomPreferences(authState.user!.id);
-        // Only update if preferences are different
-        if (prefs.any((id) => id != null)) {
-          setState(() {
-            _selectedRoomIds = prefs;
-            _updateActiveRoomIds();
-          });
-          print('✅ NURSE: Loaded saved preferences: $prefs');
-        }
-      } catch (e) {
-        print('ℹ️  NURSE: Using auto-assigned rooms (preferences not available)');
-      }
-    }
-  }
-
   Future<void> _savePreferences() async {
     final authState = ref.read(authStateProvider);
     if (authState.user != null) {
       await _prefsRepo.saveNurseRoomPreferences(authState.user!.id, _selectedRoomIds);
+      print('💾 NURSE: Saved room preferences: $_selectedRoomIds');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Show loading while loading saved preferences
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: MediCoreColors.canvasGrey,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('Chargement des préférences...', 
+                style: MediCoreTypography.body.copyWith(color: Colors.grey[600])),
+            ],
+          ),
+        ),
+      );
+    }
+    
     final authState = ref.watch(authStateProvider);
     final allRooms = ref.watch(roomsListProvider);
     final roomPresence = ref.watch(roomPresenceProvider);
     final patientsAsync = ref.watch(filteredPatientsProvider);
     final selectedPatient = ref.watch(selectedPatientProvider);
 
-    // Initialize rooms BEFORE watching providers
+    // Initialize rooms BEFORE watching providers (only if no saved preferences were loaded)
     _initializeRooms();
 
     // Watch unread message count for nurse's 3 rooms using cached activeRoomIds
