@@ -27,7 +27,7 @@ import 'src/features/setup/presentation/setup_wizard.dart';
 import 'src/features/messages/services/notification_service.dart';
 
 /// Current app version - bump this to force setup wizard on upgrade
-const String _currentAppVersion = '4.0.4';
+const String _currentAppVersion = '4.0.5';
 
 /// Check if setup has been completed
 /// Returns true ONLY if config exists AND database exists (for admin) or server IP is saved (for client)
@@ -46,34 +46,13 @@ Future<bool> _isSetupComplete() async {
     // Parse config
     final config = jsonDecode(await configFile.readAsString());
     
-    // Check version - force setup if version mismatch
+    // Check version - just update the config version (no data deletion)
     final configVersion = config['version'] ?? '1.0.0';
     if (configVersion != _currentAppVersion) {
-      print('⚠️ Version mismatch: config=$configVersion, app=$_currentAppVersion');
-      print('🔄 Clearing ALL old data to force fresh setup...');
-      
-      // Delete config file
-      await configFile.delete();
-      
-      // Delete database (for admin mode)
-      if (dbFile.existsSync()) {
-        await dbFile.delete();
-        print('   - Deleted old database');
-      }
-      
-      // Clear SharedPreferences to reset GrpcClientConfig
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('is_server');
-        await prefs.remove('server_ip');
-        await prefs.remove('server_host');
-        print('   - Cleared SharedPreferences');
-      } catch (e) {
-        print('   - SharedPreferences clear failed: $e');
-      }
-      
-      print('✅ Old data cleared. Fresh setup required.');
-      return false;
+      print('ℹ️ Version updated: $configVersion → $_currentAppVersion');
+      // Update version in config without deleting anything
+      config['version'] = _currentAppVersion;
+      await configFile.writeAsString(jsonEncode(config));
     }
     
     final mode = config['mode'];
