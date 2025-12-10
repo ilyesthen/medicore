@@ -482,7 +482,7 @@ class PrescriptionPrintService {
                     pw.SizedBox(height: 12),
                     
                     // Centered title
-                    pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
+                    pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                     pw.SizedBox(height: 4),
                     pw.Center(child: pw.Text(title, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                     pw.SizedBox(height: 10),
@@ -563,7 +563,7 @@ class PrescriptionPrintService {
                       pw.SizedBox(height: 10),
                       
                       // Centered title
-                      pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
+                      pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                       pw.SizedBox(height: 8),
                       
                       // Vision de Loin - both eyes side by side
@@ -653,7 +653,7 @@ class PrescriptionPrintService {
                     pw.SizedBox(height: 12),
                     
                     // Centered title
-                    pw.Center(child: pw.Text('LENTILLES DE CONTACT', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _titleColor))),
+                    pw.Center(child: pw.Text('LENTILLES DE CONTACT', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _titleColor))),
                     if (isToric) pw.Center(child: pw.Text('(Sphere Equivalente)', style: const pw.TextStyle(fontSize: 11))),
                     pw.SizedBox(height: 12),
                     
@@ -732,8 +732,8 @@ class PrescriptionPrintService {
     final leftPad = useA4 ? 280.0 : 200.0;  // Same as Optique/Lentilles - content on RIGHT
     final rightPad = useA4 ? 0.0 : 0.0;   // No right padding
     final topPad = useA4 ? 200.0 : 155.0;   // Same as Optique/Lentilles
-    final fontSize = useA4 ? 9.0 : 7.0;   // Text size
-    final titleSize = useA4 ? 11.0 : 9.0;  // Title size
+    final fontSize = useA4 ? 9.0 : 10.0;   // Text size
+    final titleSize = useA4 ? 11.0 : 12.0;  // Title size
 
     doc.addPage(
       pw.Page(

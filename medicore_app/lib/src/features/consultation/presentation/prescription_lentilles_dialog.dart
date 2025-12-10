@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/services/prescription_print_service.dart';
 
@@ -36,18 +37,54 @@ class _PrescriptionLentillesDialogState extends State<PrescriptionLentillesDialo
   final _cylindreOG = TextEditingController();
   final _axeOG = TextEditingController();
 
-  static const marqueOptions = ['Menicon', 'Bausch et Lomb', 'Precilens', 'LCS', 'Comelia'];
-  static const typeOptions = [
+  static const _defaultMarqueOptions = ['Menicon', 'Bausch et Lomb', 'Precilens', 'LCS', 'Comelia'];
+  static const _defaultTypeOptions = [
     'Souple sphérique à port journalier',
     'Souple à port permanent',
     'Souple torique à port journalier',
     'Rigide perméable au gaz',
   ];
+  
+  List<String> _marqueOptions = List.from(_defaultMarqueOptions);
+  List<String> _typeOptions = List.from(_defaultTypeOptions);
+  
+  static const _marquePrefsKey = 'lentilles_marque_options';
+  static const _typePrefsKey = 'lentilles_type_options';
 
   @override
   void initState() {
     super.initState();
+    _loadSavedOptions();
     _calculateFromVL();
+  }
+
+  Future<void> _loadSavedOptions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedMarques = prefs.getStringList(_marquePrefsKey);
+    final savedTypes = prefs.getStringList(_typePrefsKey);
+    if (mounted) {
+      setState(() {
+        if (savedMarques != null && savedMarques.isNotEmpty) {
+          _marqueOptions = savedMarques;
+        }
+        if (savedTypes != null && savedTypes.isNotEmpty) {
+          _typeOptions = savedTypes;
+        }
+      });
+    }
+  }
+
+  Future<void> _saveCustomOption(String value, List<String> options, String prefsKey) async {
+    if (value.isEmpty) return;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+    // Check if already exists (case insensitive)
+    if (options.any((o) => o.toLowerCase() == trimmed.toLowerCase())) return;
+    // Add new option and save
+    final prefs = await SharedPreferences.getInstance();
+    options.add(trimmed);
+    await prefs.setStringList(prefsKey, options);
+    if (mounted) setState(() {});
   }
 
   /// Convert glasses power to contact lens power using vertex distance formula
@@ -224,9 +261,9 @@ class _PrescriptionLentillesDialogState extends State<PrescriptionLentillesDialo
                     // Marque & Type (editable dropdowns)
                     Row(
                       children: [
-                        Expanded(child: _buildEditableDropdown('Marque', _marqueController, marqueOptions)),
+                        Expanded(child: _buildEditableDropdown('Marque', _marqueController, _marqueOptions, _marquePrefsKey)),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildEditableDropdown('Type', _typeController, typeOptions)),
+                        Expanded(child: _buildEditableDropdown('Type', _typeController, _typeOptions, _typePrefsKey)),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -308,7 +345,7 @@ class _PrescriptionLentillesDialogState extends State<PrescriptionLentillesDialo
     );
   }
 
-  Widget _buildEditableDropdown(String label, TextEditingController controller, List<String> options) {
+  Widget _buildEditableDropdown(String label, TextEditingController controller, List<String> options, String prefsKey) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -336,6 +373,12 @@ class _PrescriptionLentillesDialogState extends State<PrescriptionLentillesDialo
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               ),
+              onSubmitted: (value) {
+                _saveCustomOption(value, options, prefsKey);
+              },
+              onEditingComplete: () {
+                _saveCustomOption(textController.text, options, prefsKey);
+              },
             );
           },
         ),

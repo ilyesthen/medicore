@@ -1,305 +1,185 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:async';
 
-/// Enterprise-grade notification service for message alerts
+/// Notification service for message alerts - uses system commands for reliability
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isInitialized = false;
   bool _isPlaying = false;
   Timer? _loopTimer;
-  String? _cachedSoundPath; // Cached path to sound file for Windows
+  String? _cachedSoundPath;
 
   /// Initialize the notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
     
+    print('🔊 NotificationService: Initializing...');
+    
     try {
-      // Set to loop mode
-      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-      await _audioPlayer.setVolume(1.0);
-      
-      // On Windows, copy asset to temp file for reliable playback
-      if (Platform.isWindows) {
-        await _prepareSoundFileForWindows();
-      }
-      
-      // On macOS, also prepare sound file for reliability
-      if (Platform.isMacOS) {
-        await _prepareSoundFileForMacOS();
-      }
-      
+      // Always prepare the sound file
+      await _prepareSoundFile();
       _isInitialized = true;
-      debugPrint('✅ NotificationService initialized');
+      print('✅ NotificationService initialized successfully');
     } catch (e) {
-      debugPrint('❌ NotificationService: Failed to initialize - $e');
+      print('❌ NotificationService: Failed to initialize - $e');
+      _isInitialized = true; // Mark as initialized to prevent repeated failures
     }
   }
   
-  /// Prepare sound file for macOS by copying to temp directory
-  Future<void> _prepareSoundFileForMacOS() async {
+  /// Prepare sound file by copying asset to temp directory
+  Future<void> _prepareSoundFile() async {
     try {
       final tempDir = await getTemporaryDirectory();
-      final soundFile = File('${tempDir.path}/notification.mp3');
+      final soundFile = File('${tempDir.path}/medicore_notification.mp3');
       
-      if (!await soundFile.exists()) {
-        // Copy asset to temp file
-        final data = await rootBundle.load('assets/sounds/notification.mp3');
-        final bytes = data.buffer.asUint8List();
-        await soundFile.writeAsBytes(bytes);
-        debugPrint('📁 Copied notification sound to: ${soundFile.path}');
-      }
+      // Always re-copy to ensure file is fresh
+      print('📁 Loading sound asset...');
+      final data = await rootBundle.load('assets/sounds/notification.mp3');
+      final bytes = data.buffer.asUint8List();
+      print('📁 Sound asset loaded: ${bytes.length} bytes');
       
+      await soundFile.writeAsBytes(bytes);
       _cachedSoundPath = soundFile.path;
-      debugPrint('🔊 macOS sound file ready: $_cachedSoundPath');
-    } catch (e) {
-      debugPrint('⚠️ Failed to prepare macOS sound file: $e');
-    }
-  }
-  
-  /// Prepare sound file for Windows by copying to temp directory
-  Future<void> _prepareSoundFileForWindows() async {
-    try {
-      final tempDir = await getTemporaryDirectory();
-      final soundFile = File('${tempDir.path}/notification.mp3');
+      print('✅ Sound file ready at: $_cachedSoundPath');
       
-      if (!await soundFile.exists()) {
-        // Copy asset to temp file
-        final data = await rootBundle.load('assets/sounds/notification.mp3');
-        final bytes = data.buffer.asUint8List();
-        await soundFile.writeAsBytes(bytes);
-        debugPrint('📁 Copied notification sound to: ${soundFile.path}');
+      // Verify the file exists
+      if (await soundFile.exists()) {
+        final size = await soundFile.length();
+        print('✅ Sound file verified: $size bytes');
+      } else {
+        print('❌ Sound file does not exist after write!');
       }
-      
-      _cachedSoundPath = soundFile.path;
-      debugPrint('🔊 Windows sound file ready: $_cachedSoundPath');
-    } catch (e) {
-      debugPrint('⚠️ Failed to prepare Windows sound file: $e');
+    } catch (e, stack) {
+      print('❌ Failed to prepare sound file: $e');
+      print('Stack: $stack');
     }
   }
 
   /// Play notification sound (loops until stopped)
   Future<void> playNotificationSound() async {
-    debugPrint('🔊 NotificationService: Playing notification sound...');
+    print('🔊 NotificationService.playNotificationSound() called');
     
+    // Initialize if needed
     if (!_isInitialized) {
+      print('🔊 Not initialized, initializing now...');
       await initialize();
     }
 
     // Don't restart if already playing
     if (_isPlaying) {
-      debugPrint('🔊 Sound already playing, skipping');
+      print('🔊 Sound already playing, skipping');
       return;
     }
 
     _isPlaying = true;
+    print('🔊 Starting sound loop...');
 
-    // Platform-specific sound playback for reliability
-    if (Platform.isMacOS) {
-      debugPrint('🔔 Using macOS system sound with loop');
-      _startMacOSLoop();
-      return;
-    }
-
-    if (Platform.isWindows) {
-      debugPrint('🔔 Using Windows system sound with loop');
-      _startWindowsLoop();
-      return;
-    }
-
-    // Fallback to asset for other platforms
-    try {
-      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
-      debugPrint('✅ Sound playing (will loop until stopped)');
-    } catch (e) {
-      debugPrint('⚠️  AudioPlayer failed: $e');
-      _isPlaying = false;
-    }
-  }
-
-  /// Start macOS system sound loop
-  void _startMacOSLoop() {
-    _loopTimer?.cancel();
-    
     // Play first sound IMMEDIATELY
-    _playMacOSSound();
+    await _playSoundOnce();
+    
+    // Cancel any existing timer
+    _loopTimer?.cancel();
     
     // Then loop every 2 seconds
     _loopTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       if (_isPlaying) {
-        _playMacOSSound();
+        await _playSoundOnce();
       } else {
         timer.cancel();
       }
     });
   }
   
-  /// Play macOS sound - try multiple methods for reliability
-  Future<void> _playMacOSSound() async {
-    // Method 1: Use DeviceFileSource with cached file (most reliable)
-    if (_cachedSoundPath != null) {
-      try {
-        await _audioPlayer.setReleaseMode(ReleaseMode.release);
-        await _audioPlayer.play(DeviceFileSource(_cachedSoundPath!));
-        debugPrint('🔊 macOS sound played via DeviceFileSource');
-        return;
-      } catch (e) {
-        debugPrint('⚠️ DeviceFileSource failed: $e');
-      }
-    }
+  /// Play sound once using the best available method
+  Future<void> _playSoundOnce() async {
+    print('🔊 _playSoundOnce() - cached path: $_cachedSoundPath');
     
-    // Method 2: Use AudioPlayer directly with asset
-    try {
-      await _audioPlayer.setReleaseMode(ReleaseMode.release);
-      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
-      debugPrint('🔊 macOS sound played via AssetSource');
-      return;
-    } catch (e) {
-      debugPrint('⚠️ AssetSource failed: $e');
-    }
-    
-    // Method 3: Try afplay with cached file
-    if (_cachedSoundPath != null) {
-      try {
-        await Process.run('afplay', [_cachedSoundPath!]);
-        debugPrint('🔊 macOS sound played via afplay with cached file');
-        return;
-      } catch (e) {
-        debugPrint('⚠️ afplay failed: $e');
-      }
-    }
-    
-    // Method 4: Try afplay with system sound
-    try {
-      await Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
-      debugPrint('🔊 macOS sound played via afplay system sound');
-    } catch (e) {
-      debugPrint('❌ All sound methods failed: $e');
-    }
-  }
-
-  /// Start Windows system sound loop
-  void _startWindowsLoop() {
-    _loopTimer?.cancel();
-    
-    // Play first sound IMMEDIATELY
-    _playWindowsSound();
-    
-    // Then loop every 2 seconds
-    _loopTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (_isPlaying) {
-        _playWindowsSound();
+    // Method 1: afplay on macOS with our cached file
+    if (Platform.isMacOS && _cachedSoundPath != null) {
+      final file = File(_cachedSoundPath!);
+      if (await file.exists()) {
+        try {
+          print('🔊 Trying afplay with: $_cachedSoundPath');
+          final result = await Process.run('afplay', [_cachedSoundPath!]);
+          if (result.exitCode == 0) {
+            print('✅ Sound played via afplay');
+            return;
+          } else {
+            print('⚠️ afplay exit code: ${result.exitCode}, stderr: ${result.stderr}');
+          }
+        } catch (e) {
+          print('⚠️ afplay exception: $e');
+        }
       } else {
-        timer.cancel();
+        print('⚠️ Cached sound file does not exist');
       }
-    });
-  }
-
-  /// Play Windows sound - multiple reliable methods
-  Future<void> _playWindowsSound() async {
-    // Method 1: Use DeviceFileSource with cached file (most reliable on Windows)
-    if (_cachedSoundPath != null) {
+    }
+    
+    // Method 2: macOS system sound as fallback
+    if (Platform.isMacOS) {
       try {
-        await _audioPlayer.setReleaseMode(ReleaseMode.release);
-        await _audioPlayer.play(DeviceFileSource(_cachedSoundPath!));
-        debugPrint('🔊 Windows sound played via DeviceFileSource');
-        return;
+        print('🔊 Trying macOS system sound fallback...');
+        final result = await Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
+        if (result.exitCode == 0) {
+          print('✅ Sound played via macOS system sound');
+          return;
+        }
       } catch (e) {
-        debugPrint('⚠️ DeviceFileSource failed: $e');
+        print('⚠️ macOS system sound failed: $e');
       }
     }
-
-    // Method 2: Try AssetSource as fallback
-    try {
-      await _audioPlayer.setReleaseMode(ReleaseMode.release);
-      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
-      debugPrint('🔊 Windows sound played via AssetSource');
-      return;
-    } catch (e) {
-      debugPrint('⚠️ AssetSource failed: $e');
-    }
-
-    // Method 3: PowerShell with SoundPlayer using cached file
-    if (_cachedSoundPath != null) {
+    
+    // Method 3: Windows PowerShell
+    if (Platform.isWindows) {
       try {
+        print('🔊 Trying Windows SystemSounds...');
         final result = await Process.run('powershell.exe', [
           '-NoProfile',
           '-WindowStyle', 'Hidden',
           '-Command',
-          "(New-Object Media.SoundPlayer '$_cachedSoundPath').PlaySync()"
+          '[System.Media.SystemSounds]::Exclamation.Play()'
         ]);
         if (result.exitCode == 0) {
-          debugPrint('🔊 Windows sound played via PowerShell SoundPlayer');
+          print('✅ Sound played via Windows SystemSounds');
           return;
         }
       } catch (e) {
-        debugPrint('⚠️ PowerShell SoundPlayer failed: $e');
+        print('⚠️ Windows SystemSounds failed: $e');
       }
-    }
-
-    // Method 4: PowerShell with SystemSounds
-    try {
-      final result = await Process.run('powershell.exe', [
-        '-NoProfile',
-        '-WindowStyle', 'Hidden',
-        '-Command',
-        '[System.Media.SystemSounds]::Exclamation.Play()'
-      ]);
-      if (result.exitCode == 0) {
-        debugPrint('🔊 Windows sound played via SystemSounds');
+      
+      // Windows fallback: rundll32
+      try {
+        print('🔊 Trying Windows rundll32...');
+        await Process.run('rundll32.exe', ['user32.dll,MessageBeep']);
+        print('✅ Sound played via rundll32');
         return;
+      } catch (e) {
+        print('⚠️ rundll32 failed: $e');
       }
-    } catch (e) {
-      debugPrint('⚠️ SystemSounds failed: $e');
     }
-
-    // Method 5: Use rundll32 MessageBeep
-    try {
-      await Process.run('rundll32.exe', ['user32.dll,MessageBeep']);
-      debugPrint('🔊 Windows sound played via rundll32');
-      return;
-    } catch (e) {
-      debugPrint('⚠️ rundll32 failed: $e');
-    }
-
-    // Method 6: Console Beep as last resort
-    try {
-      await Process.run('powershell.exe', [
-        '-NoProfile',
-        '-WindowStyle', 'Hidden',
-        '-Command',
-        '[Console]::Beep(800, 400)'
-      ]);
-      debugPrint('🔊 Windows sound played via Console.Beep');
-    } catch (e) {
-      debugPrint('❌ All Windows sound methods failed: $e');
-    }
+    
+    print('❌ All sound methods failed!');
   }
 
   /// Stop notification sound
   Future<void> stopNotificationSound() async {
-    debugPrint('🔇 NotificationService: Stopping notification sound');
+    print('🔇 NotificationService: Stopping notification sound');
     _isPlaying = false;
     _loopTimer?.cancel();
-    
-    try {
-      await _audioPlayer.stop();
-      debugPrint('✅ Sound stopped');
-    } catch (e) {
-      debugPrint('⚠️  Failed to stop sound: $e');
-    }
+    _loopTimer = null;
+    print('✅ Sound stopped');
   }
 
   /// Dispose resources
   void dispose() {
     _loopTimer?.cancel();
-    _audioPlayer.dispose();
+    _loopTimer = null;
+    _isPlaying = false;
   }
 }

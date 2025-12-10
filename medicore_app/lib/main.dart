@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'src/core/ui/canvas_scaler.dart';
 import 'src/core/ui/scroll_behavior.dart';
 import 'src/core/ui/window_init.dart';
@@ -23,9 +24,10 @@ import 'src/features/auth/presentation/login_screen_french.dart';
 import 'src/features/auth/presentation/room_selection_wrapper.dart';
 import 'src/features/dashboard/presentation/admin_dashboard.dart';
 import 'src/features/setup/presentation/setup_wizard.dart';
+import 'src/features/messages/services/notification_service.dart';
 
 /// Current app version - bump this to force setup wizard on upgrade
-const String _currentAppVersion = '3.7.2';
+const String _currentAppVersion = '4.0.2';
 
 /// Check if setup has been completed
 /// Returns true ONLY if config exists AND database exists (for admin) or server IP is saved (for client)
@@ -124,6 +126,10 @@ void main() async {
   // Initialize gRPC client configuration
   await GrpcClientConfig.initialize();
   
+  // Initialize notification service early for all modes
+  print('🔊 Pre-initializing notification service...');
+  await NotificationService().initialize();
+  
   // Set client mode flag to prevent local database creation in client mode
   if (!GrpcClientConfig.isServer) {
     AppDatabase.setClientMode(true);
@@ -154,6 +160,7 @@ void main() async {
   // Initialize custom window (desktop platforms only)
   if (!kIsWeb) {
     initializeWindow();
+    await initializeWindowManager();
   }
 }
 
@@ -186,6 +193,9 @@ Future<void> _startAdminBroadcastIfNeeded() async {
   }
 }
 
+/// Global navigator key for exit confirmation dialog
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class MediCoreApp extends ConsumerStatefulWidget {
   final bool needsSetup;
   const MediCoreApp({super.key, required this.needsSetup});
@@ -194,13 +204,78 @@ class MediCoreApp extends ConsumerStatefulWidget {
   ConsumerState<MediCoreApp> createState() => _MediCoreAppState();
 }
 
-class _MediCoreAppState extends ConsumerState<MediCoreApp> {
+class _MediCoreAppState extends ConsumerState<MediCoreApp> with WindowListener {
   late bool _needsSetup;
 
   @override
   void initState() {
     super.initState();
     _needsSetup = widget.needsSetup;
+    // Add window listener for close confirmation
+    if (!kIsWeb) {
+      windowManager.addListener(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!kIsWeb) {
+      windowManager.removeListener(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    // Show exit confirmation dialog
+    final shouldClose = await _showExitConfirmation();
+    if (shouldClose) {
+      await windowManager.destroy();
+    }
+  }
+
+  Future<bool> _showExitConfirmation() async {
+    final result = await showDialog<bool>(
+      context: navigatorKey.currentContext!,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFF5F5F5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFF1A237E), width: 2),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.exit_to_app, color: Colors.orange[700], size: 28),
+            const SizedBox(width: 12),
+            const Text(
+              'Quitter l\'application',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Êtes-vous sûr de vouloir quitter Thaziri ?\n\nToutes les modifications non enregistrées seront perdues.',
+          style: TextStyle(fontSize: 14, color: Colors.black87),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('ANNULER', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[700],
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('QUITTER', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   void _onSetupComplete() async {
@@ -215,6 +290,7 @@ class _MediCoreAppState extends ConsumerState<MediCoreApp> {
   Widget build(BuildContext context) {
     return CanvasScaler(
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'MediCore',
         debugShowCheckedModeBanner: false,
         scrollBehavior: DesktopScrollBehavior(),

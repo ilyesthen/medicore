@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:window_manager/window_manager.dart';
 import '../theme/medicore_colors.dart';
 import '../theme/medicore_dimensions.dart';
 
@@ -19,6 +20,12 @@ void initializeWindow() {
     
     appWindow.show();
   });
+}
+
+/// Initialize window manager with close prevention
+Future<void> initializeWindowManager() async {
+  await windowManager.ensureInitialized();
+  await windowManager.setPreventClose(true);
 }
 
 /// Custom window title bar that matches Cockpit theme

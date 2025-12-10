@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/services/prescription_print_service.dart';
 
@@ -37,7 +38,7 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
 
   final _verresController = TextEditingController();
   
-  static const verresOptions = [
+  static const _defaultVerresOptions = [
     'Verres transitions',
     'Verres cristallisés',
     'Organiques',
@@ -49,11 +50,38 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
     'Extrafins',
     'Verres HMC "Anti-Reflets"',
   ];
+  
+  List<String> _verresOptions = List.from(_defaultVerresOptions);
+  static const _verresPrefsKey = 'optique_verres_options';
 
   @override
   void initState() {
     super.initState();
+    _loadSavedOptions();
     _parseVL();
+  }
+
+  Future<void> _loadSavedOptions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedVerres = prefs.getStringList(_verresPrefsKey);
+    if (mounted && savedVerres != null && savedVerres.isNotEmpty) {
+      setState(() {
+        _verresOptions = savedVerres;
+      });
+    }
+  }
+
+  Future<void> _saveCustomOption(String value) async {
+    if (value.isEmpty) return;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+    // Check if already exists (case insensitive)
+    if (_verresOptions.any((o) => o.toLowerCase() == trimmed.toLowerCase())) return;
+    // Add new option and save
+    final prefs = await SharedPreferences.getInstance();
+    _verresOptions.add(trimmed);
+    await prefs.setStringList(_verresPrefsKey, _verresOptions);
+    if (mounted) setState(() {});
   }
 
   void _parseVL() {
@@ -342,8 +370,8 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
                           const SizedBox(height: 12),
                           Autocomplete<String>(
                             optionsBuilder: (textValue) {
-                              if (textValue.text.isEmpty) return verresOptions;
-                              return verresOptions.where((o) => o.toLowerCase().contains(textValue.text.toLowerCase()));
+                              if (textValue.text.isEmpty) return _verresOptions;
+                              return _verresOptions.where((o) => o.toLowerCase().contains(textValue.text.toLowerCase()));
                             },
                             onSelected: (selection) => _verresController.text = selection,
                             fieldViewBuilder: (context, textController, focusNode, onSubmitted) {
@@ -362,6 +390,12 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                 ),
+                                onSubmitted: (value) {
+                                  _saveCustomOption(value);
+                                },
+                                onEditingComplete: () {
+                                  _saveCustomOption(textController.text);
+                                },
                               );
                             },
                           ),
