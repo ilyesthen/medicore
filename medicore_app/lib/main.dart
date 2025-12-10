@@ -27,7 +27,7 @@ import 'src/features/setup/presentation/setup_wizard.dart';
 import 'src/features/messages/services/notification_service.dart';
 
 /// Current app version - bump this to force setup wizard on upgrade
-const String _currentAppVersion = '4.0.3';
+const String _currentAppVersion = '4.0.4';
 
 /// Check if setup has been completed
 /// Returns true ONLY if config exists AND database exists (for admin) or server IP is saved (for client)
