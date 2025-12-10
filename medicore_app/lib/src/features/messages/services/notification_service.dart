@@ -31,10 +31,36 @@ class NotificationService {
         await _prepareSoundFileForWindows();
       }
       
+      // On macOS, also prepare sound file for reliability
+      if (Platform.isMacOS) {
+        await _prepareSoundFileForMacOS();
+      }
+      
       _isInitialized = true;
       debugPrint('✅ NotificationService initialized');
     } catch (e) {
       debugPrint('❌ NotificationService: Failed to initialize - $e');
+    }
+  }
+  
+  /// Prepare sound file for macOS by copying to temp directory
+  Future<void> _prepareSoundFileForMacOS() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final soundFile = File('${tempDir.path}/notification.mp3');
+      
+      if (!await soundFile.exists()) {
+        // Copy asset to temp file
+        final data = await rootBundle.load('assets/sounds/notification.mp3');
+        final bytes = data.buffer.asUint8List();
+        await soundFile.writeAsBytes(bytes);
+        debugPrint('📁 Copied notification sound to: ${soundFile.path}');
+      }
+      
+      _cachedSoundPath = soundFile.path;
+      debugPrint('🔊 macOS sound file ready: $_cachedSoundPath');
+    } catch (e) {
+      debugPrint('⚠️ Failed to prepare macOS sound file: $e');
     }
   }
   
@@ -117,19 +143,45 @@ class NotificationService {
   
   /// Play macOS sound - try multiple methods for reliability
   Future<void> _playMacOSSound() async {
-    try {
-      // Method 1: Try afplay (system command)
-      await Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
-      debugPrint('🔊 macOS sound played via afplay');
-    } catch (e) {
-      debugPrint('⚠️ afplay failed: $e, trying AudioPlayer...');
-      // Method 2: Fallback to audioplayer with asset
+    // Method 1: Use DeviceFileSource with cached file (most reliable)
+    if (_cachedSoundPath != null) {
       try {
-        await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
-        debugPrint('🔊 Sound played via AudioPlayer');
-      } catch (e2) {
-        debugPrint('❌ All sound methods failed: $e2');
+        await _audioPlayer.setReleaseMode(ReleaseMode.release);
+        await _audioPlayer.play(DeviceFileSource(_cachedSoundPath!));
+        debugPrint('🔊 macOS sound played via DeviceFileSource');
+        return;
+      } catch (e) {
+        debugPrint('⚠️ DeviceFileSource failed: $e');
       }
+    }
+    
+    // Method 2: Use AudioPlayer directly with asset
+    try {
+      await _audioPlayer.setReleaseMode(ReleaseMode.release);
+      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
+      debugPrint('🔊 macOS sound played via AssetSource');
+      return;
+    } catch (e) {
+      debugPrint('⚠️ AssetSource failed: $e');
+    }
+    
+    // Method 3: Try afplay with cached file
+    if (_cachedSoundPath != null) {
+      try {
+        await Process.run('afplay', [_cachedSoundPath!]);
+        debugPrint('🔊 macOS sound played via afplay with cached file');
+        return;
+      } catch (e) {
+        debugPrint('⚠️ afplay failed: $e');
+      }
+    }
+    
+    // Method 4: Try afplay with system sound
+    try {
+      await Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
+      debugPrint('🔊 macOS sound played via afplay system sound');
+    } catch (e) {
+      debugPrint('❌ All sound methods failed: $e');
     }
   }
 

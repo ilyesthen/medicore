@@ -39,11 +39,11 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
   
   static const verresOptions = [
     'Verres transitions',
-    'Cristals aisés',
+    'Verres cristallisés',
     'Organiques',
     'Minéraux',
-    'Photochromiques PER',
-    'Photochromiques PBG',
+    'Photochromiques PEG',
+    'Photochromiques PEB',
     'Progressifs blancs',
     'Progressifs photochromiques',
     'Extrafins',
