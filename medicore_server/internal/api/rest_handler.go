@@ -786,6 +786,9 @@ func (h *RESTHandler) GetAllPatients(w http.ResponseWriter, r *http.Request) {
 		if phone.Valid {
 			patient["phone"] = phone.String
 		}
+		if createdAt.Valid {
+			patient["created_at"] = createdAt.String
+		}
 		patients = append(patients, patient)
 	}
 

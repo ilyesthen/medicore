@@ -134,6 +134,7 @@ class RemotePatientsRepository {
     
     // Add to cache IMMEDIATELY (before network call)
     _cachedPatients.insert(0, tempPatient); // Insert at TOP
+    _cachedPatients = _applySmartOrdering(_cachedPatients);
     _patientsController.add(_cachedPatients);
     
     try {
@@ -166,6 +167,7 @@ class RemotePatientsRepository {
           updatedAt: DateTime.now(),
           needsSync: false,
         );
+        _cachedPatients = _applySmartOrdering(_cachedPatients);
         _patientsController.add(_cachedPatients);
       }
       
@@ -173,6 +175,7 @@ class RemotePatientsRepository {
     } catch (e) {
       // Remove temp patient on error
       _cachedPatients.removeWhere((p) => p.code == tempCode);
+      _cachedPatients = _applySmartOrdering(_cachedPatients);
       _patientsController.add(_cachedPatients);
       print('❌ [RemotePatients] createPatient failed: $e');
       rethrow;
@@ -209,6 +212,7 @@ class RemotePatientsRepository {
         updatedAt: DateTime.now(),
         needsSync: true,
       );
+      _cachedPatients = _applySmartOrdering(_cachedPatients);
       _patientsController.add(_cachedPatients);
     }
     
@@ -228,6 +232,7 @@ class RemotePatientsRepository {
       // Revert on error
       if (oldPatient != null && idx >= 0) {
         _cachedPatients[idx] = oldPatient;
+        _cachedPatients = _applySmartOrdering(_cachedPatients);
         _patientsController.add(_cachedPatients);
       }
       print('❌ [RemotePatients] updatePatient failed: $e');
@@ -242,6 +247,7 @@ class RemotePatientsRepository {
     final idx = _cachedPatients.indexWhere((p) => p.code == code);
     if (idx >= 0) {
       deletedPatient = _cachedPatients.removeAt(idx);
+      _cachedPatients = _applySmartOrdering(_cachedPatients);
       _patientsController.add(_cachedPatients);
     }
     
@@ -252,6 +258,7 @@ class RemotePatientsRepository {
       // Revert on error
       if (deletedPatient != null) {
         _cachedPatients.insert(idx, deletedPatient);
+        _cachedPatients = _applySmartOrdering(_cachedPatients);
         _patientsController.add(_cachedPatients);
       }
       print('❌ [RemotePatients] deletePatient failed: $e');
@@ -269,10 +276,16 @@ class RemotePatientsRepository {
 
   /// Convert GrpcPatient to local Patient model
   Patient _grpcPatientToLocal(GrpcPatient grpc) {
+    // Parse createdAt from server, fallback to now if not available
+    DateTime createdAt = DateTime.now();
+    if (grpc.createdAt != null && grpc.createdAt!.isNotEmpty) {
+      createdAt = DateTime.tryParse(grpc.createdAt!) ?? DateTime.now();
+    }
+    
     return Patient(
       code: grpc.code,
       barcode: grpc.barcode ?? '',
-      createdAt: DateTime.now(),
+      createdAt: createdAt,
       firstName: grpc.firstName,
       lastName: grpc.lastName,
       age: grpc.age,

@@ -9,6 +9,12 @@ import '../../../core/generated/medicore.pb.dart';
 import '../../../core/api/realtime_sync_service.dart';
 import '../presentation/patients_provider.dart' show refreshPatientsList;
 
+/// Trigger INSTANT UI update - emits to reactive stream AND calls external refresh
+void _triggerInstantUpdate() {
+  PatientsRepository._emitCache();
+  refreshPatientsList();
+}
+
 /// Repository for patient data operations
 /// Optimized with in-memory cache for instant CRUD operations
 class PatientsRepository {
@@ -19,6 +25,17 @@ class PatientsRepository {
   static DateTime? _cacheTime;
   static const _cacheMaxAge = Duration(minutes: 5);
   static bool _isFetching = false;
+  
+  // REACTIVE STREAM - emits whenever cache changes
+  static final _patientsController = StreamController<List<Patient>>.broadcast();
+  
+  /// Emit current cache to all listeners (for INSTANT UI updates)
+  static void _emitCache() {
+    if (_cachedPatients != null && !_patientsController.isClosed) {
+      _patientsController.add(_cachedPatients!);
+      print('📤 [PatientsRepository] Emitted ${_cachedPatients!.length} patients to UI');
+    }
+  }
 
   PatientsRepository([AppDatabase? database]) 
       : _db = database ?? AppDatabase();
@@ -121,26 +138,29 @@ class PatientsRepository {
     return age;
   }
 
-  /// Get all patients with ordering: oldest first (ascending by code)
-  /// OPTIMIZED: Uses cache for instant loading with periodic refresh
+  /// Get all patients with INSTANT reactive updates
+  /// Uses broadcast stream - updates immediately when cache changes
   Stream<List<Patient>> watchAllPatients() async* {
     // First, yield cached data immediately if available
-    if (_isCacheValid) {
+    if (_cachedPatients != null) {
       yield _applySmartOrdering(_cachedPatients!);
     }
     
-    // Then fetch fresh data
-    try {
-      _invalidateCache(); // Force fresh fetch
-      final patients = await _getCachedPatients();
-      yield _applySmartOrdering(patients);
-    } catch (e) {
-      print('❌ [PatientsRepository] watchAllPatients failed: $e');
-      if (_cachedPatients != null) {
-        yield _applySmartOrdering(_cachedPatients!);
-      } else {
-        yield [];
+    // Fetch fresh data in background if cache is stale
+    if (!_isCacheValid) {
+      try {
+        final patients = await _getCachedPatients();
+        _cachedPatients = patients;
+        _cacheTime = DateTime.now();
+        yield _applySmartOrdering(patients);
+      } catch (e) {
+        print('❌ [PatientsRepository] watchAllPatients failed: $e');
       }
+    }
+    
+    // Listen to the reactive stream for instant updates
+    await for (final patients in _patientsController.stream) {
+      yield _applySmartOrdering(patients);
     }
   }
   
@@ -368,7 +388,7 @@ class PatientsRepository {
         _cacheTime = DateTime.now();
       }
       // Trigger INSTANT UI refresh
-      refreshPatientsList();
+      _triggerInstantUpdate();
       
       try {
         final request = CreatePatientRequest(
@@ -420,7 +440,7 @@ class PatientsRepository {
       } catch (e) {
         // Remove temp patient on error
         _cachedPatients?.removeWhere((p) => p.code == tempCode);
-        refreshPatientsList();
+        _triggerInstantUpdate();
         print('❌ [PatientsRepository] Remote createPatient failed: $e');
         rethrow;
       }
@@ -458,7 +478,7 @@ class PatientsRepository {
       _cacheTime = DateTime.now();
     }
     // Trigger INSTANT UI refresh
-    refreshPatientsList();
+    _triggerInstantUpdate();
 
     // Insert to DB in background
     final companion = PatientsCompanion.insert(
@@ -516,7 +536,7 @@ class PatientsRepository {
         }
       }
       // Trigger INSTANT UI refresh
-      refreshPatientsList();
+      _triggerInstantUpdate();
       
       // Network call in background
       try {
@@ -536,7 +556,7 @@ class PatientsRepository {
         if (oldPatient != null && _cachedPatients != null) {
           final idx = _cachedPatients!.indexWhere((p) => p.code == code);
           if (idx >= 0) _cachedPatients![idx] = oldPatient;
-          refreshPatientsList();
+          _triggerInstantUpdate();
         }
         print('❌ [PatientsRepository] Remote updatePatient failed: $e');
         rethrow;
@@ -573,7 +593,7 @@ class PatientsRepository {
       }
     }
     // Trigger instant UI refresh
-    refreshPatientsList();
+    _triggerInstantUpdate();
   }
 
   /// Delete patient - INSTANT (optimistic delete)
@@ -591,7 +611,7 @@ class PatientsRepository {
       }
     }
     // Trigger INSTANT UI refresh
-    refreshPatientsList();
+    _triggerInstantUpdate();
     
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
@@ -602,7 +622,7 @@ class PatientsRepository {
         // Revert on error
         if (deletedPatient != null && deletedIndex != null && _cachedPatients != null) {
           _cachedPatients!.insert(deletedIndex, deletedPatient);
-          refreshPatientsList();
+          _triggerInstantUpdate();
         }
         print('❌ [PatientsRepository] Remote deletePatient failed: $e');
         rethrow;
@@ -628,7 +648,7 @@ class PatientsRepository {
       // Revert on error
       if (deletedPatient != null && deletedIndex != null && _cachedPatients != null) {
         _cachedPatients!.insert(deletedIndex, deletedPatient);
-        refreshPatientsList();
+        _triggerInstantUpdate();
       }
       rethrow;
     }

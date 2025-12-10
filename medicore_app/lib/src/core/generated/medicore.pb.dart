@@ -244,6 +244,7 @@ class GrpcPatient {
   $core.String? notes;
   $core.String? barcode;
   $core.int? age;
+  $core.String? createdAt;
   
   GrpcPatient({
     this.code = 0,
@@ -256,6 +257,7 @@ class GrpcPatient {
     this.notes,
     this.barcode,
     this.age,
+    this.createdAt,
   });
   
   factory GrpcPatient.fromJson($core.Map<$core.String, $core.dynamic> json) => GrpcPatient(
@@ -269,6 +271,7 @@ class GrpcPatient {
     notes: json['notes'] as $core.String?,
     barcode: json['barcode'] as $core.String?,
     age: (json['age'] as $core.num?)?.toInt(),
+    createdAt: json['created_at'] as $core.String? ?? json['createdAt'] as $core.String?,
   );
   
   $core.Map<$core.String, $core.dynamic> toJson() => {
