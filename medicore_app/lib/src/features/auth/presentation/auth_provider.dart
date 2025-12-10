@@ -7,7 +7,7 @@ import '../../../core/database/app_database.dart' show Room;
 import '../../../core/constants/app_constants.dart';
 import '../../rooms/presentation/room_presence_provider.dart';
 import '../../users/data/nurse_preferences_repository.dart';
-import '../../rooms/data/rooms_repository.dart';
+import '../../rooms/presentation/rooms_provider.dart' show roomsRepositoryProvider;
 
 /// Auth repository provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -104,7 +104,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             
             if (savedRoomId != null) {
               // Restore saved room
-              final roomsRepo = RoomsRepository();
+              final roomsRepo = _ref.read(roomsRepositoryProvider);
               final rooms = await roomsRepo.getAllRooms();
               savedRoom = rooms.where((r) => r.id.toString() == savedRoomId).firstOrNull;
               
