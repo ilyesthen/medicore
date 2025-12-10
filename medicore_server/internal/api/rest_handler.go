@@ -932,14 +932,31 @@ func (h *RESTHandler) CreatePatient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-generate code if not provided or 0
+	// Auto-generate code if not provided or 0 - NEVER reuse codes even after deletion
 	code := 0
 	if c, ok := req["code"].(float64); ok && c > 0 {
 		code = int(c)
 	} else {
-		// Get next code
-		row := h.db.QueryRow(`SELECT COALESCE(MAX(code), 0) + 1 FROM patients`)
-		row.Scan(&code)
+		// Create metadata table if not exists
+		h.db.Exec(`CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY, value INTEGER)`)
+
+		// Get highest code ever used
+		var highestEver int
+		h.db.QueryRow(`SELECT COALESCE(value, 0) FROM app_metadata WHERE key = 'highest_patient_code'`).Scan(&highestEver)
+
+		// Get current max in patients table
+		var currentMax int
+		h.db.QueryRow(`SELECT COALESCE(MAX(code), 0) FROM patients`).Scan(&currentMax)
+
+		// Use the higher of the two + 1
+		if highestEver > currentMax {
+			code = highestEver + 1
+		} else {
+			code = currentMax + 1
+		}
+
+		// Save this as the new highest ever
+		h.db.Exec(`INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('highest_patient_code', ?)`, code)
 	}
 
 	// Auto-generate barcode if not provided
@@ -1014,11 +1031,22 @@ func (h *RESTHandler) DeletePatient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := int(req["patient_code"].(float64))
+
+	// Delete ALL related data first (cascade delete)
+	h.db.Exec(`DELETE FROM visits WHERE patient_code = ?`, code)
+	h.db.Exec(`DELETE FROM payments WHERE patient_code = ?`, code)
+	h.db.Exec(`DELETE FROM ordonnances WHERE patient_code = ?`, code)
+	h.db.Exec(`DELETE FROM messages WHERE patient_code = ?`, code)
+	h.db.Exec(`DELETE FROM waiting_patients WHERE patient_code = ?`, code)
+
+	// Finally delete the patient
 	_, err := h.db.Exec(`DELETE FROM patients WHERE code = ?`, code)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
 	}
+
+	log.Printf("✓ Patient %d and all related data deleted", code)
 
 	// Broadcast SSE event for real-time sync
 	BroadcastPatientEvent(EventPatientDeleted, code, nil)

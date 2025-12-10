@@ -40,13 +40,42 @@ class RemotePatientsRepository {
   Future<void> _refreshPatients() async {
     try {
       final response = await _client.getAllPatients();
-      _cachedPatients = response.patients.map(_grpcPatientToLocal).toList();
+      _cachedPatients = _applySmartOrdering(response.patients.map(_grpcPatientToLocal).toList());
       _lastFetch = DateTime.now();
       // Notify stream listeners
       _patientsController.add(_cachedPatients);
     } catch (e) {
       print('❌ [RemotePatients] Failed to refresh: $e');
     }
+  }
+  
+  /// Apply smart ordering:
+  /// 1. Today's patients at TOP (newest today first - so newly created is #1)
+  /// 2. Then older patients sorted by code ASC (oldest first: 3, 4, 5...)
+  List<Patient> _applySmartOrdering(List<Patient> patients) {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    
+    // Split into today's patients and older patients
+    final todayPatients = <Patient>[];
+    final olderPatients = <Patient>[];
+    
+    for (final p in patients) {
+      if (p.createdAt.isAfter(todayStart) || p.createdAt.isAtSameMomentAs(todayStart)) {
+        todayPatients.add(p);
+      } else {
+        olderPatients.add(p);
+      }
+    }
+    
+    // Today's patients: newest first (highest code = most recent)
+    todayPatients.sort((a, b) => b.code.compareTo(a.code));
+    
+    // Older patients: oldest first (lowest code = oldest)
+    olderPatients.sort((a, b) => a.code.compareTo(b.code));
+    
+    // Combine: today's first, then older
+    return [...todayPatients, ...olderPatients];
   }
 
   /// Get patient by code

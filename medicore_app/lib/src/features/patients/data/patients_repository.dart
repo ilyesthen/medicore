@@ -86,13 +86,26 @@ class PatientsRepository {
     }
   }
 
-  /// Get next patient code (sequential)
+  /// Get next patient code (sequential) - NEVER reuses codes even after deletion
   Future<int> _getNextPatientCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Get the highest code ever used (stored persistently)
+    final highestEverUsed = prefs.getInt('highest_patient_code_ever') ?? 0;
+    
+    // Also check current max in database
     final query = _db.selectOnly(_db.patients)
       ..addColumns([_db.patients.code.max()]);
     final result = await query.getSingleOrNull();
-    final maxCode = result?.read(_db.patients.code.max());
-    return (maxCode ?? 0) + 1;
+    final currentMax = result?.read(_db.patients.code.max()) ?? 0;
+    
+    // Use the higher of the two + 1
+    final nextCode = (highestEverUsed > currentMax ? highestEverUsed : currentMax) + 1;
+    
+    // Save this as the new highest ever
+    await prefs.setInt('highest_patient_code_ever', nextCode);
+    
+    return nextCode;
   }
 
   /// Calculate age from date of birth
@@ -130,12 +143,33 @@ class PatientsRepository {
     }
   }
   
-  /// Apply ordering: newest first (descending order by code)
-  /// New patients appear at the TOP of the list
+  /// Apply smart ordering:
+  /// 1. Today's patients at TOP (newest today first - so newly created is #1)
+  /// 2. Then older patients sorted by code ASC (oldest first: 3, 4, 5...)
   List<Patient> _applySmartOrdering(List<Patient> patients) {
-    final sorted = List<Patient>.from(patients);
-    sorted.sort((a, b) => b.code.compareTo(a.code)); // Newest first (highest code = newest)
-    return sorted;
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    
+    // Split into today's patients and older patients
+    final todayPatients = <Patient>[];
+    final olderPatients = <Patient>[];
+    
+    for (final p in patients) {
+      if (p.createdAt.isAfter(todayStart) || p.createdAt.isAtSameMomentAs(todayStart)) {
+        todayPatients.add(p);
+      } else {
+        olderPatients.add(p);
+      }
+    }
+    
+    // Today's patients: newest first (highest code = most recent)
+    todayPatients.sort((a, b) => b.code.compareTo(a.code));
+    
+    // Older patients: oldest first (lowest code = oldest)
+    olderPatients.sort((a, b) => a.code.compareTo(b.code));
+    
+    // Combine: today's first, then older
+    return [...todayPatients, ...olderPatients];
   }
   
   /// Remote stream for patients with SSE support
@@ -574,11 +608,21 @@ class PatientsRepository {
       }
     }
     
-    // Admin mode: delete from DB
+    // Admin mode: delete from DB + ALL related data
     try {
+      // Delete all related data first (cascade delete)
+      await (_db.delete(_db.visits)..where((v) => v.patientCode.equals(code))).go();
+      await (_db.delete(_db.payments)..where((p) => p.patientCode.equals(code))).go();
+      await (_db.delete(_db.ordonnances)..where((o) => o.patientCode.equals(code))).go();
+      await (_db.delete(_db.messages)..where((m) => m.patientCode.equals(code))).go();
+      await (_db.delete(_db.waitingPatients)..where((w) => w.patientCode.equals(code))).go();
+      
+      // Finally delete the patient
       await (_db.delete(_db.patients)
             ..where((p) => p.code.equals(code)))
           .go();
+      
+      print('✓ Patient $code and all related data deleted');
     } catch (e) {
       // Revert on error
       if (deletedPatient != null && deletedIndex != null && _cachedPatients != null) {
