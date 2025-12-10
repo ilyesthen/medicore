@@ -35,7 +35,7 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
   final _cylindreOGNear = TextEditingController();
   final _axeOGNear = TextEditingController();
 
-  String? _selectedVerres;
+  final _verresController = TextEditingController();
   
   static const verresOptions = [
     'Verres transitions',
@@ -164,7 +164,7 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
       patientName: _patientName, patientCode: _patientCode, barcode: _barcode, date: _today,
       sphereOD: _sphereOD.text, cylindreOD: _cylindreOD.text, axeOD: _axeOD.text,
       sphereOG: _sphereOG.text, cylindreOG: _cylindreOG.text, axeOG: _axeOG.text,
-      glassType: _selectedVerres, age: _age,
+      glassType: _verresController.text.isNotEmpty ? _verresController.text : null, age: _age,
     );
     _showPrintResult(success);
   }
@@ -174,7 +174,7 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
       patientName: _patientName, patientCode: _patientCode, barcode: _barcode, date: _today,
       sphereOD: _sphereOD.text, cylindreOD: _cylindreOD.text, axeOD: _axeOD.text,
       sphereOG: _sphereOG.text, cylindreOG: _cylindreOG.text, axeOG: _axeOG.text,
-      addition: widget.addition ?? '', glassType: _selectedVerres, age: _age,
+      addition: widget.addition ?? '', glassType: _verresController.text.isNotEmpty ? _verresController.text : null, age: _age,
     );
     _showPrintResult(success);
   }
@@ -184,7 +184,7 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
       patientName: _patientName, patientCode: _patientCode, barcode: _barcode, date: _today,
       sphereOD: _sphereOD.text, cylindreOD: _cylindreOD.text, axeOD: _axeOD.text,
       sphereOG: _sphereOG.text, cylindreOG: _cylindreOG.text, axeOG: _axeOG.text,
-      addition: widget.addition ?? '', glassType: _selectedVerres, age: _age,
+      addition: widget.addition ?? '', glassType: _verresController.text.isNotEmpty ? _verresController.text : null, age: _age,
     );
     _showPrintResult(success);
   }
@@ -199,7 +199,7 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
         patientName: _patientName, patientCode: _patientCode, barcode: _barcode, date: _today,
         sphereOD: _sphereOD.text, cylindreOD: _cylindreOD.text, axeOD: _axeOD.text,
         sphereOG: _sphereOG.text, cylindreOG: _cylindreOG.text, axeOG: _axeOG.text,
-        glassType: _selectedVerres, age: _age,
+        glassType: _verresController.text.isNotEmpty ? _verresController.text : null, age: _age,
       );
       final path = await PrescriptionPrintService.downloadPdf(pdf, 'Optique_Loin_$_barcode.pdf');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF téléchargé: $path'), backgroundColor: Colors.green));
@@ -214,7 +214,7 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
         patientName: _patientName, patientCode: _patientCode, barcode: _barcode, date: _today,
         sphereOD: _sphereOD.text, cylindreOD: _cylindreOD.text, axeOD: _axeOD.text,
         sphereOG: _sphereOG.text, cylindreOG: _cylindreOG.text, axeOG: _axeOG.text,
-        addition: widget.addition ?? '', glassType: _selectedVerres, age: _age,
+        addition: widget.addition ?? '', glassType: _verresController.text.isNotEmpty ? _verresController.text : null, age: _age,
       );
       final path = await PrescriptionPrintService.downloadPdf(pdf, 'Optique_Pres_$_barcode.pdf');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF téléchargé: $path'), backgroundColor: Colors.green));
@@ -229,7 +229,7 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
         patientName: _patientName, patientCode: _patientCode, barcode: _barcode, date: _today,
         sphereOD: _sphereOD.text, cylindreOD: _cylindreOD.text, axeOD: _axeOD.text,
         sphereOG: _sphereOG.text, cylindreOG: _cylindreOG.text, axeOG: _axeOG.text,
-        addition: widget.addition ?? '', glassType: _selectedVerres, age: _age,
+        addition: widget.addition ?? '', glassType: _verresController.text.isNotEmpty ? _verresController.text : null, age: _age,
       );
       final path = await PrescriptionPrintService.downloadPdf(pdf, 'Optique_Complet_$_barcode.pdf');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF téléchargé: $path'), backgroundColor: Colors.green));
@@ -340,18 +340,30 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
                         children: [
                           const Text('🔍 Type de verres', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: MediCoreColors.deepNavy)),
                           const SizedBox(height: 12),
-                          Container(
-                            decoration: BoxDecoration(border: Border.all(color: MediCoreColors.steelOutline), borderRadius: BorderRadius.circular(8)),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedVerres,
-                                hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Sélectionner le type de verres...')),
-                                isExpanded: true,
-                                menuMaxHeight: 300,
-                                items: verresOptions.map((v) => DropdownMenuItem(value: v, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(v)))).toList(),
-                                onChanged: (v) => setState(() => _selectedVerres = v),
-                              ),
-                            ),
+                          Autocomplete<String>(
+                            optionsBuilder: (textValue) {
+                              if (textValue.text.isEmpty) return verresOptions;
+                              return verresOptions.where((o) => o.toLowerCase().contains(textValue.text.toLowerCase()));
+                            },
+                            onSelected: (selection) => _verresController.text = selection,
+                            fieldViewBuilder: (context, textController, focusNode, onSubmitted) {
+                              // Sync controllers
+                              if (textController.text != _verresController.text) {
+                                textController.text = _verresController.text;
+                              }
+                              textController.addListener(() => _verresController.text = textController.text);
+                              return TextField(
+                                controller: textController,
+                                focusNode: focusNode,
+                                style: const TextStyle(fontSize: 13),
+                                decoration: InputDecoration(
+                                  hintText: 'Saisir ou sélectionner le type de verres...',
+                                  hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

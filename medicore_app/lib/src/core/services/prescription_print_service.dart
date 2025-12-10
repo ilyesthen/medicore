@@ -874,16 +874,16 @@ class PrescriptionPrintService {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('Patient: $displayName', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Patient: $displayName', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
                     if (displayAge != null && displayAge.isNotEmpty)
-                      pw.Text('Âge: $displayAge ans', style: const pw.TextStyle(fontSize: 14)),
-                    pw.Text('Code: $patientCode', style: const pw.TextStyle(fontSize: 14)),
+                      pw.Text('Âge: $displayAge ans', style: const pw.TextStyle(fontSize: 16)),
+                    pw.Text('Code: $patientCode', style: const pw.TextStyle(fontSize: 16)),
                   ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
-                    pw.Text('Date: $date', style: const pw.TextStyle(fontSize: 14)),
+                    pw.Text('Date: $date', style: const pw.TextStyle(fontSize: 16)),
                     pw.SizedBox(height: 4),
                     pw.BarcodeWidget(data: barcode, barcode: pw.Barcode.code128(), width: 70, height: 18, drawText: false),
                   ],
@@ -898,7 +898,7 @@ class PrescriptionPrintService {
               padding: const pw.EdgeInsets.only(bottom: 15),
               child: pw.Text(
                 _sanitizeForPrint(documentType),
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _titleColor),
+                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: _titleColor),
               ),
             ),
           ),
@@ -906,7 +906,7 @@ class PrescriptionPrintService {
           // Content - preserves exact formatting with line breaks
           pw.Text(
             _sanitizeForPrint(content),
-            style: const pw.TextStyle(fontSize: 14, lineSpacing: 1.5),
+            style: const pw.TextStyle(fontSize: 18, lineSpacing: 1.6),
           ),
           
           // Signature area at bottom
@@ -917,7 +917,7 @@ class PrescriptionPrintService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Text('Signature et cachet', style: const pw.TextStyle(fontSize: 14)),
+                  pw.Text('Signature et cachet', style: const pw.TextStyle(fontSize: 16)),
                   pw.SizedBox(height: 35),
                   pw.Container(
                     width: 130,

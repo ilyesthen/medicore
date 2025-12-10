@@ -83,6 +83,37 @@ class _ValidatePaymentDialogState extends ConsumerState<ValidatePaymentDialog> {
   Map<int, TempPayment> _paymentsMap = {};
   bool _isValidating = false;
   bool _initialized = false;
+  bool _isCheckingPayment = true;
+  bool _hasExistingPaymentToday = false;
+  int _existingPaymentCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingPayment();
+  }
+
+  Future<void> _checkExistingPayment() async {
+    try {
+      final repository = ref.read(paymentsRepositoryProvider);
+      final today = DateTime.now();
+      final count = await repository.countPaymentsByPatientAndDate(
+        patientCode: widget.patientCode,
+        date: today,
+      );
+      if (mounted) {
+        setState(() {
+          _existingPaymentCount = count;
+          _hasExistingPaymentToday = count > 0;
+          _isCheckingPayment = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isCheckingPayment = false);
+      }
+    }
+  }
 
   void _initializePayments(List<MedicalAct> acts) {
     if (_initialized) return;
@@ -348,6 +379,15 @@ class _ValidatePaymentDialogState extends ConsumerState<ValidatePaymentDialog> {
                           style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
                         ),
                       ],
+                      // Show warning if patient already has payment today
+                      if (_hasExistingPaymentToday) ...[
+                        const Icon(Icons.block, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Ce patient a déjà $_existingPaymentCount paiement(s) validé(s) aujourd\'hui',
+                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                        ),
+                      ],
                       const Spacer(),
                       if (widget.showIgnoreButton) ...[
                         TextButton(
@@ -361,14 +401,23 @@ class _ValidatePaymentDialogState extends ConsumerState<ValidatePaymentDialog> {
                         child: const Text('Annuler'),
                       ),
                       const SizedBox(width: 16),
+                      // Disable validate button if payment already exists today
                       ElevatedButton.icon(
-                        onPressed: _isValidating || _selectedCount == 0 ? null : _validateSelectedPayments,
+                        onPressed: _isValidating || _selectedCount == 0 || _hasExistingPaymentToday || _isCheckingPayment
+                            ? null 
+                            : _validateSelectedPayments,
                         icon: _isValidating
                             ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.check, size: 18),
-                        label: Text(_isValidating ? 'Validation...' : 'Valider ($_selectedCount)'),
+                            : Icon(_hasExistingPaymentToday ? Icons.block : Icons.check, size: 18),
+                        label: Text(_isCheckingPayment 
+                            ? 'Vérification...' 
+                            : _hasExistingPaymentToday 
+                                ? 'Déjà validé' 
+                                : _isValidating 
+                                    ? 'Validation...' 
+                                    : 'Valider ($_selectedCount)'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00897B),
+                          backgroundColor: _hasExistingPaymentToday ? Colors.grey : const Color(0xFF00897B),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         ),
