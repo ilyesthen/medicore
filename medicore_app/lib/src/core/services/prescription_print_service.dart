@@ -728,12 +728,12 @@ class PrescriptionPrintService {
       displayAge = age;
     }
 
-    // Adjust padding for A4 - REDUCED LEFT PADDING to preserve formatting
-    final leftPad = useA4 ? 60.0 : 45.0;    // Reduced for wider text area
-    final rightPad = useA4 ? 30.0 : 20.0;   // Right margin - reduced to use space
-    final topPad = useA4 ? 180.0 : 145.0;   // Moved UP more for header space
-    final fontSize = useA4 ? 14.0 : 12.0;   // Text size - INCREASED
-    final titleSize = useA4 ? 17.0 : 14.0;  // Title size - INCREASED
+    // Adjust padding - same as Optique/Lentilles (content on RIGHT side)
+    final leftPad = useA4 ? 280.0 : 200.0;  // Same as Optique/Lentilles - content on RIGHT
+    final rightPad = useA4 ? 15.0 : 10.0;   // Small right margin
+    final topPad = useA4 ? 200.0 : 155.0;   // Same as Optique/Lentilles
+    final fontSize = useA4 ? 13.0 : 11.0;   // Text size
+    final titleSize = useA4 ? 15.0 : 13.0;  // Title size
 
     doc.addPage(
       pw.Page(
@@ -824,15 +824,14 @@ class PrescriptionPrintService {
       creator: 'MediCore v1.0',
     );
     
-    // Load background image for A4 Compte Rendu
-    final bgImage = await _loadBackgroundImage();
+    // No background image for Compte Rendu
     const pageFormat = PdfPageFormat.a4;
     
-    // Margins: top ~180pt for header space, bottom ~150pt for footer space
-    const topMargin = 180.0;
-    const bottomMargin = 150.0;
-    const leftMargin = 60.0;
-    const rightMargin = 30.0;  // Reduced to use right space
+    // Margins: same as Optique/Lentilles - content on RIGHT side
+    const topMargin = 200.0;
+    const bottomMargin = 100.0;
+    const leftMargin = 280.0;  // Same as Optique/Lentilles - content on RIGHT
+    const rightMargin = 15.0;  // Small right margin
 
     // Determine what name to use for printing
     String displayName;
@@ -939,12 +938,7 @@ class PrescriptionPrintService {
             left: leftMargin,
             right: rightMargin,
           ),
-          buildBackground: bgImage != null
-              ? (context) => pw.FullPage(
-                    ignoreMargins: true,
-                    child: pw.Image(pw.MemoryImage(bgImage), fit: pw.BoxFit.cover),
-                  )
-              : null,
+          // No background image
         ),
       ),
     );

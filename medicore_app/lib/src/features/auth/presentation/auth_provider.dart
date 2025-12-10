@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/auth_repository.dart';
 import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';
@@ -6,6 +7,7 @@ import '../../../core/database/app_database.dart' show Room;
 import '../../../core/constants/app_constants.dart';
 import '../../rooms/presentation/room_presence_provider.dart';
 import '../../users/data/nurse_preferences_repository.dart';
+import '../../rooms/data/rooms_repository.dart';
 
 /// Auth repository provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -91,10 +93,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
           }
         }
         
+        // Check for saved room selection (persisted across sessions)
+        Room? savedRoom;
+        bool needsRoomSelection = requiresRoom;
+        
+        if (requiresRoom) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final savedRoomId = prefs.getString('selected_room_${result.user!.id}');
+            
+            if (savedRoomId != null) {
+              // Restore saved room
+              final roomsRepo = RoomsRepository();
+              final rooms = await roomsRepo.getAllRooms();
+              savedRoom = rooms.where((r) => r.id.toString() == savedRoomId).firstOrNull;
+              
+              if (savedRoom != null) {
+                print('✅ Restored saved room: ${savedRoom.name}');
+                needsRoomSelection = false;
+                
+                // Add user to room presence
+                _ref.read(roomPresenceProvider.notifier).addUserToRoom(
+                  savedRoom.id,
+                  result.user!.name,
+                );
+              }
+            }
+          } catch (e) {
+            print('⚠️ Failed to restore saved room: $e');
+          }
+        }
+        
         state = state.copyWith(
           isAuthenticated: true,
           user: result.user,
-          needsRoomSelection: requiresRoom,
+          selectedRoom: savedRoom,
+          needsRoomSelection: needsRoomSelection,
           isLoading: false,
         );
       } else {
@@ -112,8 +146,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
   
-  /// Set selected room for user
-  void setRoom(Room room) {
+  /// Set selected room for user (persisted across sessions)
+  Future<void> setRoom(Room room) async {
     // Remove user from previous room if any
     if (state.selectedRoom != null && state.user != null) {
       _ref.read(roomPresenceProvider.notifier).removeUserFromRoom(
@@ -128,6 +162,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         room.id,
         state.user!.name,
       );
+      
+      // Persist room selection for next session
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('selected_room_${state.user!.id}', room.id.toString());
+        print('💾 Saved room selection: ${room.name} for user ${state.user!.id}');
+      } catch (e) {
+        print('⚠️ Failed to save room selection: $e');
+      }
     }
     
     state = state.copyWith(

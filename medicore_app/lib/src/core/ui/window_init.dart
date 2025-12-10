@@ -14,14 +14,8 @@ void initializeWindow() {
         MediCoreDimensions.minWindowHeight,
       );
     
-    // Set initial window size to design dimensions
-    appWindow.size = const Size(
-      MediCoreDimensions.designWidth,
-      MediCoreDimensions.designHeight,
-    );
-    
-    // Center window on screen
-    appWindow.alignment = Alignment.center;
+    // Start in fullscreen/maximized mode
+    appWindow.maximize();
     
     appWindow.show();
   });

@@ -1,5 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:async';
 
@@ -13,6 +15,7 @@ class NotificationService {
   bool _isInitialized = false;
   bool _isPlaying = false;
   Timer? _loopTimer;
+  String? _cachedSoundPath; // Cached path to sound file for Windows
 
   /// Initialize the notification service
   Future<void> initialize() async {
@@ -22,10 +25,37 @@ class NotificationService {
       // Set to loop mode
       await _audioPlayer.setReleaseMode(ReleaseMode.loop);
       await _audioPlayer.setVolume(1.0);
+      
+      // On Windows, copy asset to temp file for reliable playback
+      if (Platform.isWindows) {
+        await _prepareSoundFileForWindows();
+      }
+      
       _isInitialized = true;
       debugPrint('✅ NotificationService initialized');
     } catch (e) {
       debugPrint('❌ NotificationService: Failed to initialize - $e');
+    }
+  }
+  
+  /// Prepare sound file for Windows by copying to temp directory
+  Future<void> _prepareSoundFileForWindows() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final soundFile = File('${tempDir.path}/notification.mp3');
+      
+      if (!await soundFile.exists()) {
+        // Copy asset to temp file
+        final data = await rootBundle.load('assets/sounds/notification.mp3');
+        final bytes = data.buffer.asUint8List();
+        await soundFile.writeAsBytes(bytes);
+        debugPrint('📁 Copied notification sound to: ${soundFile.path}');
+      }
+      
+      _cachedSoundPath = soundFile.path;
+      debugPrint('🔊 Windows sound file ready: $_cachedSoundPath');
+    } catch (e) {
+      debugPrint('⚠️ Failed to prepare Windows sound file: $e');
     }
   }
 
@@ -122,11 +152,51 @@ class NotificationService {
 
   /// Play Windows sound - multiple reliable methods
   Future<void> _playWindowsSound() async {
-    // Method 1: PowerShell with SystemSounds (most reliable for Windows notifications)
+    // Method 1: Use DeviceFileSource with cached file (most reliable on Windows)
+    if (_cachedSoundPath != null) {
+      try {
+        await _audioPlayer.setReleaseMode(ReleaseMode.release);
+        await _audioPlayer.play(DeviceFileSource(_cachedSoundPath!));
+        debugPrint('🔊 Windows sound played via DeviceFileSource');
+        return;
+      } catch (e) {
+        debugPrint('⚠️ DeviceFileSource failed: $e');
+      }
+    }
+
+    // Method 2: Try AssetSource as fallback
     try {
-      final result = await Process.run('powershell', [
+      await _audioPlayer.setReleaseMode(ReleaseMode.release);
+      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
+      debugPrint('🔊 Windows sound played via AssetSource');
+      return;
+    } catch (e) {
+      debugPrint('⚠️ AssetSource failed: $e');
+    }
+
+    // Method 3: PowerShell with SoundPlayer using cached file
+    if (_cachedSoundPath != null) {
+      try {
+        final result = await Process.run('powershell.exe', [
+          '-NoProfile',
+          '-WindowStyle', 'Hidden',
+          '-Command',
+          "(New-Object Media.SoundPlayer '$_cachedSoundPath').PlaySync()"
+        ]);
+        if (result.exitCode == 0) {
+          debugPrint('🔊 Windows sound played via PowerShell SoundPlayer');
+          return;
+        }
+      } catch (e) {
+        debugPrint('⚠️ PowerShell SoundPlayer failed: $e');
+      }
+    }
+
+    // Method 4: PowerShell with SystemSounds
+    try {
+      final result = await Process.run('powershell.exe', [
         '-NoProfile',
-        '-NonInteractive', 
+        '-WindowStyle', 'Hidden',
         '-Command',
         '[System.Media.SystemSounds]::Exclamation.Play()'
       ]);
@@ -138,40 +208,26 @@ class NotificationService {
       debugPrint('⚠️ SystemSounds failed: $e');
     }
 
-    // Method 2: PowerShell with SoundPlayer and Windows Media path
+    // Method 5: Use rundll32 MessageBeep
     try {
-      await Process.run('powershell', [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        r"(New-Object Media.SoundPlayer 'C:\Windows\Media\Windows Notify.wav').PlaySync()"
-      ]);
-      debugPrint('🔊 Windows sound played via SoundPlayer');
+      await Process.run('rundll32.exe', ['user32.dll,MessageBeep']);
+      debugPrint('🔊 Windows sound played via rundll32');
       return;
     } catch (e) {
-      debugPrint('⚠️ SoundPlayer failed: $e');
+      debugPrint('⚠️ rundll32 failed: $e');
     }
 
-    // Method 3: Console Beep (always works)
+    // Method 6: Console Beep as last resort
     try {
-      await Process.run('powershell', [
+      await Process.run('powershell.exe', [
         '-NoProfile',
-        '-NonInteractive',
+        '-WindowStyle', 'Hidden',
         '-Command',
-        '[Console]::Beep(1000, 300)'
+        '[Console]::Beep(800, 400)'
       ]);
       debugPrint('🔊 Windows sound played via Console.Beep');
-      return;
     } catch (e) {
-      debugPrint('⚠️ Console.Beep failed: $e');
-    }
-
-    // Method 4: Fallback to audioplayer with asset
-    try {
-      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
-      debugPrint('🔊 Sound played via AudioPlayer');
-    } catch (e2) {
-      debugPrint('❌ All sound methods failed: $e2');
+      debugPrint('❌ All Windows sound methods failed: $e');
     }
   }
 

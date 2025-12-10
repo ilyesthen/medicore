@@ -488,7 +488,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
                       ]),
                     ),
                     const SizedBox(width: 12),
-                    Row(children: [_QuickActionButton(icon: Icons.preview, tooltip: 'Prescription Optique', onPressed: _showPrescriptionOptique), const SizedBox(width: 6), _QuickActionButton(icon: Icons.blur_circular, tooltip: 'Prescription Lentilles', onPressed: _showPrescriptionLentilles), const SizedBox(width: 6), const _QuickActionButton(icon: Icons.description, tooltip: 'Ordonnance')]),
+                    Row(children: [_QuickActionButton(icon: Icons.preview, tooltip: 'Prescription Optique', onPressed: _showPrescriptionOptique), const SizedBox(width: 6), _QuickActionButton(icon: Icons.blur_circular, tooltip: 'Prescription Lentilles', onPressed: _showPrescriptionLentilles), const SizedBox(width: 6), _QuickActionButton(icon: Icons.description, tooltip: 'Ordonnance', onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrdonnancePage(patient: widget.patient))))]),
                   ]),
                 ),
                 const SizedBox(height: 10),
@@ -546,8 +546,8 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
   }
 }
 
-// MOTIF + CYCLOPLÉGIE
-class _MotifCycloplegieSection extends StatelessWidget {
+// MOTIF + CYCLOPLÉGIE with autocomplete
+class _MotifCycloplegieSection extends StatefulWidget {
   final String? selectedMotif;
   final String selectedCycloplegie;
   final ValueChanged<String?> onMotifChanged;
@@ -559,21 +559,224 @@ class _MotifCycloplegieSection extends StatelessWidget {
   static const cycloplegies = ['Aucune', 'Atropine 0.3', 'Atropine 0.5', 'Atropine 1%', 'Mydriaticum', 'Skiacol', 'Melange (M + N)'];
 
   @override
+  State<_MotifCycloplegieSection> createState() => _MotifCycloplegieSectionState();
+}
+
+class _MotifCycloplegieSectionState extends State<_MotifCycloplegieSection> {
+  @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Expanded(child: _buildBox('MOTIF DE CONSULTATION', selectedMotif, motifs, onMotifChanged)),
+      Expanded(child: _AutocompleteBox(
+        title: 'MOTIF DE CONSULTATION',
+        value: widget.selectedMotif,
+        options: _MotifCycloplegieSection.motifs,
+        onChanged: widget.onMotifChanged,
+      )),
       const SizedBox(width: 8),
-      Expanded(child: _buildBox('CYCLOPLÉGIE', selectedCycloplegie, cycloplegies, (v) => onCycloplegieChanged(v ?? 'Aucune'))),
+      Expanded(child: _AutocompleteBox(
+        title: 'CYCLOPLÉGIE',
+        value: widget.selectedCycloplegie,
+        options: _MotifCycloplegieSection.cycloplegies,
+        onChanged: (v) => widget.onCycloplegieChanged(v ?? 'Aucune'),
+      )),
     ]);
   }
+}
 
-  Widget _buildBox(String title, String? value, List<String> items, ValueChanged<String?> onChanged) {
-    return Container(
-      decoration: BoxDecoration(color: MediCoreColors.paperWhite, border: Border.all(color: MediCoreColors.steelOutline, width: 1), borderRadius: BorderRadius.circular(4)),
-      child: Column(children: [
-        Container(height: 30, decoration: const BoxDecoration(color: MediCoreColors.deepNavy, borderRadius: BorderRadius.only(topLeft: Radius.circular(3), topRight: Radius.circular(3))), alignment: Alignment.centerLeft, padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))),
-        Expanded(child: Padding(padding: const EdgeInsets.all(8), child: Container(decoration: BoxDecoration(border: Border.all(color: MediCoreColors.steelOutline), borderRadius: BorderRadius.circular(4)), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: value, hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Sélectionner...', style: TextStyle(fontSize: 12))), isExpanded: true, menuMaxHeight: 400, items: items.map((m) => DropdownMenuItem(value: m, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(m, style: const TextStyle(fontSize: 12))))).toList(), onChanged: onChanged))))),
-      ]),
+// Autocomplete box for MOTIF/CYCLOPLÉGIE
+class _AutocompleteBox extends StatefulWidget {
+  final String title;
+  final String? value;
+  final List<String> options;
+  final ValueChanged<String?> onChanged;
+
+  const _AutocompleteBox({required this.title, this.value, required this.options, required this.onChanged});
+
+  @override
+  State<_AutocompleteBox> createState() => _AutocompleteBoxState();
+}
+
+class _AutocompleteBoxState extends State<_AutocompleteBox> {
+  late TextEditingController _controller;
+  final _layerLink = LayerLink();
+  final _focusNode = FocusNode();
+  OverlayEntry? _overlayEntry;
+  String _filterText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value ?? '');
+    _controller.addListener(_onTextChanged);
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(_AutocompleteBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value && widget.value != _controller.text) {
+      _controller.text = widget.value ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
+    _removeOverlay();
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (!_focusNode.hasFocus) {
+      _removeOverlay();
+    }
+  }
+
+  void _onTextChanged() {
+    final text = _controller.text.trim().toLowerCase();
+    if (text.isNotEmpty && text != _filterText) {
+      _filterText = text;
+      _showFilteredDropdown(text);
+    } else if (text.isEmpty) {
+      _removeOverlay();
+    }
+    widget.onChanged(_controller.text.isEmpty ? null : _controller.text);
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _showFilteredDropdown(String filter) {
+    _removeOverlay();
+    
+    final filtered = widget.options.where((o) => 
+      o.toLowerCase().contains(filter.toLowerCase())
+    ).toList();
+    
+    if (filtered.isEmpty) return;
+    
+    final overlay = Overlay.of(context);
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: size.width - 16,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          offset: Offset(8, size.height - 8),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: MediCoreColors.steelOutline), borderRadius: BorderRadius.circular(4)),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                children: filtered.map((o) => InkWell(
+                  onTap: () {
+                    _controller.text = o;
+                    widget.onChanged(o);
+                    _removeOverlay();
+                    _filterText = '';
+                    _focusNode.unfocus();
+                  },
+                  child: Container(
+                    color: o.toLowerCase().startsWith(filter.toLowerCase()) ? const Color(0xFFE3F2FD) : Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Text(o, style: const TextStyle(fontSize: 12)),
+                  ),
+                )).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(_overlayEntry!);
+  }
+
+  void _showAllOptions() {
+    _removeOverlay();
+    final overlay = Overlay.of(context);
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: size.width - 16,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          offset: Offset(8, size.height - 8),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: MediCoreColors.steelOutline), borderRadius: BorderRadius.circular(4)),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                children: widget.options.map((o) => InkWell(
+                  onTap: () {
+                    _controller.text = o;
+                    widget.onChanged(o);
+                    _removeOverlay();
+                    _focusNode.unfocus();
+                  },
+                  child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), child: Text(o, style: const TextStyle(fontSize: 12))),
+                )).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(_overlayEntry!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Container(
+        decoration: BoxDecoration(color: MediCoreColors.paperWhite, border: Border.all(color: MediCoreColors.steelOutline, width: 1), borderRadius: BorderRadius.circular(4)),
+        child: Column(children: [
+          Container(height: 30, decoration: const BoxDecoration(color: MediCoreColors.deepNavy, borderRadius: BorderRadius.only(topLeft: Radius.circular(3), topRight: Radius.circular(3))), alignment: Alignment.centerLeft, padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))),
+          Expanded(child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Container(
+              decoration: BoxDecoration(border: Border.all(color: MediCoreColors.steelOutline), borderRadius: BorderRadius.circular(4)),
+              child: Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      hintText: 'Sélectionner...',
+                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: _showAllOptions,
+                  child: const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Icon(Icons.arrow_drop_down, size: 20, color: MediCoreColors.deepNavy)),
+                ),
+              ]),
+            ),
+          )),
+        ]),
+      ),
     );
   }
 }
@@ -994,11 +1197,13 @@ class _FieldDropdownState extends State<_FieldDropdown> {
   FocusNode get _focusNode => widget.focusNode ?? (_internalFocusNode ??= FocusNode());
   OverlayEntry? _overlayEntry;
   final _layerLink = LayerLink();
+  String _filterText = '';
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.value ?? '');
+    _controller.addListener(_onTextChanged);
   }
 
   @override
@@ -1011,15 +1216,77 @@ class _FieldDropdownState extends State<_FieldDropdown> {
 
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
-    _internalFocusNode?.dispose(); // Only dispose internal focus node
+    _internalFocusNode?.dispose();
     _removeOverlay();
     super.dispose();
+  }
+
+  void _onTextChanged() {
+    final text = _controller.text.trim().toLowerCase();
+    if (text.isNotEmpty && text != _filterText) {
+      _filterText = text;
+      _showFilteredDropdown(text);
+    } else if (text.isEmpty) {
+      _removeOverlay();
+    }
   }
 
   void _removeOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+  }
+
+  void _showFilteredDropdown(String filter) {
+    _removeOverlay();
+    
+    // Filter options based on typed text
+    final filtered = widget.options.where((o) => 
+      o.toLowerCase().contains(filter.toLowerCase())
+    ).toList();
+    
+    if (filtered.isEmpty) return;
+    
+    final overlay = Overlay.of(context);
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: size.width - 55,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          offset: Offset(55, size.height),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: MediCoreColors.steelOutline), borderRadius: BorderRadius.circular(4)),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                children: filtered.map((o) => InkWell(
+                  onTap: () {
+                    _controller.text = o;
+                    widget.onChanged(o);
+                    _removeOverlay();
+                    _filterText = '';
+                  },
+                  child: Container(
+                    color: o.toLowerCase().startsWith(filter.toLowerCase()) ? const Color(0xFFE3F2FD) : Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Text(o, style: const TextStyle(fontSize: 14)),
+                  ),
+                )).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(_overlayEntry!);
   }
 
   void _showDropdown() {
@@ -1039,7 +1306,7 @@ class _FieldDropdownState extends State<_FieldDropdown> {
             borderRadius: BorderRadius.circular(4),
             child: Container(
               constraints: const BoxConstraints(maxHeight: 200),
-              decoration: BoxDecoration(border: Border.all(color: MediCoreColors.steelOutline), borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: MediCoreColors.steelOutline), borderRadius: BorderRadius.circular(4)),
               child: ListView(
                 padding: EdgeInsets.zero,
                 shrinkWrap: true,
@@ -1077,8 +1344,10 @@ class _FieldDropdownState extends State<_FieldDropdown> {
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8)),
               onChanged: (v) => widget.onChanged(v.isEmpty ? null : v),
-              onTap: () => _removeOverlay(),
-              onSubmitted: (_) => widget.onFieldSubmitted?.call(),
+              onSubmitted: (_) {
+                _removeOverlay();
+                widget.onFieldSubmitted?.call();
+              },
             ),
           ),
           InkWell(

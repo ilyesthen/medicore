@@ -8,11 +8,60 @@ import '../../../core/generated/medicore.pb.dart';
 import '../../../core/api/realtime_sync_service.dart';
 
 /// Repository for patient data operations
+/// Optimized with in-memory cache for instant CRUD operations
 class PatientsRepository {
   final AppDatabase _db;
+  
+  // In-memory cache for instant access
+  static List<Patient>? _cachedPatients;
+  static DateTime? _cacheTime;
+  static const _cacheMaxAge = Duration(minutes: 5);
+  static bool _isFetching = false;
 
   PatientsRepository([AppDatabase? database]) 
       : _db = database ?? AppDatabase();
+  
+  /// Clear cache (call after create/update/delete)
+  void _invalidateCache() {
+    _cachedPatients = null;
+    _cacheTime = null;
+  }
+  
+  /// Check if cache is valid
+  bool get _isCacheValid {
+    if (_cachedPatients == null || _cacheTime == null) return false;
+    return DateTime.now().difference(_cacheTime!) < _cacheMaxAge;
+  }
+  
+  /// Get patients from cache or fetch fresh
+  Future<List<Patient>> _getCachedPatients() async {
+    if (_isCacheValid) return _cachedPatients!;
+    
+    // Prevent multiple simultaneous fetches
+    if (_isFetching) {
+      // Wait for existing fetch to complete
+      while (_isFetching) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+      if (_cachedPatients != null) return _cachedPatients!;
+    }
+    
+    _isFetching = true;
+    try {
+      if (GrpcClientConfig.isServer) {
+        // Admin mode: fetch from local DB
+        _cachedPatients = await _db.select(_db.patients).get();
+      } else {
+        // Client mode: fetch from server
+        final response = await MediCoreClient.instance.getAllPatients();
+        _cachedPatients = response.patients.map(_grpcPatientToLocal).toList();
+      }
+      _cacheTime = DateTime.now();
+      return _cachedPatients!;
+    } finally {
+      _isFetching = false;
+    }
+  }
 
   /// Generate unique 8-character barcode
   Future<String> _generateUniqueBarcode() async {
@@ -60,36 +109,49 @@ class PatientsRepository {
   /// Get all patients with smart ordering:
   /// - Today's patients first (newest code first for easy access)
   /// - Then all other patients (oldest code first)
+  /// OPTIMIZED: Uses cache for instant loading
   Stream<List<Patient>> watchAllPatients() async* {
-    // Client mode: use remote with polling
-    if (!GrpcClientConfig.isServer) {
-      yield* _watchPatientsRemote();
-      return;
+    // First, yield cached data immediately if available
+    if (_isCacheValid) {
+      yield _applySmartOrdering(_cachedPatients!);
     }
     
-    await for (final _ in _db.select(_db.patients).watch()) {
-      // Get today's date range
-      final now = DateTime.now();
-      final todayStart = DateTime(now.year, now.month, now.day);
-      final todayEnd = todayStart.add(const Duration(days: 1));
-
-      // Get today's patients (newest first)
-      final todayPatients = await (_db.select(_db.patients)
-            ..where((p) => 
-                p.createdAt.isBiggerOrEqualValue(todayStart) &
-                p.createdAt.isSmallerThanValue(todayEnd))
-            ..orderBy([(p) => OrderingTerm.desc(p.code)]))
-          .get();
-
-      // Get all other patients (oldest first)
-      final otherPatients = await (_db.select(_db.patients)
-            ..where((p) => p.createdAt.isSmallerThanValue(todayStart))
-            ..orderBy([(p) => OrderingTerm.asc(p.code)]))
-          .get();
-
-      // Combine: today's patients first, then others
-      yield [...todayPatients, ...otherPatients];
+    // Then fetch fresh data
+    try {
+      final patients = await _getCachedPatients();
+      yield _applySmartOrdering(patients);
+    } catch (e) {
+      print('❌ [PatientsRepository] watchAllPatients failed: $e');
+      if (_cachedPatients != null) {
+        yield _applySmartOrdering(_cachedPatients!);
+      } else {
+        yield [];
+      }
     }
+  }
+  
+  /// Apply smart ordering: today's patients first (newest first), then others (oldest first)
+  List<Patient> _applySmartOrdering(List<Patient> patients) {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    
+    final todayPatients = <Patient>[];
+    final otherPatients = <Patient>[];
+    
+    for (final p in patients) {
+      if (p.createdAt.isAfter(todayStart) || p.createdAt.isAtSameMomentAs(todayStart)) {
+        todayPatients.add(p);
+      } else {
+        otherPatients.add(p);
+      }
+    }
+    
+    // Today's: newest code first
+    todayPatients.sort((a, b) => b.code.compareTo(a.code));
+    // Others: oldest code first
+    otherPatients.sort((a, b) => a.code.compareTo(b.code));
+    
+    return [...todayPatients, ...otherPatients];
   }
   
   /// Remote stream for patients with SSE support
@@ -125,12 +187,37 @@ class PatientsRepository {
     return controller.stream;
   }
   
-  /// Fetch patients from remote server (server returns in code ASC order)
+  /// Fetch patients from remote server with smart ordering
+  /// Same as admin: today's patients first (newest code first), then others (oldest first)
   Future<List<Patient>> _fetchPatientsRemote() async {
     try {
       final response = await MediCoreClient.instance.getAllPatients();
-      // Server already returns patients ordered by code ASC (oldest first)
-      return response.patients.map(_grpcPatientToLocal).toList();
+      final allPatients = response.patients.map(_grpcPatientToLocal).toList();
+      
+      // Apply same smart ordering as admin mode
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      
+      // Split into today's patients and others
+      final todayPatients = <Patient>[];
+      final otherPatients = <Patient>[];
+      
+      for (final p in allPatients) {
+        if (p.createdAt.isAfter(todayStart) || p.createdAt.isAtSameMomentAs(todayStart)) {
+          todayPatients.add(p);
+        } else {
+          otherPatients.add(p);
+        }
+      }
+      
+      // Today's patients: newest code first (descending)
+      todayPatients.sort((a, b) => b.code.compareTo(a.code));
+      
+      // Other patients: oldest code first (ascending)
+      otherPatients.sort((a, b) => a.code.compareTo(b.code));
+      
+      // Combine: today's first, then others
+      return [...todayPatients, ...otherPatients];
     } catch (e) {
       print('❌ [PatientsRepository] Remote fetch failed: $e');
       return [];
@@ -174,134 +261,75 @@ class PatientsRepository {
   }
 
   /// Search patients by name (first, last, or both with space)
-  /// Also respects smart ordering (today's patients first)
+  /// OPTIMIZED: Uses in-memory cache for instant search
   Stream<List<Patient>> searchPatients(String query) async* {
     if (query.isEmpty) {
       yield* watchAllPatients();
       return;
     }
     
-    // Client mode: fetch all and filter locally for reliable search
-    if (!GrpcClientConfig.isServer) {
-      try {
-        final allPatients = await _fetchPatientsRemote();
-        final lowerQuery = query.toLowerCase().trim();
-        
-        List<Patient> filtered;
-        
-        // Check if query is a valid patient code (exact number match)
-        final queryAsCode = int.tryParse(query.trim());
-        if (queryAsCode != null) {
-          // Exact code match only
-          filtered = allPatients.where((p) => p.code == queryAsCode).toList();
-        } else if (lowerQuery.contains(' ')) {
-          // Search with space: match both first and last name
-          final parts = lowerQuery.split(' ');
-          final part1 = parts[0];
-          final part2 = parts.sublist(1).join(' ');
-          
-          filtered = allPatients.where((p) {
-            final firstName = p.firstName.toLowerCase();
-            final lastName = p.lastName.toLowerCase();
-            return (firstName.contains(part1) && lastName.contains(part2)) ||
-                   (firstName.contains(part2) && lastName.contains(part1));
-          }).toList();
-        } else {
-          // Single word: search in first or last name
-          filtered = allPatients.where((p) {
-            return p.firstName.toLowerCase().contains(lowerQuery) ||
-                   p.lastName.toLowerCase().contains(lowerQuery);
-          }).toList();
-        }
-        
-        yield filtered;
-      } catch (e) {
-        print('❌ [PatientsRepository] Remote searchPatients failed: $e');
-        yield [];
-      }
-      return;
+    // Use cached patients for instant search
+    try {
+      final allPatients = await _getCachedPatients();
+      final results = _filterPatients(allPatients, query);
+      yield results;
+    } catch (e) {
+      print('❌ [PatientsRepository] searchPatients failed: $e');
+      yield [];
     }
-
+  }
+  
+  /// Filter patients by query - pure in-memory operation (instant)
+  List<Patient> _filterPatients(List<Patient> patients, String query) {
     final lowerQuery = query.toLowerCase().trim();
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
     
-    await for (final _ in _db.select(_db.patients).watch()) {
-      // Get today's date range
-      final now = DateTime.now();
-      final todayStart = DateTime(now.year, now.month, now.day);
-      final todayEnd = todayStart.add(const Duration(days: 1));
-
-      List<Patient> todayResults = [];
-      List<Patient> otherResults = [];
-
-      // Check if query contains space (searching both names)
-      if (lowerQuery.contains(' ')) {
-        final parts = lowerQuery.split(' ');
-        final part1 = parts[0];
-        final part2 = parts.sublist(1).join(' ');
-        
-        // Today's patients matching search
-        todayResults = await (_db.select(_db.patients)
-              ..where((p) =>
-                  (p.createdAt.isBiggerOrEqualValue(todayStart) &
-                   p.createdAt.isSmallerThanValue(todayEnd)) &
-                  ((p.firstName.lower().like('%$part1%') & p.lastName.lower().like('%$part2%')) |
-                   (p.firstName.lower().like('%$part2%') & p.lastName.lower().like('%$part1%'))))
-              ..orderBy([(p) => OrderingTerm.desc(p.code)]))
-            .get();
-
-        // Other patients matching search
-        otherResults = await (_db.select(_db.patients)
-              ..where((p) =>
-                  p.createdAt.isSmallerThanValue(todayStart) &
-                  ((p.firstName.lower().like('%$part1%') & p.lastName.lower().like('%$part2%')) |
-                   (p.firstName.lower().like('%$part2%') & p.lastName.lower().like('%$part1%'))))
-              ..orderBy([(p) => OrderingTerm.asc(p.code)]))
-            .get();
-      } else {
-        // Check if query is a valid patient code (number)
-        final queryAsCode = int.tryParse(query);
-        
-        // Single word search - today's patients
-        if (queryAsCode != null) {
-          // Search by code only
-          todayResults = await (_db.select(_db.patients)
-                ..where((p) =>
-                    (p.createdAt.isBiggerOrEqualValue(todayStart) &
-                     p.createdAt.isSmallerThanValue(todayEnd)) &
-                    p.code.equals(queryAsCode))
-                ..orderBy([(p) => OrderingTerm.desc(p.code)]))
-              .get();
-          
-          otherResults = await (_db.select(_db.patients)
-                ..where((p) =>
-                    p.createdAt.isSmallerThanValue(todayStart) &
-                    p.code.equals(queryAsCode))
-                ..orderBy([(p) => OrderingTerm.asc(p.code)]))
-              .get();
-        } else {
-          // Search by name only
-          todayResults = await (_db.select(_db.patients)
-                ..where((p) =>
-                    (p.createdAt.isBiggerOrEqualValue(todayStart) &
-                     p.createdAt.isSmallerThanValue(todayEnd)) &
-                    (p.firstName.lower().like('%$lowerQuery%') |
-                     p.lastName.lower().like('%$lowerQuery%')))
-                ..orderBy([(p) => OrderingTerm.desc(p.code)]))
-              .get();
-
-          otherResults = await (_db.select(_db.patients)
-                ..where((p) =>
-                    p.createdAt.isSmallerThanValue(todayStart) &
-                    (p.firstName.lower().like('%$lowerQuery%') |
-                     p.lastName.lower().like('%$lowerQuery%')))
-                ..orderBy([(p) => OrderingTerm.asc(p.code)]))
-              .get();
-        }
-      }
-
-      // Combine: today's matches first, then others
-      yield [...todayResults, ...otherResults];
+    List<Patient> filtered;
+    
+    // Check if query is a valid patient code (exact number match)
+    final queryAsCode = int.tryParse(query.trim());
+    if (queryAsCode != null) {
+      // Exact code match only
+      filtered = patients.where((p) => p.code == queryAsCode).toList();
+    } else if (lowerQuery.contains(' ')) {
+      // Search with space: match both first and last name
+      final parts = lowerQuery.split(' ');
+      final part1 = parts[0];
+      final part2 = parts.sublist(1).join(' ');
+      
+      filtered = patients.where((p) {
+        final firstName = p.firstName.toLowerCase();
+        final lastName = p.lastName.toLowerCase();
+        return (firstName.contains(part1) && lastName.contains(part2)) ||
+               (firstName.contains(part2) && lastName.contains(part1));
+      }).toList();
+    } else {
+      // Single word: search in first or last name
+      filtered = patients.where((p) {
+        return p.firstName.toLowerCase().contains(lowerQuery) ||
+               p.lastName.toLowerCase().contains(lowerQuery);
+      }).toList();
     }
+    
+    // Apply smart ordering
+    final todayPatients = <Patient>[];
+    final otherPatients = <Patient>[];
+    
+    for (final p in filtered) {
+      if (p.createdAt.isAfter(todayStart) || p.createdAt.isAtSameMomentAs(todayStart)) {
+        todayPatients.add(p);
+      } else {
+        otherPatients.add(p);
+      }
+    }
+    
+    // Today's patients: newest code first
+    todayPatients.sort((a, b) => b.code.compareTo(a.code));
+    // Other patients: oldest code first
+    otherPatients.sort((a, b) => a.code.compareTo(b.code));
+    
+    return [...todayPatients, ...otherPatients];
   }
 
   /// Create new patient
@@ -327,7 +355,8 @@ class PatientsRepository {
           phone: phoneNumber,
         );
         final code = await MediCoreClient.instance.createPatient(request);
-        return Patient(
+        _invalidateCache(); // Clear cache after create
+        final newPatient = Patient(
           code: code,
           barcode: '',
           createdAt: DateTime.now(),
@@ -341,6 +370,11 @@ class PatientsRepository {
           updatedAt: DateTime.now(),
           needsSync: false,
         );
+        // Add to cache immediately for instant visibility
+        if (_cachedPatients != null) {
+          _cachedPatients!.insert(0, newPatient);
+        }
+        return newPatient;
       } catch (e) {
         print('❌ [PatientsRepository] Remote createPatient failed: $e');
         rethrow;
@@ -370,7 +404,13 @@ class PatientsRepository {
     );
 
     await _db.into(_db.patients).insert(companion);
-    return (await getPatientByCode(code))!;
+    _invalidateCache(); // Clear cache after create
+    final newPatient = (await getPatientByCode(code))!;
+    // Add to cache immediately
+    if (_cachedPatients != null) {
+      _cachedPatients!.insert(0, newPatient);
+    }
+    return newPatient;
   }
 
   /// Update patient
@@ -397,6 +437,7 @@ class PatientsRepository {
           phone: phoneNumber,
         );
         await MediCoreClient.instance.updatePatient(patient);
+        _invalidateCache(); // Clear cache after update
         return;
       } catch (e) {
         print('❌ [PatientsRepository] Remote updatePatient failed: $e');
@@ -423,6 +464,7 @@ class PatientsRepository {
     await (_db.update(_db.patients)
           ..where((p) => p.code.equals(code)))
         .write(companion);
+    _invalidateCache(); // Clear cache after update
   }
 
   /// Delete patient
@@ -431,6 +473,9 @@ class PatientsRepository {
     if (!GrpcClientConfig.isServer) {
       try {
         await MediCoreClient.instance.deletePatient(code);
+        _invalidateCache(); // Clear cache after delete
+        // Remove from cache immediately
+        _cachedPatients?.removeWhere((p) => p.code == code);
         return;
       } catch (e) {
         print('❌ [PatientsRepository] Remote deletePatient failed: $e');
@@ -441,6 +486,7 @@ class PatientsRepository {
     await (_db.delete(_db.patients)
           ..where((p) => p.code.equals(code)))
         .go();
+    _invalidateCache(); // Clear cache after delete
   }
 
   /// Import patient from XML data (used for migration)

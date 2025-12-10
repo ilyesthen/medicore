@@ -453,7 +453,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
                               const SizedBox(width: 6),
                               _QuickActionButton(icon: Icons.blur_circular, tooltip: 'Prescription Lentilles', onPressed: _showPrescriptionLentilles),
                               const SizedBox(width: 6),
-                              const _QuickActionButton(icon: Icons.description, tooltip: 'Ordonnance'),
+                              _QuickActionButton(icon: Icons.description, tooltip: 'Ordonnance', onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrdonnancePage(patient: widget.patient)))),
                             ],
                           ),
                         ],

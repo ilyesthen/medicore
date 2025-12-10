@@ -144,6 +144,10 @@ class _PrescriptionLentillesDialogState extends State<PrescriptionLentillesDialo
         backgroundColor: success ? Colors.green : Colors.orange,
         duration: const Duration(seconds: 2),
       ));
+      // Auto-close dialog after successful print
+      if (success) {
+        Navigator.of(context).pop();
+      }
     }
   }
 

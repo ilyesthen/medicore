@@ -29,8 +29,63 @@ class PaymentsRepository {
       return _watchPaymentsRemote(userName, dateStr, timeFilter);
     }
     
-    // Use raw SQL query for reliable date filtering
-    // Handle both ISO string dates (new) and integer timestamps (legacy imported data)
+    // Server/Admin mode: poll from Go server to see payments created by clients
+    // This ensures bidirectional sync (admin sees client-created payments)
+    return _watchPaymentsServerMode(userName, dateStr, timeFilter);
+  }
+  
+  /// Watch payments in server mode with polling from Go server
+  /// This ensures admin can see payments created by clients
+  Stream<List<Payment>> _watchPaymentsServerMode(String userName, String dateStr, String timeFilter) {
+    final controller = StreamController<List<Payment>>.broadcast();
+    Timer? pollTimer;
+    
+    Future<void> fetch() async {
+      try {
+        // Fetch from Go server (which has latest data from all clients)
+        final response = await MediCoreClient.instance.getPaymentsByUserAndDate(userName, dateStr);
+        final paymentsJson = (response['payments'] as List<dynamic>?) ?? [];
+        
+        var payments = paymentsJson.map((json) => _mapJsonToPayment(json as Map<String, dynamic>)).toList();
+        
+        // Apply time filter
+        if (timeFilter == 'morning') {
+          payments = payments.where((p) => p.paymentTime.hour < 13).toList();
+        } else if (timeFilter == 'afternoon') {
+          payments = payments.where((p) => p.paymentTime.hour >= 13).toList();
+        }
+        
+        // Sort by payment time ASC
+        payments.sort((a, b) => a.paymentTime.compareTo(b.paymentTime));
+        
+        if (!controller.isClosed) {
+          controller.add(payments);
+        }
+      } catch (e) {
+        print('❌ [PaymentsRepository] Server mode fetch failed: $e');
+        // Fallback to local DB on error
+        if (!controller.isClosed) {
+          final localPayments = await _fetchFromLocalDb(userName, dateStr, timeFilter);
+          controller.add(localPayments);
+        }
+      }
+    }
+    
+    // Initial fetch
+    fetch();
+    
+    // Poll every 2 seconds to catch client-created payments
+    pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => fetch());
+    
+    controller.onCancel = () {
+      pollTimer?.cancel();
+    };
+    
+    return controller.stream;
+  }
+  
+  /// Fetch payments from local DB (fallback)
+  Future<List<Payment>> _fetchFromLocalDb(String userName, String dateStr, String timeFilter) async {
     final query = _database.customSelect(
       '''
       SELECT * FROM payments 
@@ -50,50 +105,44 @@ class PaymentsRepository {
       readsFrom: {_database.payments},
     );
     
-    return query.watch().map((rows) {
-      final payments = rows.map((row) {
-        // Handle both ISO string and integer timestamp formats
-        DateTime parseDateTime(String columnName) {
-          final data = row.data;
-          final raw = data[columnName];
-          if (raw is int) {
-            return DateTime.fromMillisecondsSinceEpoch(raw);
-          } else if (raw is String) {
-            // Parse and convert to local time
-            final parsed = DateTime.parse(raw);
-            return parsed.toLocal();
-          }
-          return DateTime.now();
+    final rows = await query.get();
+    final payments = rows.map((row) {
+      DateTime parseDateTime(String columnName) {
+        final data = row.data;
+        final raw = data[columnName];
+        if (raw is int) {
+          return DateTime.fromMillisecondsSinceEpoch(raw);
+        } else if (raw is String) {
+          final parsed = DateTime.parse(raw);
+          return parsed.toLocal();
         }
-        
-        return Payment(
-          id: row.read<int>('id'),
-          medicalActId: row.read<int>('medical_act_id'),
-          medicalActName: row.read<String>('medical_act_name'),
-          amount: row.read<int>('amount'),
-          userId: row.read<String>('user_id'),
-          userName: row.read<String>('user_name'),
-          patientCode: row.read<int>('patient_code'),
-          patientFirstName: row.read<String>('patient_first_name'),
-          patientLastName: row.read<String>('patient_last_name'),
-          paymentTime: parseDateTime('payment_time'),
-          createdAt: parseDateTime('created_at'),
-          updatedAt: parseDateTime('updated_at'),
-          needsSync: row.read<bool>('needs_sync'),
-          isActive: row.read<bool>('is_active'),
-        );
-      }).toList();
-      
-      if (timeFilter == 'morning') {
-        // Filter for morning: before 13:00
-        return payments.where((p) => p.paymentTime.hour < 13).toList();
-      } else if (timeFilter == 'afternoon') {
-        // Filter for afternoon: 13:00 and later
-        return payments.where((p) => p.paymentTime.hour >= 13).toList();
+        return DateTime.now();
       }
-      // 'all' or default: return all payments
-      return payments;
-    });
+      
+      return Payment(
+        id: row.read<int>('id'),
+        medicalActId: row.read<int>('medical_act_id'),
+        medicalActName: row.read<String>('medical_act_name'),
+        amount: row.read<int>('amount'),
+        userId: row.read<String>('user_id'),
+        userName: row.read<String>('user_name'),
+        patientCode: row.read<int>('patient_code'),
+        patientFirstName: row.read<String>('patient_first_name'),
+        patientLastName: row.read<String>('patient_last_name'),
+        paymentTime: parseDateTime('payment_time'),
+        createdAt: parseDateTime('created_at'),
+        updatedAt: parseDateTime('updated_at'),
+        needsSync: row.read<bool>('needs_sync'),
+        isActive: row.read<bool>('is_active'),
+      );
+    }).toList();
+    
+    if (timeFilter == 'morning') {
+      return payments.where((p) => p.paymentTime.hour < 13).toList();
+    } else if (timeFilter == 'afternoon') {
+      return payments.where((p) => p.paymentTime.hour >= 13).toList();
+    }
+    return payments;
   }
 
   /// Create a new payment record

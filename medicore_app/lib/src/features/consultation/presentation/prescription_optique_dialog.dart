@@ -153,6 +153,10 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
       backgroundColor: success ? Colors.green : Colors.orange,
       duration: const Duration(seconds: 2),
     ));
+    // Auto-close dialog after successful print
+    if (success) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _printLoin() async {
