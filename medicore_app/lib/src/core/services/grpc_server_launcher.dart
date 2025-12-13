@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 /// Service to launch and manage the Go gRPC server

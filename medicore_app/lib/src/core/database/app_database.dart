@@ -61,6 +61,16 @@ class AppDatabase extends _$AppDatabase {
   /// Flag to skip migrations (used when importing existing database)
   static bool _skipMigrations = false;
   
+  /// Check if database was imported (persisted in SharedPreferences)
+  static Future<bool> _checkIfDatabaseImported() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('database_imported') ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+  
   /// Reinitialize the database (used after import)
   /// This closes the current connection and creates a new one
   static Future<AppDatabase> reinitialize({bool skipMigrations = true}) async {
@@ -88,8 +98,9 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
-        // Skip if importing existing database
-        if (_skipMigrations) {
+        // Check if database was imported (persisted across restarts)
+        final wasImported = await _checkIfDatabaseImported();
+        if (_skipMigrations || wasImported) {
           print('AppDatabase: Skipping onCreate (database imported)');
           return;
         }
@@ -109,8 +120,9 @@ class AppDatabase extends _$AppDatabase {
         );
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Skip migrations if importing existing database
-        if (_skipMigrations) {
+        // Check if database was imported (persisted across restarts)
+        final wasImported = await _checkIfDatabaseImported();
+        if (_skipMigrations || wasImported) {
           print('AppDatabase: Skipping onUpgrade (database imported)');
           return;
         }

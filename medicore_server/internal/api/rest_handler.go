@@ -2290,13 +2290,19 @@ func (h *RESTHandler) GetPaymentsByUserAndDate(w http.ResponseWriter, r *http.Re
 	dateStr := req["date"].(string) // Format: YYYY-MM-DD
 
 	// Include old payments that might have NULL is_active (not explicitly deleted)
+	// Handle both ISO string dates AND Unix timestamps (milliseconds) for backward compatibility
 	rows, err := h.db.Query(`
 		SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name,
 			   patient_code, patient_first_name, patient_last_name, payment_time, COALESCE(is_active, 1) as is_active
 		FROM payments 
-		WHERE user_name = ? AND date(payment_time) = ? AND (is_active = 1 OR is_active IS NULL)
+		WHERE user_name = ? 
+		  AND (is_active = 1 OR is_active IS NULL)
+		  AND (
+		    date(payment_time) = ?
+		    OR date(payment_time / 1000, 'unixepoch', 'localtime') = ?
+		  )
 		ORDER BY payment_time ASC
-	`, userName, dateStr)
+	`, userName, dateStr, dateStr)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2638,7 +2644,7 @@ func (h *RESTHandler) DeletePaymentsByPatientAndDate(w http.ResponseWriter, r *h
 	patientCode := int(req["patient_code"].(float64))
 	dateStr := req["date"].(string)
 
-	result, err := h.db.Exec(`UPDATE payments SET is_active = 0, updated_at = datetime('now') WHERE patient_code = ? AND date(payment_time) = ?`, patientCode, dateStr)
+	result, err := h.db.Exec(`UPDATE payments SET is_active = 0, updated_at = datetime('now') WHERE patient_code = ? AND (date(payment_time) = ? OR date(payment_time / 1000, 'unixepoch', 'localtime') = ?)`, patientCode, dateStr, dateStr)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2658,7 +2664,7 @@ func (h *RESTHandler) CountPaymentsByPatientAndDate(w http.ResponseWriter, r *ht
 	dateStr := req["date"].(string)
 
 	var count int
-	h.db.QueryRow(`SELECT COUNT(*) FROM payments WHERE patient_code = ? AND date(payment_time) = ? AND is_active = 1`, patientCode, dateStr).Scan(&count)
+	h.db.QueryRow(`SELECT COUNT(*) FROM payments WHERE patient_code = ? AND (date(payment_time) = ? OR date(payment_time / 1000, 'unixepoch', 'localtime') = ?) AND is_active = 1`, patientCode, dateStr, dateStr).Scan(&count)
 	respondJSON(w, map[string]interface{}{"count": count})
 }
 

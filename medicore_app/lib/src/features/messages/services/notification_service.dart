@@ -1,29 +1,45 @@
-import 'package:flutter/foundation.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import 'dart:async';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
-/// Notification service for message alerts - uses system commands for reliability
+/// Notification service for message alerts - uses audioplayers for cross-platform support
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
+  AudioPlayer? _player;
   bool _isInitialized = false;
   bool _isPlaying = false;
   Timer? _loopTimer;
-  String? _cachedSoundPath;
+  String? _soundFilePath; // For Windows fallback
 
   /// Initialize the notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
     
     print('🔊 NotificationService: Initializing...');
+    print('🔊 Platform: ${Platform.operatingSystem}');
     
     try {
-      // Always prepare the sound file
-      await _prepareSoundFile();
+      _player = AudioPlayer();
+      
+      // On Windows, copy asset to temp file for more reliable playback
+      if (Platform.isWindows) {
+        await _prepareWindowsSoundFile();
+      }
+      
+      // Try to set source
+      try {
+        await _player!.setSource(AssetSource('sounds/notification.mp3'));
+        await _player!.setReleaseMode(ReleaseMode.stop);
+        print('✅ AudioPlayer source set successfully');
+      } catch (e) {
+        print('⚠️ Failed to set asset source: $e');
+      }
+      
       _isInitialized = true;
       print('✅ NotificationService initialized successfully');
     } catch (e) {
@@ -32,32 +48,19 @@ class NotificationService {
     }
   }
   
-  /// Prepare sound file by copying asset to temp directory
-  Future<void> _prepareSoundFile() async {
+  /// Prepare sound file for Windows (copy from assets to temp)
+  Future<void> _prepareWindowsSoundFile() async {
     try {
       final tempDir = await getTemporaryDirectory();
       final soundFile = File('${tempDir.path}/medicore_notification.mp3');
       
-      // Always re-copy to ensure file is fresh
-      print('📁 Loading sound asset...');
+      print('📁 Preparing Windows sound file...');
       final data = await rootBundle.load('assets/sounds/notification.mp3');
-      final bytes = data.buffer.asUint8List();
-      print('📁 Sound asset loaded: ${bytes.length} bytes');
-      
-      await soundFile.writeAsBytes(bytes);
-      _cachedSoundPath = soundFile.path;
-      print('✅ Sound file ready at: $_cachedSoundPath');
-      
-      // Verify the file exists
-      if (await soundFile.exists()) {
-        final size = await soundFile.length();
-        print('✅ Sound file verified: $size bytes');
-      } else {
-        print('❌ Sound file does not exist after write!');
-      }
-    } catch (e, stack) {
-      print('❌ Failed to prepare sound file: $e');
-      print('Stack: $stack');
+      await soundFile.writeAsBytes(data.buffer.asUint8List());
+      _soundFilePath = soundFile.path;
+      print('✅ Windows sound file ready: $_soundFilePath');
+    } catch (e) {
+      print('⚠️ Failed to prepare Windows sound file: $e');
     }
   }
 
@@ -86,8 +89,8 @@ class NotificationService {
     // Cancel any existing timer
     _loopTimer?.cancel();
     
-    // Then loop every 2 seconds
-    _loopTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    // Then loop every 3 seconds
+    _loopTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       if (_isPlaying) {
         await _playSoundOnce();
       } else {
@@ -96,75 +99,34 @@ class NotificationService {
     });
   }
   
-  /// Play sound once using the best available method
+  /// Play sound once
   Future<void> _playSoundOnce() async {
-    print('🔊 _playSoundOnce() - cached path: $_cachedSoundPath');
-    
-    // Method 1: afplay on macOS with our cached file
-    if (Platform.isMacOS && _cachedSoundPath != null) {
-      final file = File(_cachedSoundPath!);
-      if (await file.exists()) {
-        try {
-          print('🔊 Trying afplay with: $_cachedSoundPath');
-          final result = await Process.run('afplay', [_cachedSoundPath!]);
-          if (result.exitCode == 0) {
-            print('✅ Sound played via afplay');
-            return;
-          } else {
-            print('⚠️ afplay exit code: ${result.exitCode}, stderr: ${result.stderr}');
-          }
-        } catch (e) {
-          print('⚠️ afplay exception: $e');
-        }
-      } else {
-        print('⚠️ Cached sound file does not exist');
-      }
-    }
-    
-    // Method 2: macOS system sound as fallback
-    if (Platform.isMacOS) {
-      try {
-        print('🔊 Trying macOS system sound fallback...');
-        final result = await Process.run('afplay', ['/System/Library/Sounds/Glass.aiff']);
-        if (result.exitCode == 0) {
-          print('✅ Sound played via macOS system sound');
-          return;
-        }
-      } catch (e) {
-        print('⚠️ macOS system sound failed: $e');
-      }
-    }
-    
-    // Method 3: Windows PowerShell
-    if (Platform.isWindows) {
-      try {
-        print('🔊 Trying Windows SystemSounds...');
-        final result = await Process.run('powershell.exe', [
-          '-NoProfile',
-          '-WindowStyle', 'Hidden',
-          '-Command',
-          '[System.Media.SystemSounds]::Exclamation.Play()'
-        ]);
-        if (result.exitCode == 0) {
-          print('✅ Sound played via Windows SystemSounds');
-          return;
-        }
-      } catch (e) {
-        print('⚠️ Windows SystemSounds failed: $e');
+    try {
+      if (_player == null) {
+        print('⚠️ Player is null, creating new player...');
+        _player = AudioPlayer();
       }
       
-      // Windows fallback: rundll32
-      try {
-        print('🔊 Trying Windows rundll32...');
-        await Process.run('rundll32.exe', ['user32.dll,MessageBeep']);
-        print('✅ Sound played via rundll32');
-        return;
-      } catch (e) {
-        print('⚠️ rundll32 failed: $e');
+      // Stop any current playback first
+      await _player!.stop();
+      
+      // On Windows, try DeviceFileSource first (more reliable)
+      if (Platform.isWindows && _soundFilePath != null) {
+        try {
+          await _player!.play(DeviceFileSource(_soundFilePath!));
+          print('✅ Sound played via DeviceFileSource (Windows)');
+          return;
+        } catch (e) {
+          print('⚠️ DeviceFileSource failed: $e, trying AssetSource...');
+        }
       }
+      
+      // Play from asset (works on macOS, Linux, and as fallback on Windows)
+      await _player!.play(AssetSource('sounds/notification.mp3'));
+      print('✅ Sound played via AssetSource');
+    } catch (e) {
+      print('❌ Failed to play sound: $e');
     }
-    
-    print('❌ All sound methods failed!');
   }
 
   /// Stop notification sound
@@ -173,6 +135,12 @@ class NotificationService {
     _isPlaying = false;
     _loopTimer?.cancel();
     _loopTimer = null;
+    
+    try {
+      await _player?.stop();
+    } catch (e) {
+      print('⚠️ Failed to stop player: $e');
+    }
     print('✅ Sound stopped');
   }
 
@@ -181,5 +149,7 @@ class NotificationService {
     _loopTimer?.cancel();
     _loopTimer = null;
     _isPlaying = false;
+    _player?.dispose();
+    _player = null;
   }
 }

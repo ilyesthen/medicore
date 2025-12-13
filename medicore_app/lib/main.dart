@@ -19,6 +19,7 @@ import 'src/core/api/medicore_client.dart';
 import 'src/core/database/app_database.dart';
 import 'src/core/services/admin_broadcast_service.dart';
 import 'src/core/services/grpc_server_launcher.dart';
+import 'src/core/services/database_backup_service.dart';
 import 'src/features/auth/presentation/auth_provider.dart';
 import 'src/features/auth/presentation/login_screen_french.dart';
 import 'src/features/auth/presentation/room_selection_wrapper.dart';
@@ -164,6 +165,10 @@ Future<void> _startAdminBroadcastIfNeeded() async {
         // Start UDP broadcast for client discovery
         await AdminBroadcastService.instance.start(config['ip']);
         print('✅ Admin broadcast service started');
+        
+        // Start automatic database backups
+        await DatabaseBackupService.instance.start();
+        
         print('📡 Admin ready to accept client connections!');
       }
     }
