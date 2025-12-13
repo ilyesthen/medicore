@@ -76,6 +76,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   bool _isLoadingTemplates = true;
 
   static const bilanTypes = [
+    'TOUS',  // Shows all medications without filtering
     'DEMANDE DE BILAN',
     'CERTIFICAT MEDICAL',
     'CERTIFICAT D\'ARRÊT DE TRAVAIL',
@@ -355,12 +356,49 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     );
   }
 
+  /// Get prefix filter based on selected bilan type
+  String? _getBilanTypePrefix(String bilanType) {
+    switch (bilanType) {
+      case 'DEMANDE DE BILAN':
+        return 'bilan';
+      case 'CERTIFICAT MEDICAL':
+      case 'CERTIFICAT D\'ARRÊT DE TRAVAIL':
+      case 'CERTIFICAT D\'ARRÊT DE SCOLARITE':
+        return 'ctf';
+      case 'ORIENTATION':
+        return 'orientation';
+      case 'REPONSE':
+        return 'reponse';
+      case 'PROTOCOLE OPERATOIRE':
+        return 'cpt';
+      default:
+        return null; // No filter for LENTILLES, CORRECTION OPTIQUE
+    }
+  }
+
   /// Get filtered medications (search by code starting with query)
+  /// In Bilan tab (index 1), also filters by selected type prefix
   List<Medication> get _filteredMedications {
-    if (_searchQuery.isEmpty) return _medications;
-    return _medications.where((m) => 
-      m.code.toLowerCase().startsWith(_searchQuery.toLowerCase())
-    ).toList();
+    var meds = _medications;
+    
+    // In Bilan tab, filter by selected type prefix
+    if (_tabController.index == 1) {
+      final prefix = _getBilanTypePrefix(_selectedBilanType);
+      if (prefix != null) {
+        meds = meds.where((m) => 
+          m.code.toLowerCase().startsWith(prefix.toLowerCase())
+        ).toList();
+      }
+    }
+    
+    // Apply search query filter
+    if (_searchQuery.isNotEmpty) {
+      meds = meds.where((m) => 
+        m.code.toLowerCase().startsWith(_searchQuery.toLowerCase())
+      ).toList();
+    }
+    
+    return meds;
   }
 
   /// Insert medication into current tab's document
@@ -386,6 +424,10 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     // Increment usage count
     final repo = ref.read(medicationsRepositoryProvider);
     await repo.incrementUsage(med.id);
+    
+    // Clear search query instantly after selection
+    _searchController.clear();
+    _searchQuery = '';
     
     // Refresh medications list
     _loadMedications();
@@ -421,6 +463,172 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       final repo = ref.read(medicationsRepositoryProvider);
       await repo.setUsageCount(med.id, result);
       _loadMedications();
+    }
+  }
+
+  /// Show dialog to add new medication
+  void _showAddMedicationDialog() async {
+    final codeController = TextEditingController();
+    final prescriptionController = TextEditingController();
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.add_circle, color: Colors.green),
+          SizedBox(width: 8),
+          Text('Ajouter un médicament'),
+        ]),
+        content: SizedBox(
+          width: 500,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: codeController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nom / Code',
+                hintText: 'Ex: Paracetamol 500mg',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: prescriptionController,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Prescription / Posologie',
+                hintText: 'Ex: 1 comprimé 3 fois par jour pendant 5 jours',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () {
+              if (codeController.text.trim().isNotEmpty) {
+                Navigator.pop(ctx, true);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Ajouter'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true && codeController.text.trim().isNotEmpty) {
+      final repo = ref.read(medicationsRepositoryProvider);
+      await repo.addMedication(
+        code: codeController.text.trim(),
+        prescription: prescriptionController.text.trim(),
+      );
+      _loadMedications();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✓ Médicament ajouté'), backgroundColor: Colors.green),
+        );
+      }
+    }
+  }
+
+  /// Show dialog to edit medication
+  void _showEditMedicationDialog(Medication med) async {
+    final codeController = TextEditingController(text: med.code);
+    final prescriptionController = TextEditingController(text: med.prescription);
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.edit, color: Colors.blue.shade700),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Modifier le médicament')),
+        ]),
+        content: SizedBox(
+          width: 500,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: codeController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nom / Code',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: prescriptionController,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Prescription / Posologie',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'delete'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () {
+              if (codeController.text.trim().isNotEmpty) {
+                Navigator.pop(ctx, 'save');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == 'save' && codeController.text.trim().isNotEmpty) {
+      final repo = ref.read(medicationsRepositoryProvider);
+      await repo.updateMedication(
+        id: med.id,
+        code: codeController.text.trim(),
+        prescription: prescriptionController.text.trim(),
+      );
+      _loadMedications();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✓ Médicament modifié'), backgroundColor: Colors.blue),
+        );
+      }
+    } else if (result == 'delete') {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Confirmer la suppression'),
+          content: Text('Supprimer "${med.code}" ?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Supprimer'),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        final repo = ref.read(medicationsRepositoryProvider);
+        await repo.deleteMedication(med.id);
+        _loadMedications();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✓ Médicament supprimé'), backgroundColor: Colors.orange),
+          );
+        }
+      }
     }
   }
 
@@ -536,7 +744,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
           newDocType: _selectedBilanType,
           typeOptions: bilanTypes,
           selectedType: _selectedBilanType,
-          onTypeChanged: (v) => setState(() => _selectedBilanType = v),
+          onTypeChanged: (v) { setState(() => _selectedBilanType = v); },
         )),
         const SizedBox(width: 16),
         Expanded(flex: 2, child: Column(children: [
@@ -1368,7 +1576,31 @@ Sauf complications.
     return Container(
       decoration: BoxDecoration(color: MediCoreColors.paperWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: MediCoreColors.steelOutline), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))]),
       child: Column(children: [
-        Container(height: 50, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF1976D2)]), borderRadius: BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7))), padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [const Icon(Icons.medication, color: Colors.white, size: 20), const SizedBox(width: 12), const Text('MÉDICAMENTS', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)), const Spacer(), Text('${meds.length}', style: const TextStyle(color: Colors.white70, fontSize: 12))])),
+        Container(height: 50, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF1976D2)]), borderRadius: BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7))), padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [
+          const Icon(Icons.medication, color: Colors.white, size: 20), 
+          const SizedBox(width: 12), 
+          const Text('MÉDICAMENTS', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)), 
+          const Spacer(),
+          // Add new medication button
+          Material(
+            color: Colors.green.shade600,
+            borderRadius: BorderRadius.circular(4),
+            child: InkWell(
+              onTap: _showAddMedicationDialog,
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.add, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text('AJOUTER', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text('${meds.length}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        ])),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: const BoxDecoration(color: Color(0xFFE3F2FD), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
@@ -1402,18 +1634,29 @@ Sauf complications.
                 itemCount: meds.length,
                 itemBuilder: (_, i) {
                   final m = meds[i];
-                  return InkWell(
+                  return GestureDetector(
                     onDoubleTap: () => _insertMedication(m),
+                    onLongPress: () => _showEditMedicationDialog(m),
+                    onSecondaryTap: () => _showEditMedicationDialog(m),
                     child: Container(
                       height: 40, 
                       padding: const EdgeInsets.symmetric(horizontal: 12), 
                       decoration: BoxDecoration(color: i % 2 == 0 ? Colors.white : const Color(0xFFF5F5F5), border: const Border(bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.5))), 
                       child: Row(children: [
                         Expanded(flex: 5, child: Text(m.code, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                        // Edit button
+                        InkWell(
+                          onTap: () => _showEditMedicationDialog(m),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(Icons.edit, size: 14, color: Colors.grey.shade600),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         GestureDetector(
                           onDoubleTap: () => _editMedicationCount(m),
                           child: Container(
-                            width: 50, 
+                            width: 40, 
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), 
                             decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(10)), 
                             child: Text('${m.usageCount}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1565C0)), textAlign: TextAlign.center),
@@ -1425,7 +1668,7 @@ Sauf complications.
                 },
               ),
         ),
-        Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Color(0xFFE8F5E9), borderRadius: BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))), child: Row(children: [Icon(Icons.info_outline, color: Colors.green.shade700, size: 16), const SizedBox(width: 8), Expanded(child: Text('Double-clic: insérer | Double-clic N°: modifier', style: TextStyle(color: Colors.green.shade700, fontSize: 10, fontStyle: FontStyle.italic)))])),
+        Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Color(0xFFE8F5E9), borderRadius: BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))), child: Row(children: [Icon(Icons.info_outline, color: Colors.green.shade700, size: 16), const SizedBox(width: 8), Expanded(child: Text('Double-clic: insérer | ✏️: modifier | Clic droit: éditer', style: TextStyle(color: Colors.green.shade700, fontSize: 10, fontStyle: FontStyle.italic)))])),
       ]),
     );
   }

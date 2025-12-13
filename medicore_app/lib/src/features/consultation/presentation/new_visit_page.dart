@@ -55,7 +55,14 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
   bool _hasPaymentToday = true; // Assume true initially, check on load
   bool _hasStartedTyping = false;
   
-  bool get isEditMode => widget.existingVisit != null;
+  // Track saved visit ID to prevent duplicate saves
+  int? _savedVisitId;
+  DateTime? _savedVisitDate;
+  
+  bool get isEditMode => widget.existingVisit != null || _savedVisitId != null;
+  
+  /// Get the visit ID to use for updates (either from widget or from first save)
+  int? get _currentVisitId => widget.existingVisit?.id ?? _savedVisitId;
 
   Future<void> _showPrescriptionOptique() async {
     await _showPaymentReminderIfNeeded();
@@ -267,9 +274,13 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
       final odState = _odPanelKey.currentState;
       final ogState = _ogPanelKey.currentState;
       
+      // Use existing visit date or saved date for updates, current time for new visits
+      final visitDate = widget.existingVisit?.visitDate ?? _savedVisitDate ?? now;
+      final createdAt = widget.existingVisit?.createdAt ?? (isEditMode ? _savedVisitDate : now) ?? now;
+      
       final visitCompanion = VisitsCompanion(
         patientCode: Value(widget.patient.code),
-        visitDate: Value(isEditMode ? widget.existingVisit!.visitDate : now), // Keep original date when editing
+        visitDate: Value(visitDate), // Keep original date when editing
         doctorName: Value(authState.user?.name ?? 'Médecin'),
         motif: Value(_selectedMotif),
         diagnosis: Value(ogState?.diagValue),
@@ -319,14 +330,15 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
         addition: Value(ogState?.addValue),
         dip: Value(ogState?.dipValue),
         
-        createdAt: Value(isEditMode ? widget.existingVisit!.createdAt : now),
+        createdAt: Value(createdAt),
         updatedAt: Value(now),
       );
       
       final repository = ref.read(visitsRepositoryProvider);
       
-      if (isEditMode) {
-        await repository.updateVisit(widget.existingVisit!.id, visitCompanion);
+      if (_currentVisitId != null) {
+        // Update existing visit (either from widget or from previous save)
+        await repository.updateVisit(_currentVisitId!, visitCompanion);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('✓ Visite mise à jour avec succès'),
@@ -334,7 +346,15 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
           ));
         }
       } else {
-        await repository.insertVisit(visitCompanion);
+        // First save - create new visit and store the ID
+        final newId = await repository.insertVisit(visitCompanion);
+        if (newId > 0) {
+          // Store the saved visit ID and date so subsequent saves will update instead of insert
+          setState(() {
+            _savedVisitId = newId;
+            _savedVisitDate = now;
+          });
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('✓ Visite enregistrée avec succès'),

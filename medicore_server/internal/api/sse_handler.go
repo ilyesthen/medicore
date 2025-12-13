@@ -72,7 +72,9 @@ const (
 	EventMsgTemplateReorder EventType = "msg_template_reorder"
 
 	// Medication events
+	EventMedicationCreated EventType = "medication_created"
 	EventMedicationUpdated EventType = "medication_updated"
+	EventMedicationDeleted EventType = "medication_deleted"
 
 	// Nurse preference events
 	EventNursePrefsUpdated EventType = "nurse_prefs_updated"

@@ -425,6 +425,44 @@ class PaymentsRepository {
         .get();
   }
 
+  /// Get all payments for a specific patient (payment history)
+  Future<List<Payment>> getPaymentsByPatient(int patientCode) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        final response = await MediCoreClient.instance.getPaymentsByPatient(patientCode);
+        final payments = (response['payments'] as List<dynamic>?) ?? [];
+        return payments.map((p) {
+          final json = p as Map<String, dynamic>;
+          return Payment(
+            id: (json['id'] as num).toInt(),
+            medicalActId: (json['medical_act_id'] as num).toInt(),
+            medicalActName: json['medical_act_name'] as String,
+            amount: (json['amount'] as num).toInt(),
+            userId: json['user_id'] as String? ?? '',
+            userName: json['user_name'] as String? ?? '',
+            patientCode: patientCode,
+            patientFirstName: json['patient_first_name'] as String? ?? '',
+            patientLastName: json['patient_last_name'] as String? ?? '',
+            paymentTime: DateTime.tryParse(json['payment_time'] as String? ?? '') ?? DateTime.now(),
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            needsSync: false,
+            isActive: true,
+          );
+        }).toList();
+      } catch (e) {
+        print('❌ [PaymentsRepository] Remote getPaymentsByPatient failed: $e');
+        return [];
+      }
+    }
+    return await (_database.select(_database.payments)
+          ..where((p) => p.patientCode.equals(patientCode))
+          ..where((p) => p.isActive.equals(true))
+          ..orderBy([(p) => OrderingTerm(expression: p.paymentTime, mode: OrderingMode.desc)]))
+        .get();
+  }
+
   /// Calculate total amount for a list of payments
   int calculateTotalAmount(List<Payment> payments) {
     return payments.fold(0, (sum, payment) => sum + payment.amount);

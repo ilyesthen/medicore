@@ -1,7 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
+import '../../../core/database/app_database.dart';
+import '../../../core/services/database_backup_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../users/presentation/user_management_screen.dart';
 import '../../rooms/presentation/room_management_screen.dart';
@@ -179,8 +186,8 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
                   text: 'SALLES',
                 ),
                 Tab(
-                  icon: Icon(Icons.upload_file),
-                  text: 'IMPORTS',
+                  icon: Icon(Icons.backup),
+                  text: 'SAUVEGARDE',
                 ),
               ],
             ),
@@ -193,7 +200,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
               children: [
                 const UserManagementScreen(),
                 const RoomManagementScreen(),
-                _buildImportsTab(),
+                _buildBackupTab(),
               ],
             ),
           ),
@@ -202,7 +209,11 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
     );
   }
 
-  Widget _buildImportsTab() {
+  String? _lastBackupDate;
+  bool _isBackingUp = false;
+  bool _autoBackupEnabled = true;
+
+  Widget _buildBackupTab() {
     return Container(
       color: MediCoreColors.canvasGrey,
       child: Center(
@@ -215,7 +226,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
             children: [
               // Header
               Text(
-                'IMPORTATION DE DONNÉES',
+                'SAUVEGARDE DE DONNÉES',
                 style: MediCoreTypography.pageTitle.copyWith(
                   fontSize: 24,
                   color: MediCoreColors.deepNavy,
@@ -224,7 +235,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
               ),
               const SizedBox(height: 8),
               Text(
-                'Importer des données depuis des fichiers XML',
+                'Sauvegardez votre base de données régulièrement',
                 style: MediCoreTypography.body.copyWith(
                   fontSize: 14,
                   color: Colors.black54,
@@ -233,17 +244,256 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
               ),
               const SizedBox(height: 48),
               
-              // Patients Import Card
-              _buildImportCard(
-                icon: Icons.people,
-                title: 'IMPORTER PATIENTS',
-                description: 'Importer la liste des patients depuis un fichier XML',
-                color: MediCoreColors.professionalBlue,
-                onPressed: () => _showImportPatientsDialog(context),
+              // Manual Backup Card
+              _buildBackupCard(
+                icon: Icons.save,
+                title: 'SAUVEGARDER MAINTENANT',
+                description: 'Créer une copie de sauvegarde de la base de données',
+                color: MediCoreColors.healthyGreen,
+                buttonText: _isBackingUp ? 'SAUVEGARDE...' : 'SAUVEGARDER',
+                onPressed: _isBackingUp ? null : () => _performManualBackup(context),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Auto Backup Status Card
+              _buildAutoBackupStatusCard(),
+              
+              const SizedBox(height: 24),
+              
+              // Last backup info
+              FutureBuilder<String?>(
+                future: _getLastBackupDate(),
+                builder: (context, snapshot) {
+                  final lastBackup = snapshot.data;
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: MediCoreColors.paperWhite,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: MediCoreColors.steelOutline),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: lastBackup != null ? MediCoreColors.healthyGreen : Colors.orange,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          lastBackup != null 
+                              ? 'Dernière sauvegarde: $lastBackup'
+                              : 'Aucune sauvegarde récente',
+                          style: MediCoreTypography.body.copyWith(
+                            color: lastBackup != null ? MediCoreColors.deepNavy : Colors.orange,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAutoBackupStatusCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: MediCoreColors.paperWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: MediCoreColors.steelOutline, width: 2),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: MediCoreColors.professionalBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.schedule, color: MediCoreColors.professionalBlue, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SAUVEGARDE AUTOMATIQUE',
+                  style: MediCoreTypography.sectionHeader.copyWith(fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Sauvegarde quotidienne automatique activée',
+                  style: MediCoreTypography.body.copyWith(fontSize: 12, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+          FutureBuilder<bool>(
+            future: _isAutoBackupEnabled(),
+            builder: (context, snapshot) {
+              final enabled = snapshot.data ?? true;
+              return Switch(
+                value: enabled,
+                activeColor: MediCoreColors.healthyGreen,
+                onChanged: (value) async {
+                  await _setAutoBackupEnabled(value);
+                  setState(() {});
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackupCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+    required String buttonText,
+    required VoidCallback? onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: MediCoreColors.paperWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: MediCoreColors.steelOutline, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color, width: 2),
+              ),
+              child: Icon(icon, size: 32, color: color),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: MediCoreTypography.sectionHeader.copyWith(
+                      fontSize: 18,
+                      color: MediCoreColors.deepNavy,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    style: MediCoreTypography.body.copyWith(fontSize: 13, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            ElevatedButton.icon(
+              onPressed: onPressed,
+              icon: _isBackingUp 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save, size: 18),
+              label: Text(buttonText),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _performManualBackup(BuildContext context) async {
+    setState(() => _isBackingUp = true);
+    
+    try {
+      // Get the database file using DatabasePath helper
+      final dbFile = await DatabasePath.getDbFile();
+      if (!await dbFile.exists()) {
+        _showMessage(context, 'Base de données introuvable', isError: true);
+        return;
+      }
+      
+      // Let user choose where to save
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Choisir l\'emplacement de sauvegarde',
+        fileName: 'medicore_backup_${DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now())}.db',
+        type: FileType.any,
+      );
+      
+      if (result != null) {
+        // Copy the database file
+        await dbFile.copy(result);
+        
+        // Also create internal backup
+        await DatabaseBackupService.instance.createBackup();
+        
+        // Save backup date
+        await _saveLastBackupDate();
+        
+        _showMessage(context, 'Sauvegarde réussie!');
+      }
+    } catch (e) {
+      _showMessage(context, 'Erreur de sauvegarde: $e', isError: true);
+    } finally {
+      setState(() => _isBackingUp = false);
+    }
+  }
+
+  Future<String?> _getLastBackupDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('last_backup_date');
+  }
+
+  Future<void> _saveLastBackupDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_backup_date', DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()));
+  }
+
+  Future<bool> _isAutoBackupEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('auto_backup_enabled') ?? true;
+  }
+
+  Future<void> _setAutoBackupEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('auto_backup_enabled', enabled);
+  }
+
+  void _showMessage(BuildContext context, String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? MediCoreColors.criticalRed : MediCoreColors.healthyGreen,
       ),
     );
   }

@@ -151,6 +151,61 @@ class MedicationsRepository {
     }
     return await _db.medications.count().getSingle();
   }
+  
+  /// Add a new medication
+  Future<int> addMedication({required String code, required String prescription}) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        return await MediCoreClient.instance.addMedication(code: code, prescription: prescription);
+      } catch (e) {
+        print('❌ [MedicationsRepository] Remote addMedication failed: $e');
+        return -1;
+      }
+    }
+    return await _db.into(_db.medications).insert(MedicationsCompanion(
+      code: Value(code),
+      prescription: Value(prescription),
+      usageCount: const Value(0),
+      nature: const Value('O'),
+      createdAt: Value(DateTime.now()),
+      updatedAt: Value(DateTime.now()),
+    ));
+  }
+  
+  /// Update an existing medication
+  Future<bool> updateMedication({required int id, required String code, required String prescription}) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        return await MediCoreClient.instance.updateMedication(id: id, code: code, prescription: prescription);
+      } catch (e) {
+        print('❌ [MedicationsRepository] Remote updateMedication failed: $e');
+        return false;
+      }
+    }
+    final count = await (_db.update(_db.medications)..where((t) => t.id.equals(id))).write(MedicationsCompanion(
+      code: Value(code),
+      prescription: Value(prescription),
+      updatedAt: Value(DateTime.now()),
+    ));
+    return count > 0;
+  }
+  
+  /// Delete a medication
+  Future<bool> deleteMedication(int id) async {
+    // Client mode: use remote
+    if (!GrpcClientConfig.isServer) {
+      try {
+        return await MediCoreClient.instance.deleteMedication(id);
+      } catch (e) {
+        print('❌ [MedicationsRepository] Remote deleteMedication failed: $e');
+        return false;
+      }
+    }
+    final count = await (_db.delete(_db.medications)..where((t) => t.id.equals(id))).go();
+    return count > 0;
+  }
 }
 
 /// Provider

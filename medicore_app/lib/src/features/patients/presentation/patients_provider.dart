@@ -233,6 +233,9 @@ final pageSizeProvider = StateProvider<int>((ref) => 100);
 /// Pagination: Current page (0-indexed)
 final currentPageProvider = StateProvider<int>((ref) => 0);
 
+/// Sort order: true = oldest first (by code ASC), false = newest first (by code DESC)
+final patientSortOldestFirstProvider = StateProvider<bool>((ref) => false);
+
 /// Filtered patients based on search query (without pagination)
 final allFilteredPatientsProvider = StreamProvider<List<Patient>>((ref) {
   final repository = ref.watch(patientsRepositoryProvider);
@@ -245,18 +248,26 @@ final filteredPatientsProvider = Provider<AsyncValue<List<Patient>>>((ref) {
   final allPatients = ref.watch(allFilteredPatientsProvider);
   final currentPage = ref.watch(currentPageProvider);
   final pageSize = ref.watch(pageSizeProvider);
+  final oldestFirst = ref.watch(patientSortOldestFirstProvider);
 
   return allPatients.when(
     data: (patients) {
+      // Apply sorting
+      final sortedPatients = patients.toList();
+      sortedPatients.sort((a, b) => oldestFirst 
+          ? a.code.compareTo(b.code)  // Oldest first (lower code = older patient)
+          : b.code.compareTo(a.code)  // Newest first (higher code = newer patient)
+      );
+      
       // Calculate pagination
       final startIndex = currentPage * pageSize;
-      final endIndex = (startIndex + pageSize).clamp(0, patients.length);
+      final endIndex = (startIndex + pageSize).clamp(0, sortedPatients.length);
       
-      if (startIndex >= patients.length) {
+      if (startIndex >= sortedPatients.length) {
         return AsyncValue.data([]);
       }
       
-      final paginatedPatients = patients.sublist(startIndex, endIndex);
+      final paginatedPatients = sortedPatients.sublist(startIndex, endIndex);
       return AsyncValue.data(paginatedPatients);
     },
     loading: () => const AsyncValue.loading(),

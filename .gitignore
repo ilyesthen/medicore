@@ -92,3 +92,5 @@ coverage/
 *.bak
 *.backup
 backups/
+*.db.backup*
+import_*.py

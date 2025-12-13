@@ -230,7 +230,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'Default Credentials:\nUsername: admin\nPassword: 1234',
+                    'Credentials:\nUsername: admin\nPassword: ophfares2016',
                     style: MediCoreTypography.label.copyWith(
                       fontSize: 11,
                       height: 1.5,

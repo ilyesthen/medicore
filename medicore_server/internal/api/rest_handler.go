@@ -131,6 +131,7 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 
 	// Payment endpoints
 	mux.HandleFunc("/api/GetPaymentsForPatient", cors(h.GetPaymentsForPatient))
+	mux.HandleFunc("/api/GetPaymentsByPatient", cors(h.GetPaymentsForPatient)) // Alias for historic payments
 	mux.HandleFunc("/api/GetPaymentsForVisit", cors(h.GetPaymentsForVisit))
 	mux.HandleFunc("/api/GetPaymentsByUserAndDate", cors(h.GetPaymentsByUserAndDate))
 	mux.HandleFunc("/api/CreatePayment", cors(h.CreatePayment))
@@ -149,6 +150,9 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/GetMedicationCount", cors(h.GetMedicationCount))
 	mux.HandleFunc("/api/IncrementMedicationUsage", cors(h.IncrementMedicationUsage))
 	mux.HandleFunc("/api/SetMedicationUsageCount", cors(h.SetMedicationUsageCount))
+	mux.HandleFunc("/api/AddMedication", cors(h.AddMedication))
+	mux.HandleFunc("/api/UpdateMedication", cors(h.UpdateMedication))
+	mux.HandleFunc("/api/DeleteMedication", cors(h.DeleteMedication))
 
 	// Visit additional endpoints
 	mux.HandleFunc("/api/GetTotalVisitCount", cors(h.GetTotalVisitCount))
@@ -2752,6 +2756,72 @@ func (h *RESTHandler) SetMedicationUsageCount(w http.ResponseWriter, r *http.Req
 	}
 	BroadcastMedicationEvent(EventMedicationUpdated, map[string]interface{}{"id": id})
 	respondJSON(w, map[string]interface{}{})
+}
+
+func (h *RESTHandler) AddMedication(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	code := req["code"].(string)
+	prescription := ""
+	if p, ok := req["prescription"].(string); ok {
+		prescription = p
+	}
+
+	result, err := h.db.Exec(`INSERT INTO medications (code, prescription, usage_count, nature, created_at, updated_at) VALUES (?, ?, 0, 'O', datetime('now'), datetime('now'))`, code, prescription)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	BroadcastMedicationEvent(EventMedicationCreated, map[string]interface{}{"id": id})
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateMedication(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	code := req["code"].(string)
+	prescription := ""
+	if p, ok := req["prescription"].(string); ok {
+		prescription = p
+	}
+
+	_, err := h.db.Exec(`UPDATE medications SET code = ?, prescription = ?, updated_at = datetime('now') WHERE id = ?`, code, prescription, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	BroadcastMedicationEvent(EventMedicationUpdated, map[string]interface{}{"id": id})
+	respondJSON(w, map[string]interface{}{"success": true})
+}
+
+func (h *RESTHandler) DeleteMedication(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`DELETE FROM medications WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	BroadcastMedicationEvent(EventMedicationDeleted, map[string]interface{}{"id": id})
+	respondJSON(w, map[string]interface{}{"success": true})
 }
 
 // ==================== ADDITIONAL VISIT HANDLERS ====================

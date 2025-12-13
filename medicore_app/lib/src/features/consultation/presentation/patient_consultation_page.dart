@@ -12,10 +12,13 @@ import '../../comptabilite/presentation/comptabilite_dialog.dart';
 import '../../comptabilite/presentation/payments_provider.dart';
 import '../../visits/data/visits_repository.dart';
 import '../../waiting_queue/presentation/waiting_queue_provider.dart';
+import '../../patients/presentation/patient_form_dialog.dart';
+import '../../patients/presentation/patients_provider.dart';
 import 'validate_payment_dialog.dart';
 import 'new_visit_page.dart';
 import 'prescription_optique_dialog.dart';
 import 'prescription_lentilles_dialog.dart';
+import 'historic_payments_dialog.dart';
 import '../../ordonnance/presentation/ordonnance_page.dart';
 
 /// Patient Consultation Page - The heart of the application
@@ -124,9 +127,9 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
 
   void _handleKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent) {
-      // F5 - Open Comptabilité
+      // F5 - Open Historic Payments
       if (event.logicalKey == LogicalKeyboardKey.f5) {
-        _showComptabiliteDialog();
+        _showHistoricPaymentsDialog();
       }
       // Escape - Go back
       else if (event.logicalKey == LogicalKeyboardKey.escape) {
@@ -159,11 +162,24 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     _allVisits = visits;
   }
 
-  void _showComptabiliteDialog() {
+  void _showHistoricPaymentsDialog() {
     showDialog(
       context: context,
-      builder: (context) => const ComptabiliteDialog(),
+      builder: (context) => HistoricPaymentsDialog(
+        patientCode: widget.patient.code,
+        patientFirstName: widget.patient.firstName,
+        patientLastName: widget.patient.lastName,
+      ),
     );
+  }
+  
+  void _showEditPatientDialog() async {
+    await showDialog(
+      context: context,
+      builder: (context) => PatientFormDialog(patient: widget.patient),
+    );
+    // Refresh patient data after edit
+    ref.invalidate(allFilteredPatientsProvider);
   }
 
   void _openNewVisit() {
@@ -193,7 +209,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     showDialog(
       context: context,
       builder: (context) => PrescriptionOptiqueDialog(
-        vlOD: vlOD, vlOG: vlOG, addition: null, // Don't use visit.addition (it's DIP)
+        vlOD: vlOD, vlOG: vlOG, addition: visit.addition, // Pass the addition value for Vision de Près
         patientName: patientName, patientCode: patientCode, barcode: barcode, age: age,
       ),
     );
@@ -393,6 +409,14 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
                     ),
                   ),
                   
+                  // Edit Patient button
+                  IconButton(
+                    onPressed: _showEditPatientDialog,
+                    icon: const Icon(Icons.edit, color: Colors.white),
+                    tooltip: 'Modifier le patient',
+                  ),
+                  const SizedBox(width: 8),
+                  
                   // Back button
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -543,7 +567,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
                   const SizedBox(width: 16),
                   Container(width: 1, height: 32, color: MediCoreColors.steelOutline),
                   const SizedBox(width: 16),
-                  _CompactButton(icon: Icons.account_balance_wallet, label: 'F5', onPressed: _showComptabiliteDialog, color: const Color(0xFF7B1FA2)),
+                  _CompactButton(icon: Icons.history, label: 'HISTORIQUE', onPressed: _showHistoricPaymentsDialog, color: const Color(0xFF7B1FA2)),
                   const SizedBox(width: 8),
                   _CompactButton(icon: Icons.check_circle, label: 'VALIDER', onPressed: _showValidatePaymentDialog, color: const Color(0xFF00897B)),
                   const SizedBox(width: 8),

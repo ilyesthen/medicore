@@ -268,22 +268,22 @@ class _PatientFormDialogState extends ConsumerState<PatientFormDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // Last name (required) - moved first
+                          _buildTextField(
+                            controller: _lastNameController,
+                            focusNode: _lastNameFocus,
+                            label: 'Nom *',
+                            isRequired: true,
+                            nextFocus: _firstNameFocus,
+                          ),
+
+                          const SizedBox(height: 16),
+
                           // First name (required)
                           _buildTextField(
                             controller: _firstNameController,
                             focusNode: _firstNameFocus,
                             label: 'Prénom *',
-                            isRequired: true,
-                            nextFocus: _lastNameFocus,
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Last name (required)
-                          _buildTextField(
-                            controller: _lastNameController,
-                            focusNode: _lastNameFocus,
-                            label: 'Nom *',
                             isRequired: true,
                             nextFocus: _ageFocus,
                           ),

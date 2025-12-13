@@ -145,3 +145,9 @@ final paymentsSummaryProvider = Provider.autoDispose<Map<String, dynamic>>((ref)
     },
   );
 });
+
+/// Provider to get all payment history for a specific patient
+final patientPaymentsHistoryProvider = FutureProvider.family<List<Payment>, int>((ref, patientCode) async {
+  final repository = ref.watch(paymentsRepositoryProvider);
+  return await repository.getPaymentsByPatient(patientCode);
+});

@@ -638,6 +638,8 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
                                   Expanded(
                                     child: _SearchBar(),
                                   ),
+                                  const SizedBox(width: 12),
+                                  _SortToggleButton(),
                                 ],
                               ),
                             ),
@@ -1481,6 +1483,51 @@ class _PaginationControls extends ConsumerWidget {
             constraints: const BoxConstraints(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Sort toggle button for patient list
+class _SortToggleButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final oldestFirst = ref.watch(patientSortOldestFirstProvider);
+    
+    return Tooltip(
+      message: oldestFirst ? 'Trier: Anciens en premier' : 'Trier: Récents en premier',
+      child: InkWell(
+        onTap: () {
+          ref.read(patientSortOldestFirstProvider.notifier).state = !oldestFirst;
+          ref.read(currentPageProvider.notifier).state = 0;
+        },
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                oldestFirst ? Icons.arrow_upward : Icons.arrow_downward,
+                color: Colors.white,
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                oldestFirst ? 'Ancien → Récent' : 'Récent → Ancien',
+                style: MediCoreTypography.label.copyWith(
+                  color: Colors.white,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

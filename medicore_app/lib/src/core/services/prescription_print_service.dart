@@ -15,6 +15,12 @@ class PrescriptionPrintService {
   /// Title color for all printed documents (black, bold)
   static const PdfColor _titleColor = PdfColors.black;
   
+  /// A5 page format: 420 x 595 pt (standard PostScript points)
+  static const PdfPageFormat a5Format = PdfPageFormat(420, 595);
+  
+  /// A4 page format: 595 x 842 pt (standard PostScript points)
+  static const PdfPageFormat a4Format = PdfPageFormat(595, 842);
+  
   /// Sanitize text for printing - replaces special characters that printers can't handle
   static String _sanitizeForPrint(String text) {
     return text
@@ -391,7 +397,7 @@ class PrescriptionPrintService {
       final result = await Printing.directPrintPdf(
         printer: printer,
         onLayout: (format) async => pdf,
-        format: PdfPageFormat.a5,
+        format: a5Format,
         name: 'Prescription MediCore',
       );
       
@@ -459,7 +465,7 @@ class PrescriptionPrintService {
     
     // Background image disabled for now
     // final bgImage = await _loadBackgroundImage();
-    const pageFormat = PdfPageFormat.a5;
+    const pageFormat = a5Format;
 
     doc.addPage(
       pw.Page(
@@ -536,7 +542,7 @@ class PrescriptionPrintService {
     
     // Background image disabled for now
     // final bgImage = await _loadBackgroundImage();
-    const pageFormat = PdfPageFormat.a5;
+    const pageFormat = a5Format;
 
     doc.addPage(
       pw.Page(
@@ -556,6 +562,10 @@ class PrescriptionPrintService {
                   final hasAddition = addition.isNotEmpty && 
                       addition != '0' && addition != '0.00' && addition != '+0.00';
                   
+                  // Check if loin (distance) fields have any data
+                  final hasLoinData = sphereOD.isNotEmpty || cylindreOD.isNotEmpty || axeOD.isNotEmpty ||
+                      sphereOG.isNotEmpty || cylindreOG.isNotEmpty || axeOG.isNotEmpty;
+                  
                   return pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
@@ -566,10 +576,12 @@ class PrescriptionPrintService {
                       pw.Center(child: pw.Text('VERRES CORRECTEURS', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
                       pw.SizedBox(height: 8),
                       
-                      // Vision de Loin - both eyes side by side
-                      pw.Text('Vision de Loin', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
-                      pw.SizedBox(height: 4),
-                      _buildBothEyesOptique(sphereOD, cylindreOD, axeOD, sphereOG, cylindreOG, axeOG),
+                      // Vision de Loin - only show if loin fields have data
+                      if (hasLoinData) ...[  
+                        pw.Text('Vision de Loin', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                        pw.SizedBox(height: 4),
+                        _buildBothEyesOptique(sphereOD, cylindreOD, axeOD, sphereOG, cylindreOG, axeOG),
+                      ],
                       
                       // Vision de Près - only show if addition exists
                       if (hasAddition) ...[
@@ -631,7 +643,7 @@ class PrescriptionPrintService {
     
     // Background image disabled for now
     // final bgImage = await _loadBackgroundImage();
-    const pageFormat = PdfPageFormat.a5;
+    const pageFormat = a5Format;
 
     doc.addPage(
       pw.Page(
@@ -709,7 +721,7 @@ class PrescriptionPrintService {
     
     // Background image disabled for now
     // final bgImage = await _loadBackgroundImage();
-    final pageFormat = useA4 ? PdfPageFormat.a4 : PdfPageFormat.a5;
+    final pageFormat = useA4 ? a4Format : a5Format;
 
     // Determine what name to use for printing
     String displayName;
@@ -825,7 +837,7 @@ class PrescriptionPrintService {
     );
     
     // No background image for Compte Rendu
-    const pageFormat = PdfPageFormat.a4;
+    const pageFormat = a4Format;
     
     // Margins: same as Optique/Lentilles - content on RIGHT side
     const topMargin = 200.0;
@@ -979,26 +991,52 @@ class PrescriptionPrintService {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
+        // Line 1: First name (Prénom)
+        pw.RichText(
+          text: pw.TextSpan(
+            children: [
+              pw.TextSpan(text: 'Prénom: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+              pw.TextSpan(text: prenom, style: const pw.TextStyle(fontSize: 10)),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 3),
+        // Line 2: Last name (Nom)
         pw.RichText(
           text: pw.TextSpan(
             children: [
               pw.TextSpan(text: 'Nom: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
               pw.TextSpan(text: nom, style: const pw.TextStyle(fontSize: 10)),
-              pw.TextSpan(text: '  Prénom: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-              pw.TextSpan(text: prenom, style: const pw.TextStyle(fontSize: 10)),
-              if (age != null && age.isNotEmpty) ...[
-                pw.TextSpan(text: '  Age: ', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                pw.TextSpan(text: '$age ans', style: const pw.TextStyle(fontSize: 10)),
-              ],
             ],
           ),
         ),
-        pw.SizedBox(height: 5),
+        pw.SizedBox(height: 3),
+        // Line 3: Code, Date, Age on one line
         pw.Row(
           children: [
-            pw.Text('Le $date', style: const pw.TextStyle(fontSize: 10)),
-            pw.SizedBox(width: 15),
-            pw.BarcodeWidget(data: barcode, barcode: pw.Barcode.code128(), width: 50, height: 16, drawText: false),
+            pw.RichText(
+              text: pw.TextSpan(
+                children: [
+                  pw.TextSpan(text: 'N° ', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                  pw.TextSpan(text: code, style: const pw.TextStyle(fontSize: 9)),
+                ],
+              ),
+            ),
+            pw.SizedBox(width: 10),
+            pw.Text('Le $date', style: const pw.TextStyle(fontSize: 9)),
+            if (age != null && age.isNotEmpty) ...[
+              pw.SizedBox(width: 10),
+              pw.RichText(
+                text: pw.TextSpan(
+                  children: [
+                    pw.TextSpan(text: 'Age: ', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                    pw.TextSpan(text: '$age ans', style: const pw.TextStyle(fontSize: 9)),
+                  ],
+                ),
+              ),
+            ],
+            pw.SizedBox(width: 10),
+            pw.BarcodeWidget(data: barcode, barcode: pw.Barcode.code128(), width: 45, height: 14, drawText: false),
           ],
         ),
       ],

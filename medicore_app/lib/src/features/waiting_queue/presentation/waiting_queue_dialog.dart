@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/medicore_colors.dart';
@@ -8,6 +9,7 @@ import '../../patients/data/patients_repository.dart';
 import '../../consultation/presentation/patient_consultation_page.dart';
 import '../../messages/services/notification_service.dart';
 import 'waiting_queue_provider.dart';
+import 'waiting_queue_filters.dart';
 
 /// Dialog showing waiting patients for a specific room
 class WaitingQueueDialog extends ConsumerStatefulWidget {
@@ -26,23 +28,62 @@ class WaitingQueueDialog extends ConsumerStatefulWidget {
 
 class _WaitingQueueDialogState extends ConsumerState<WaitingQueueDialog> {
   final NotificationService _notificationService = NotificationService();
+  final FocusNode _focusNode = FocusNode();
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     // Stop notification sound when viewing waiting patients list
     _notificationService.stopNotificationSound();
+    // Request focus for keyboard navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleKeyEvent(KeyEvent event, List<WaitingPatient> patients) {
+    if (event is KeyDownEvent && patients.isNotEmpty) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        setState(() {
+          _selectedIndex = (_selectedIndex - 1).clamp(0, patients.length - 1);
+        });
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        setState(() {
+          _selectedIndex = (_selectedIndex + 1).clamp(0, patients.length - 1);
+        });
+      } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+        if (widget.isDoctor && _selectedIndex < patients.length) {
+          _openPatientFile(context, patients[_selectedIndex]);
+        }
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final waitingPatientsAsync = ref.watch(waitingPatientsProvider(widget.room.id));
+    final filters = ref.watch(waitingQueueFilterProvider);
+    
+    // Get filtered patients for keyboard navigation
+    final filteredPatients = waitingPatientsAsync.whenOrNull(
+      data: (patients) => applyWaitingQueueFilters(patients, filters),
+    ) ?? [];
 
-    return Dialog(
-      backgroundColor: MediCoreColors.canvasGrey,
-      child: Container(
-        width: 900,
-        height: 550,
+    return KeyboardListener(
+      focusNode: _focusNode,
+      onKeyEvent: (event) => _handleKeyEvent(event, filteredPatients),
+      child: Dialog(
+        backgroundColor: MediCoreColors.canvasGrey,
+        child: Container(
+        width: 950,
+        height: 600,
         decoration: BoxDecoration(
           color: MediCoreColors.paperWhite,
           border: Border.all(color: MediCoreColors.steelOutline, width: 2),
@@ -66,17 +107,20 @@ class _WaitingQueueDialogState extends ConsumerState<WaitingQueueDialog> {
                   ),
                   const Spacer(),
                   waitingPatientsAsync.when(
-                    data: (patients) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${patients.length} patient(s)',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                    data: (patients) {
+                      final filtered = applyWaitingQueueFilters(patients, filters);
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${filtered.length}/${patients.length} patient(s)',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    },
                     loading: () => const SizedBox(),
                     error: (_, __) => const SizedBox(),
                   ),
@@ -89,6 +133,18 @@ class _WaitingQueueDialogState extends ConsumerState<WaitingQueueDialog> {
                   ),
                 ],
               ),
+            ),
+
+            // Filter bar
+            waitingPatientsAsync.when(
+              data: (patients) => WaitingQueueFilterBar(
+                accentColor: const Color(0xFFF57C00),
+                filterProvider: waitingQueueFilterProvider,
+                patients: patients,
+                motifLabel: 'motifs',
+              ),
+              loading: () => const SizedBox(height: 52),
+              error: (_, __) => const SizedBox(height: 52),
             ),
 
             // Table header
@@ -112,27 +168,36 @@ class _WaitingQueueDialogState extends ConsumerState<WaitingQueueDialog> {
             Expanded(
               child: waitingPatientsAsync.when(
                 data: (patients) {
-                  if (patients.isEmpty) {
-                    return const Center(
+                  final filteredPatients = applyWaitingQueueFilters(patients, filters);
+                  
+                  if (filteredPatients.isEmpty) {
+                    return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.hourglass_empty, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text('Aucun patient en attente', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                          Icon(Icons.hourglass_empty, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            patients.isEmpty 
+                                ? 'Aucun patient en attente'
+                                : 'Aucun résultat pour les filtres',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                          ),
                         ],
                       ),
                     );
                   }
 
                   return ListView.builder(
-                    itemCount: patients.length,
+                    itemCount: filteredPatients.length,
                     itemBuilder: (context, index) {
-                      final patient = patients[index];
+                      final patient = filteredPatients[index];
                       return _PatientRow(
                         patient: patient,
                         isDoctor: widget.isDoctor,
+                        isSelected: index == _selectedIndex,
                         onOpenFile: () => _openPatientFile(context, patient),
+                        onTap: () => setState(() => _selectedIndex = index),
                       );
                     },
                   );
@@ -142,6 +207,7 @@ class _WaitingQueueDialogState extends ConsumerState<WaitingQueueDialog> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -196,12 +262,16 @@ class _HeaderCell extends StatelessWidget {
 class _PatientRow extends ConsumerWidget {
   final WaitingPatient patient;
   final bool isDoctor;
+  final bool isSelected;
   final VoidCallback onOpenFile;
+  final VoidCallback? onTap;
 
   const _PatientRow({
     required this.patient,
     required this.isDoctor,
+    this.isSelected = false,
     required this.onOpenFile,
+    this.onTap,
   });
 
   String _getAge() {
@@ -226,15 +296,22 @@ class _PatientRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final timeFormat = DateFormat('HH:mm');
 
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: patient.isChecked 
-            ? const Color(0xFFFFF9C4) // Yellow highlight when checked
-            : Colors.transparent,
-        border: const Border(bottom: BorderSide(color: MediCoreColors.steelOutline, width: 0.5)),
-      ),
-      child: Row(
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? const Color(0xFFE3F2FD) // Blue highlight when selected by keyboard
+              : patient.isChecked 
+                  ? const Color(0xFFFFF9C4) // Yellow highlight when checked
+                  : Colors.transparent,
+          border: Border(
+            bottom: const BorderSide(color: MediCoreColors.steelOutline, width: 0.5),
+            left: isSelected ? const BorderSide(color: Color(0xFF1976D2), width: 3) : BorderSide.none,
+          ),
+        ),
+        child: Row(
         children: [
           // Checkbox with star
           SizedBox(
@@ -352,6 +429,7 @@ class _PatientRow extends ConsumerWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

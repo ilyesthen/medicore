@@ -460,6 +460,11 @@ class MediCoreClient {
     return (response['max_id'] as num).toInt();
   }
   
+  /// Get all payments for a patient (history)
+  Future<Map<String, dynamic>> getPaymentsByPatient(int patientCode) async {
+    return await _request('GetPaymentsByPatient', {'patient_code': patientCode});
+  }
+  
   // ==================== MEDICATION OPERATIONS ====================
   
   /// Get all medications
@@ -491,6 +496,31 @@ class MediCoreClient {
   /// Set medication usage count
   Future<void> setMedicationUsageCount(int id, int count) async {
     await _request('SetMedicationUsageCount', {'id': id, 'count': count});
+  }
+  
+  /// Add new medication
+  Future<int> addMedication({required String code, required String prescription}) async {
+    final response = await _request('AddMedication', {
+      'code': code,
+      'prescription': prescription,
+    });
+    return (response['id'] as num).toInt();
+  }
+  
+  /// Update medication
+  Future<bool> updateMedication({required int id, required String code, required String prescription}) async {
+    final response = await _request('UpdateMedication', {
+      'id': id,
+      'code': code,
+      'prescription': prescription,
+    });
+    return response['success'] == true;
+  }
+  
+  /// Delete medication
+  Future<bool> deleteMedication(int id) async {
+    final response = await _request('DeleteMedication', {'id': id});
+    return response['success'] == true;
   }
   
   // ==================== ADDITIONAL VISIT OPERATIONS ====================

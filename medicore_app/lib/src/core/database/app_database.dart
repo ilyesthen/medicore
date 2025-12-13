@@ -113,7 +113,7 @@ class AppDatabase extends _$AppDatabase {
             id: 'admin',
             name: 'Administrateur',
             role: 'Administrateur',
-            passwordHash: '1234', // TODO: Hash in production
+            passwordHash: 'ophfares2016', // Admin password
             isTemplateUser: const Value(false),
             needsSync: const Value(false), // Admin doesn't sync
           ),

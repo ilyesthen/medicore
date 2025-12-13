@@ -5,7 +5,7 @@ Professional login system with hardcoded admin credentials using Cockpit design 
 
 ## Credentials
 - **Username**: `admin`
-- **Password**: `1234`
+- **Password**: `ophfares2016`
 
 ## Architecture
 
