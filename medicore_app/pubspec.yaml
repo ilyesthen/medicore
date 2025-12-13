@@ -61,6 +61,6 @@ flutter:
   uses-material-design: true
   
   assets:
-    - assets/sounds/notification.mp3
+    - assets/sounds/notification.m4a
     - assets/images/
     - assets/logos/

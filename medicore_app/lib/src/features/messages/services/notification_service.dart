@@ -33,7 +33,7 @@ class NotificationService {
       
       // Try to set source
       try {
-        await _player!.setSource(AssetSource('sounds/notification.mp3'));
+        await _player!.setSource(AssetSource('sounds/notification.m4a'));
         await _player!.setReleaseMode(ReleaseMode.stop);
         print('✅ AudioPlayer source set successfully');
       } catch (e) {
@@ -52,10 +52,10 @@ class NotificationService {
   Future<void> _prepareWindowsSoundFile() async {
     try {
       final tempDir = await getTemporaryDirectory();
-      final soundFile = File('${tempDir.path}/medicore_notification.mp3');
+      final soundFile = File('${tempDir.path}/medicore_notification.m4a');
       
       print('📁 Preparing Windows sound file...');
-      final data = await rootBundle.load('assets/sounds/notification.mp3');
+      final data = await rootBundle.load('assets/sounds/notification.m4a');
       await soundFile.writeAsBytes(data.buffer.asUint8List());
       _soundFilePath = soundFile.path;
       print('✅ Windows sound file ready: $_soundFilePath');
@@ -122,7 +122,7 @@ class NotificationService {
       }
       
       // Play from asset (works on macOS, Linux, and as fallback on Windows)
-      await _player!.play(AssetSource('sounds/notification.mp3'));
+      await _player!.play(AssetSource('sounds/notification.m4a'));
       print('✅ Sound played via AssetSource');
     } catch (e) {
       print('❌ Failed to play sound: $e');

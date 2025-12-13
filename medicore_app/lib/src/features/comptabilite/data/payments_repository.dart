@@ -444,7 +444,7 @@ class PaymentsRepository {
             patientCode: patientCode,
             patientFirstName: json['patient_first_name'] as String? ?? '',
             patientLastName: json['patient_last_name'] as String? ?? '',
-            paymentTime: DateTime.tryParse(json['payment_time'] as String? ?? '') ?? DateTime.now(),
+            paymentTime: _parsePaymentTime(json['payment_time']),
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
             needsSync: false,
@@ -725,15 +725,29 @@ class PaymentsRepository {
     }
   }
   
+  /// Parse payment time from various formats (Unix timestamp string, int, ISO string)
+  DateTime _parsePaymentTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) {
+      // Remove trailing 'z' or 'Z' if present
+      String cleanValue = value.replaceAll(RegExp(r'[zZ]$'), '').trim();
+      
+      // Try to parse as Unix timestamp in milliseconds (numeric string like "1707388800000")
+      final asInt = int.tryParse(cleanValue);
+      if (asInt != null && cleanValue.length >= 10) {
+        // It's a Unix timestamp
+        return DateTime.fromMillisecondsSinceEpoch(asInt);
+      }
+      
+      // Try to parse as ISO date string
+      return DateTime.tryParse(value)?.toLocal() ?? DateTime.now();
+    }
+    return DateTime.now();
+  }
+
   /// Map JSON to Payment object
   Payment _mapJsonToPayment(Map<String, dynamic> json) {
-    DateTime parseTime(dynamic value) {
-      if (value == null) return DateTime.now();
-      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
-      if (value is String) return DateTime.tryParse(value)?.toLocal() ?? DateTime.now();
-      return DateTime.now();
-    }
-    
     return Payment(
       id: (json['id'] as num).toInt(),
       medicalActId: (json['medical_act_id'] as num?)?.toInt() ?? 0,
@@ -744,7 +758,7 @@ class PaymentsRepository {
       patientCode: (json['patient_code'] as num?)?.toInt() ?? 0,
       patientFirstName: json['patient_first_name'] as String? ?? '',
       patientLastName: json['patient_last_name'] as String? ?? '',
-      paymentTime: parseTime(json['payment_time']),
+      paymentTime: _parsePaymentTime(json['payment_time']),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       needsSync: false,

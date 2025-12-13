@@ -15,11 +15,13 @@ class PrescriptionPrintService {
   /// Title color for all printed documents (black, bold)
   static const PdfColor _titleColor = PdfColors.black;
   
-  /// A5 page format: 420 x 595 pt (standard PostScript points)
-  static const PdfPageFormat a5Format = PdfPageFormat(420, 595);
+  /// A5 page format: Extended width to prevent early text wrapping
+  /// Physical A5 = 420pt wide, but we add ~40pt to compensate for printer clipping
+  /// This makes text wrap later since PDF thinks there's more space on the right
+  static const PdfPageFormat a5Format = PdfPageFormat(460, 595);  // 420 + 40pt extra
   
-  /// A4 page format: 595 x 842 pt (standard PostScript points)
-  static const PdfPageFormat a4Format = PdfPageFormat(595, 842);
+  /// A4 page format: Extended width similarly
+  static const PdfPageFormat a4Format = PdfPageFormat(635, 842);  // 595 + 40pt extra
   
   /// Sanitize text for printing - replaces special characters that printers can't handle
   static String _sanitizeForPrint(String text) {

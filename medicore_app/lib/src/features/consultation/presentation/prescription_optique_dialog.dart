@@ -268,7 +268,10 @@ class _PrescriptionOptiqueDialogState extends State<PrescriptionOptiqueDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final hasAddition = widget.addition != null && widget.addition!.isNotEmpty;
+    // Check if addition is valid (not null, not empty, and not "0" or "0.00")
+    final additionStr = widget.addition ?? '';
+    final additionValue = double.tryParse(additionStr.replaceAll('+', '')) ?? 0;
+    final hasAddition = additionStr.isNotEmpty && additionValue != 0;
 
     return Dialog(
       backgroundColor: Colors.transparent,
