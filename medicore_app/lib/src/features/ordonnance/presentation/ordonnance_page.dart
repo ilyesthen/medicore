@@ -1322,11 +1322,14 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     try {
       final p = widget.patient;
       final doctorName = ref.read(authStateProvider).user?.name ?? 'Docteur';
+      // Get next sequence number based on existing documents count
+      final sequence = _allDocuments.length + 1;
       
       // Client mode: use remote API
       if (!GrpcClientConfig.isServer) {
         final result = await MediCoreClient.instance.createOrdonnance({
           'patient_code': p.code,
+          'sequence': sequence,
           'document_date': _selectedDate.toIso8601String(),
           'content1': content,
           'type1': documentType,
@@ -1342,10 +1345,11 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       // Admin mode: use local database
       final db = AppDatabase.instance;
       await db.customStatement(
-        '''INSERT INTO ordonnances (patient_code, document_date, content1, type1, doctor_name, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)''',
+        '''INSERT INTO ordonnances (patient_code, sequence, document_date, content1, type1, doctor_name, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)''',
         [
           p.code,
+          sequence,
           _selectedDate.toIso8601String(),
           content,
           documentType,
