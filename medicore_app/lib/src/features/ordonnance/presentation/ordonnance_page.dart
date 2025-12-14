@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1318,39 +1317,48 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     );
   }
 
-  /// Save document to database (supports both server and client mode)
-  /// Returns true if save was successful, false otherwise
+  /// Save document to database
   Future<bool> _saveDocumentToDb(int tabIndex, String documentType, String content) async {
     try {
       final p = widget.patient;
-      final repo = ref.read(ordonnancesRepositoryProvider);
+      final doctorName = ref.read(authStateProvider).user?.name ?? 'Docteur';
       
-      // Insert new ordonnance record via repository (handles client mode)
-      final result = await repo.insertOrdonnance(OrdonnancesCompanion(
-        patientCode: Value(p.code),
-        documentDate: Value(_selectedDate),
-        content1: Value(content),
-        type1: Value(documentType),
-        doctorName: Value(ref.read(authStateProvider).user?.name ?? 'Docteur'),
-        sequence: const Value(0),
-        reportTitle: const Value(null), // Required field, set to null
-      ));
-      
-      if (result < 0) {
-        // Failed to save (only -1 means failure, 0 or positive is success)
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ Échec de sauvegarde - Vérifiez la connexion au serveur'), backgroundColor: Colors.red),
-          );
+      // Client mode: use remote API
+      if (!GrpcClientConfig.isServer) {
+        final result = await MediCoreClient.instance.createOrdonnance({
+          'patient_code': p.code,
+          'document_date': _selectedDate.toIso8601String(),
+          'content1': content,
+          'type1': documentType,
+          'doctor_name': doctorName,
+        });
+        if (result > 0) {
+          _loadDocuments();
+          return true;
         }
         return false;
       }
+      
+      // Admin mode: use local database
+      final db = AppDatabase.instance;
+      await db.customStatement(
+        '''INSERT INTO ordonnances (patient_code, document_date, content1, type1, doctor_name, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)''',
+        [
+          p.code,
+          _selectedDate.toIso8601String(),
+          content,
+          documentType,
+          doctorName,
+          DateTime.now().toIso8601String(),
+        ],
+      );
       
       // Reload documents
       _loadDocuments();
       return true;
     } catch (e) {
-      debugPrint('Error saving to DB: $e');
+      debugPrint('❌ Error saving to DB: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur de sauvegarde: $e'), backgroundColor: Colors.red),
@@ -1459,8 +1467,14 @@ Sauf complications.
     if (confirmed != true) return;
     
     try {
-      final repo = ref.read(ordonnancesRepositoryProvider);
-      await repo.deleteOrdonnance(doc.id);
+      // Client mode: use remote API
+      if (!GrpcClientConfig.isServer) {
+        await MediCoreClient.instance.deleteOrdonnance(doc.id);
+      } else {
+        // Admin mode: use local database
+        final db = AppDatabase.instance;
+        await db.customStatement('DELETE FROM ordonnances WHERE id = ?', [doc.id]);
+      }
       
       // Reload documents and reset index if needed
       _loadDocuments();
@@ -1495,7 +1509,8 @@ Sauf complications.
     if (!newDoc.isSaved || newDoc.wasEdited) {
       final saveSuccess = await _saveDocumentToDb(tabIndex, documentType, newDoc.plainText);
       if (!saveSuccess) {
-        return; // Don't print if save failed
+        // Save failed - error already shown by _saveDocumentToDb
+        return;
       }
       newDoc.markSaved();
       didSave = true;

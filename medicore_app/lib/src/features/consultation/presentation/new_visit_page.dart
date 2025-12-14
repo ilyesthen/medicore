@@ -338,20 +338,12 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
       
       if (_currentVisitId != null) {
         // Update existing visit (either from widget or from previous save)
-        final success = await repository.updateVisit(_currentVisitId!, visitCompanion);
+        await repository.updateVisit(_currentVisitId!, visitCompanion);
         if (mounted) {
-          if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✓ Visite mise à jour avec succès'),
-              backgroundColor: MediCoreColors.healthyGreen,
-            ));
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('❌ Échec de la mise à jour - Vérifiez la connexion au serveur'),
-              backgroundColor: Colors.red,
-            ));
-            return; // Don't reset change tracking on failure
-          }
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('✓ Visite mise à jour avec succès'),
+            backgroundColor: MediCoreColors.healthyGreen,
+          ));
         }
       } else {
         // First save - create new visit and store the ID
@@ -362,21 +354,12 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
             _savedVisitId = newId;
             _savedVisitDate = now;
           });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✓ Visite enregistrée avec succès'),
-              backgroundColor: MediCoreColors.healthyGreen,
-            ));
-          }
-        } else {
-          // Failed to save
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('❌ Échec de l\'enregistrement - Vérifiez la connexion au serveur'),
-              backgroundColor: Colors.red,
-            ));
-          }
-          return; // Don't reset change tracking on failure
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('✓ Visite enregistrée avec succès'),
+            backgroundColor: MediCoreColors.healthyGreen,
+          ));
         }
       }
       
