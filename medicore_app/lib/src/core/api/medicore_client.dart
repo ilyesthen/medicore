@@ -83,8 +83,13 @@ class MediCoreClient {
         Uri.parse('$serverUrl/api/$method'),
       );
       
-      request.headers.set('Content-Type', 'application/json');
-      request.write(jsonEncode(body));
+      // Encode JSON as UTF-8 bytes to properly handle special characters (newlines, accents, etc.)
+      final jsonString = jsonEncode(body);
+      final jsonBytes = utf8.encode(jsonString);
+      
+      request.headers.set('Content-Type', 'application/json; charset=utf-8');
+      request.headers.set('Content-Length', jsonBytes.length.toString());
+      request.add(jsonBytes);
       
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
