@@ -99,22 +99,31 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     
     if (confirmed == true) {
       final repository = ref.read(visitsRepositoryProvider);
-      await repository.deleteVisit(visit.id);
+      final success = await repository.deleteVisit(visit.id);
       
-      // Refresh visits list and count
-      ref.invalidate(patientVisitsProvider(widget.patient.code));
-      ref.invalidate(patientVisitCountProvider(widget.patient.code));
-      
-      // Clear selection if deleted visit was selected
-      if (_selectedVisit?.id == visit.id) {
-        setState(() => _selectedVisit = null);
-      }
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Visite supprimée'),
-          backgroundColor: Colors.red,
-        ));
+      if (success) {
+        // Refresh visits list and count
+        ref.invalidate(patientVisitsProvider(widget.patient.code));
+        ref.invalidate(patientVisitCountProvider(widget.patient.code));
+        
+        // Clear selection if deleted visit was selected
+        if (_selectedVisit?.id == visit.id) {
+          setState(() => _selectedVisit = null);
+        }
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('✓ Visite supprimée'),
+            backgroundColor: Colors.orange,
+          ));
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('❌ Échec de la suppression - Vérifiez la connexion au serveur'),
+            backgroundColor: Colors.red,
+          ));
+        }
       }
     }
   }

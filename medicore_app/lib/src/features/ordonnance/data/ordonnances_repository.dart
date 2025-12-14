@@ -99,19 +99,22 @@ class OrdonnancesRepository {
     return docs.length;
   }
   
+  /// Safely extract value from drift Value, returns null if absent
+  T? _valueOrNull<T>(Value<T> v) => v.present ? v.value : null;
+  
   /// Insert new ordonnance
   Future<int> insertOrdonnance(OrdonnancesCompanion ordonnance) async {
     // Client mode: use remote
     if (!GrpcClientConfig.isServer) {
       try {
         return await MediCoreClient.instance.createOrdonnance({
-          'patient_code': ordonnance.patientCode.value,
-          'sequence': ordonnance.sequence.value,
-          'document_date': ordonnance.documentDate.value?.toIso8601String(),
-          'doctor_name': ordonnance.doctorName.value,
-          'report_title': ordonnance.reportTitle.value,
-          'type1': ordonnance.type1.value,
-          'content1': ordonnance.content1.value,
+          'patient_code': _valueOrNull(ordonnance.patientCode),
+          'sequence': _valueOrNull(ordonnance.sequence) ?? 0,
+          'document_date': _valueOrNull(ordonnance.documentDate)?.toIso8601String(),
+          'doctor_name': _valueOrNull(ordonnance.doctorName),
+          'report_title': _valueOrNull(ordonnance.reportTitle),
+          'type1': _valueOrNull(ordonnance.type1),
+          'content1': _valueOrNull(ordonnance.content1),
         });
       } catch (e) {
         print('❌ [OrdonnancesRepository] Remote insert failed: $e');
@@ -128,8 +131,8 @@ class OrdonnancesRepository {
       try {
         await MediCoreClient.instance.updateOrdonnance({
           'id': id,
-          'content1': ordonnance.content1.value,
-          'type1': ordonnance.type1.value,
+          'content1': _valueOrNull(ordonnance.content1),
+          'type1': _valueOrNull(ordonnance.type1),
         });
         return true;
       } catch (e) {

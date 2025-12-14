@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1317,30 +1318,44 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     );
   }
 
-  /// Save document to database
-  Future<void> _saveDocumentToDb(int tabIndex, String documentType, String content) async {
+  /// Save document to database (supports both server and client mode)
+  /// Returns true if save was successful, false otherwise
+  Future<bool> _saveDocumentToDb(int tabIndex, String documentType, String content) async {
     try {
       final p = widget.patient;
-      final db = AppDatabase.instance;
+      final repo = ref.read(ordonnancesRepositoryProvider);
       
-      // Insert new ordonnance record
-      await db.customStatement(
-        '''INSERT INTO ordonnances (patient_code, document_date, content1, type1, doctor_name, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)''',
-        [
-          p.code,
-          _selectedDate.toIso8601String(),
-          content,
-          documentType,
-          ref.read(authStateProvider).user?.name ?? 'Docteur',
-          DateTime.now().toIso8601String(),
-        ],
-      );
+      // Insert new ordonnance record via repository (handles client mode)
+      final result = await repo.insertOrdonnance(OrdonnancesCompanion(
+        patientCode: Value(p.code),
+        documentDate: Value(_selectedDate),
+        content1: Value(content),
+        type1: Value(documentType),
+        doctorName: Value(ref.read(authStateProvider).user?.name ?? 'Docteur'),
+        sequence: const Value(0),
+      ));
+      
+      if (result <= 0) {
+        // Failed to save
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ Échec de sauvegarde - Vérifiez la connexion au serveur'), backgroundColor: Colors.red),
+          );
+        }
+        return false;
+      }
       
       // Reload documents
       _loadDocuments();
+      return true;
     } catch (e) {
       debugPrint('Error saving to DB: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de sauvegarde: $e'), backgroundColor: Colors.red),
+        );
+      }
+      return false;
     }
   }
 
@@ -1443,8 +1458,8 @@ Sauf complications.
     if (confirmed != true) return;
     
     try {
-      final db = AppDatabase.instance;
-      await db.customStatement('DELETE FROM ordonnances WHERE id = ?', [doc.id]);
+      final repo = ref.read(ordonnancesRepositoryProvider);
+      await repo.deleteOrdonnance(doc.id);
       
       // Reload documents and reset index if needed
       _loadDocuments();
@@ -1477,7 +1492,10 @@ Sauf complications.
     // Only save if not already saved OR if content was edited
     bool didSave = false;
     if (!newDoc.isSaved || newDoc.wasEdited) {
-      await _saveDocumentToDb(tabIndex, documentType, newDoc.plainText);
+      final saveSuccess = await _saveDocumentToDb(tabIndex, documentType, newDoc.plainText);
+      if (!saveSuccess) {
+        return; // Don't print if save failed
+      }
       newDoc.markSaved();
       didSave = true;
     }
