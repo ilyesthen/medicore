@@ -1333,10 +1333,11 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
         type1: Value(documentType),
         doctorName: Value(ref.read(authStateProvider).user?.name ?? 'Docteur'),
         sequence: const Value(0),
+        reportTitle: const Value(null), // Required field, set to null
       ));
       
-      if (result <= 0) {
-        // Failed to save
+      if (result < 0) {
+        // Failed to save (only -1 means failure, 0 or positive is success)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('❌ Échec de sauvegarde - Vérifiez la connexion au serveur'), backgroundColor: Colors.red),
