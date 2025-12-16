@@ -182,12 +182,17 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     ref.invalidate(allFilteredPatientsProvider);
   }
 
-  void _openNewVisit() {
-    Navigator.of(context).push(
+  Future<void> _openNewVisit() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => NewVisitPage(patient: widget.patient),
       ),
     );
+    // Refresh visits list after returning from new visit page
+    if (mounted) {
+      ref.invalidate(patientVisitsProvider(widget.patient.code));
+      ref.invalidate(patientVisitCountProvider(widget.patient.code));
+    }
   }
 
   // Calculate VL from visit data

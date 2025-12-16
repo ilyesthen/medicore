@@ -354,12 +354,21 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
             _savedVisitId = newId;
             _savedVisitDate = now;
           });
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('✓ Visite enregistrée avec succès'),
-            backgroundColor: MediCoreColors.healthyGreen,
-          ));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('✓ Visite enregistrée avec succès'),
+              backgroundColor: MediCoreColors.healthyGreen,
+            ));
+          }
+        } else {
+          // Insert failed - show error message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('❌ Échec de l\'enregistrement - vérifiez la connexion'),
+              backgroundColor: Colors.red,
+            ));
+          }
+          return; // Don't continue with reset/invalidate if save failed
         }
       }
       
