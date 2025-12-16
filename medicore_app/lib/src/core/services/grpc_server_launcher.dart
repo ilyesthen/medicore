@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import '../database/app_database.dart';
 
 /// Service to launch and manage the Go gRPC server
 /// This server runs on the admin machine to serve data to clients
@@ -22,13 +23,23 @@ class GrpcServerLauncher {
         return false;
       }
       
+      // Get the exact database path that Flutter uses
+      final dbPath = await DatabasePath.getDbPath();
       print('🚀 Starting gRPC server: $serverPath');
+      print('📁 Database path: $dbPath');
       
-      // Start the server process
+      // Merge MEDICORE_DB_PATH with existing environment
+      // (Process.start replaces env entirely, so we must include parent env)
+      final env = Map<String, String>.from(Platform.environment);
+      env['MEDICORE_DB_PATH'] = dbPath;
+      
+      // Start the server process with MEDICORE_DB_PATH environment variable
+      // This ensures the Go server uses the same database file as Flutter
       _serverProcess = await Process.start(
         serverPath,
         [],
         mode: ProcessStartMode.detached,
+        environment: env,
       );
       
       // Listen to output
