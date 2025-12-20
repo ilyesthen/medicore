@@ -30,7 +30,20 @@ class VisitsRepository {
           print('🔍 [DEBUG] First visit raw data: ${visits.first}');
         }
         
-        return visits.map((v) => _mapToVisit(v as Map<String, dynamic>)).toList();
+        final mappedVisits = visits.map((v) => _mapToVisit(v as Map<String, dynamic>)).toList();
+        
+        // Deduplicate by visit ID - keep only unique visits
+        final uniqueVisits = <int, Visit>{};
+        for (final visit in mappedVisits) {
+          uniqueVisits[visit.id] = visit;
+        }
+        final deduplicatedVisits = uniqueVisits.values.toList();
+        
+        if (mappedVisits.length != deduplicatedVisits.length) {
+          print('⚠️ [VisitsRepository] Removed ${mappedVisits.length - deduplicatedVisits.length} duplicate visits');
+        }
+        
+        return deduplicatedVisits;
       } catch (e, stackTrace) {
         print('❌ [VisitsRepository] Remote fetch failed: $e');
         print('📍 Stack trace: $stackTrace');
@@ -38,7 +51,7 @@ class VisitsRepository {
       }
     }
     
-    // Admin mode: use local database
+    // Admin mode: use local database (already returns unique results)
     print('📊 [VisitsRepository] ADMIN MODE - Reading from local database for patient: $patientCode');
     return await (_db.select(_db.visits)
           ..where((v) => v.patientCode.equals(patientCode))

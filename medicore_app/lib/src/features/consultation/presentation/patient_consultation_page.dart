@@ -1202,10 +1202,11 @@ class _EyeExamPanel extends StatelessWidget {
                   ])),
                   const SizedBox(height: 6),
                   
-                  // PACHY | T.O.C (+ D.I.P for left)
+                  // PACHY | T.O.C (+ ADD + D.I.P for left)
                   Expanded(child: _FieldRowFlex(children: [
                     _FieldBig('PACHY', value: isRightEye ? visit?.odPachy : visit?.ogPachy),
                     _FieldBig('T.O.C', value: isRightEye ? visit?.odToc : visit?.ogToc),
+                    if (!isRightEye) _FieldBig('ADD', highlight: true, value: visit?.addition),
                     if (!isRightEye) _FieldBig('D.I.P', highlight: true, value: visit?.dip),
                   ])),
                   const SizedBox(height: 6),

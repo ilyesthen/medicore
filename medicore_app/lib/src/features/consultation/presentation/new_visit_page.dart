@@ -459,7 +459,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
         body: Column(children: [
           // MODE INDICATOR STRIP - Shows clearly that we're editing/creating
           Container(
-            height: 6,
+            height: 8,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: isEditMode 
@@ -468,17 +468,17 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
               ),
             ),
           ),
-          // TOP BAR - Different color tint for new/edit
+          // TOP BAR - Distinct color for new/edit mode - VERY OBVIOUS
           Container(
             height: 70,
             decoration: BoxDecoration(
-              // Warmer navy with subtle tint based on mode
+              // Bright, distinct colors for new/edit mode
               color: isEditMode 
-                  ? const Color(0xFF2D3A4A) // Slightly warmer navy for edit
-                  : const Color(0xFF1E3D2F), // Green-tinted navy for new
+                  ? const Color(0xFF3D2A1F) // Dark brown for edit mode
+                  : const Color(0xFF1B5E20), // Dark green for new visit
               border: Border(bottom: BorderSide(
                 color: isEditMode ? const Color(0xFFFF9800) : const Color(0xFF4CAF50), 
-                width: 3,
+                width: 4,
               )),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 24),
