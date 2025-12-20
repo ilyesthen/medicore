@@ -17,7 +17,6 @@ import 'validate_payment_dialog.dart';
 import 'prescription_optique_dialog.dart';
 import 'prescription_lentilles_dialog.dart';
 import '../../ordonnance/presentation/ordonnance_page.dart';
-import '../../ai_agent/presentation/patient_ai_chat_widget.dart';
 
 /// New Visit Page - For creating new visits or editing existing ones
 class NewVisitPage extends ConsumerStatefulWidget {
@@ -457,7 +456,6 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
       child: Scaffold(
         // Different background for new/edit visits - subtle warm tint
         backgroundColor: const Color(0xFFF5F0E8), // Warm cream background instead of grey
-        floatingActionButton: FloatingAIButton(patient: widget.patient),
         body: Column(children: [
           // MODE INDICATOR STRIP - Shows clearly that we're editing/creating
           Container(

@@ -207,7 +207,7 @@ class AIActionHandler {
       final ordonnanceId = await _ordonnancesRepo.insertOrdonnance(
         OrdonnancesCompanion.insert(
           patientCode: currentPatientCode!,
-          sequence: 1,
+          sequence: const Value(1),
           documentDate: Value(DateTime.now()),
           doctorName: Value(currentUserName ?? 'Dr.'),
           type1: const Value('PRESCRIPTION'),

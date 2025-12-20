@@ -21,7 +21,6 @@ import 'prescription_optique_dialog.dart';
 import 'prescription_lentilles_dialog.dart';
 import 'historic_payments_dialog.dart';
 import '../../ordonnance/presentation/ordonnance_page.dart';
-import '../../ai_agent/presentation/patient_ai_chat_widget.dart';
 
 /// Patient Consultation Page - The heart of the application
 /// Opens when double-clicking on a patient from the dashboard
@@ -282,7 +281,6 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
         backgroundColor: MediCoreColors.canvasGrey,
-        floatingActionButton: FloatingAIButton(patient: widget.patient),
         body: Column(
           children: [
             // ═══════════════════════════════════════════════════════════

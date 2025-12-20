@@ -17,7 +17,6 @@ import '../data/ordonnances_repository.dart';
 import '../data/medications_repository.dart';
 import '../../consultation/presentation/prescription_optique_dialog.dart';
 import '../../consultation/presentation/prescription_lentilles_dialog.dart';
-import '../../ai_agent/presentation/patient_ai_chat_widget.dart';
 
 /// Ordonnance Page - 3 tabs with different document types
 class OrdonnancePage extends ConsumerStatefulWidget {
@@ -643,7 +642,6 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
         backgroundColor: MediCoreColors.canvasGrey,
-        floatingActionButton: FloatingAIButton(patient: widget.patient),
         body: Column(children: [
           _buildTopBar(userName),
           _buildTabBar(),
