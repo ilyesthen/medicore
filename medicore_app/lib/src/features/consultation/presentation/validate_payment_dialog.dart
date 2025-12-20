@@ -125,8 +125,8 @@ class _ValidatePaymentDialogState extends ConsumerState<ValidatePaymentDialog> {
           medicalActId: act.id,
           medicalActName: act.name,
           amount: act.feeAmount,
-          // Auto-select only "Consultation" exactly (not "Consultation + Ablation" etc.)
-          isSelected: act.name.toLowerCase() == 'consultation',
+          // Auto-select "CONSULTATION +FO" by default (most common)
+          isSelected: act.name.toUpperCase() == 'CONSULTATION +FO',
         )
     };
   }

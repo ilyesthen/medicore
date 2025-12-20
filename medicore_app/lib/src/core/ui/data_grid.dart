@@ -83,20 +83,35 @@ class DataGrid extends StatelessWidget {
                   child: Container(
                     height: MediCoreDimensions.gridRowHeight,
                     decoration: BoxDecoration(
+                      // More prominent selection with darker blue background
                       color: isSelected
-                          ? MediCoreColors.professionalBlue.withOpacity(0.2)
+                          ? const Color(0xFF1E88E5).withOpacity(0.35) // Brighter blue background
                           : isEven 
                               ? MediCoreColors.paperWhite 
                               : MediCoreColors.zebraRowAlt,
                       border: Border(
                         bottom: BorderSide(
-                          color: MediCoreColors.gridLines,
-                          width: MediCoreDimensions.gridLineWidth,
+                          color: isSelected 
+                              ? const Color(0xFF1E88E5) // Blue border for selected
+                              : MediCoreColors.gridLines,
+                          width: isSelected ? 1.5 : MediCoreDimensions.gridLineWidth,
                         ),
+                        top: isSelected
+                            ? const BorderSide(
+                                color: Color(0xFF1E88E5),
+                                width: 1.5,
+                              )
+                            : BorderSide.none,
                         left: isSelected
                             ? const BorderSide(
-                                color: MediCoreColors.professionalBlue,
-                                width: 3,
+                                color: Color(0xFF1E88E5),
+                                width: 4,
+                              )
+                            : BorderSide.none,
+                        right: isSelected
+                            ? const BorderSide(
+                                color: Color(0xFF1E88E5),
+                                width: 1.5,
                               )
                             : BorderSide.none,
                       ),

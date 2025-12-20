@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
+import '../../patients/data/age_calculator_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../messages/presentation/send_message_dialog.dart';
 import '../../messages/presentation/receive_messages_dialog.dart';
@@ -20,6 +21,7 @@ import 'prescription_optique_dialog.dart';
 import 'prescription_lentilles_dialog.dart';
 import 'historic_payments_dialog.dart';
 import '../../ordonnance/presentation/ordonnance_page.dart';
+import '../../ai_agent/presentation/patient_ai_chat_widget.dart';
 
 /// Patient Consultation Page - The heart of the application
 /// Opens when double-clicking on a patient from the dashboard
@@ -210,7 +212,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     final patientName = '${widget.patient.firstName} ${widget.patient.lastName}';
     final patientCode = widget.patient.code.toString();
     final barcode = widget.patient.barcode;
-    final age = widget.patient.age?.toString();
+    final age = widget.patient.currentAge?.toString();
     showDialog(
       context: context,
       builder: (context) => PrescriptionOptiqueDialog(
@@ -228,7 +230,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     final patientName = '${widget.patient.firstName} ${widget.patient.lastName}';
     final patientCode = widget.patient.code.toString();
     final barcode = widget.patient.barcode;
-    final age = widget.patient.age?.toString();
+    final age = widget.patient.currentAge?.toString();
     showDialog(
       context: context,
       builder: (context) => PrescriptionLentillesDialog(
@@ -280,6 +282,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
         backgroundColor: MediCoreColors.canvasGrey,
+        floatingActionButton: FloatingAIButton(patient: widget.patient),
         body: Column(
           children: [
             // ═══════════════════════════════════════════════════════════
@@ -394,10 +397,10 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
                         const SizedBox(width: 32),
                         
                         // Age
-                        if (patient.age != null) ...[
+                        if (patient.currentAge != null) ...[
                           _InfoChip(
                             icon: Icons.cake_outlined,
-                            label: '${patient.age} ans',
+                            label: '${patient.currentAge} ans',
                           ),
                           const SizedBox(width: 16),
                         ],
@@ -689,6 +692,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
         patientLastName: widget.patient.lastName,
         patientBirthDate: widget.patient.dateOfBirth,
         patientAge: widget.patient.age,
+        patientCreatedAt: widget.patient.createdAt,
         roomId: selectedRoom.id,
         roomName: selectedRoom.name,
         dilatationType: dilatationType,
@@ -1060,7 +1064,7 @@ class _VisitCell extends StatelessWidget {
       flex: flex,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(text, style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+        child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
       ),
     );
   }
@@ -1340,7 +1344,7 @@ class _FieldBig extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: labelTextColor,
               ),
@@ -1354,8 +1358,8 @@ class _FieldBig extends StatelessWidget {
               child: Text(
                 displayValue,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: displayValue.isNotEmpty ? FontWeight.w500 : FontWeight.normal,
+                  fontSize: 16,
+                  fontWeight: displayValue.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
                   color: MediCoreColors.deepNavy,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -1403,7 +1407,7 @@ class _NotesField extends StatelessWidget {
               children: [
                 Icon(Icons.edit_note, size: 12, color: Color(0xFFF57C00)),
                 SizedBox(width: 4),
-                Text('NOTES', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFFF57C00), letterSpacing: 0.5)),
+                Text('NOTES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFF57C00), letterSpacing: 0.5)),
               ],
             ),
           ),
@@ -1412,7 +1416,7 @@ class _NotesField extends StatelessWidget {
               padding: const EdgeInsets.all(6),
               child: Text(
                 value ?? '',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF424242)),
+                style: const TextStyle(fontSize: 16, color: Color(0xFF424242), fontWeight: FontWeight.w500),
                 overflow: TextOverflow.fade,
               ),
             ),

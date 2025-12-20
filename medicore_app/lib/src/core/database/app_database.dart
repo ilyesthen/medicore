@@ -18,12 +18,14 @@ import 'tables/visits_table.dart';
 import 'tables/waiting_patients_table.dart';
 import 'tables/ordonnances_table.dart';
 import 'tables/medications_table.dart';
+import 'tables/appointments_table.dart';
+import 'tables/surgery_plans_table.dart';
 
 part 'app_database.g.dart';
 
 /// MediCore Application Database
 /// Uses Drift for compile-time safe SQL queries
-@DriftDatabase(tables: [Users, Templates, Rooms, Patients, MessageTemplates, Messages, MedicalActs, Payments, Visits, WaitingPatients, Ordonnances, Medications])
+@DriftDatabase(tables: [Users, Templates, Rooms, Patients, MessageTemplates, Messages, MedicalActs, Payments, Visits, WaitingPatients, Ordonnances, Medications, Appointments, SurgeryPlans])
 class AppDatabase extends _$AppDatabase {
   /// Singleton instance
   static AppDatabase? _instance;
@@ -92,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   static bool get skipMigrations => _skipMigrations;
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration {
@@ -187,6 +189,14 @@ class AppDatabase extends _$AppDatabase {
         if (from < 14) {
           // Add Medications table in schema version 14
           await m.createTable(medications);
+        }
+        if (from < 15) {
+          // Add Appointments table in schema version 15
+          await m.createTable(appointments);
+        }
+        if (from < 16) {
+          // Add SurgeryPlans table in schema version 16
+          await m.createTable(surgeryPlans);
         }
       },
     );

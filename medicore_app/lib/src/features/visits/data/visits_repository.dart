@@ -20,10 +20,16 @@ class VisitsRepository {
     // Client mode: use REST API
     if (!GrpcClientConfig.isServer) {
       try {
-        print('📤 [VisitsRepository] Fetching visits for patient: $patientCode');
+        print('📤 [VisitsRepository] CLIENT MODE - Fetching visits for patient: $patientCode');
         final response = await MediCoreClient.instance.getVisitsForPatient(patientCode);
         final visits = (response['visits'] as List<dynamic>?) ?? [];
         print('📥 [VisitsRepository] Received ${visits.length} visits');
+        
+        // DEBUG: Print first visit to check data structure
+        if (visits.isNotEmpty) {
+          print('🔍 [DEBUG] First visit raw data: ${visits.first}');
+        }
+        
         return visits.map((v) => _mapToVisit(v as Map<String, dynamic>)).toList();
       } catch (e, stackTrace) {
         print('❌ [VisitsRepository] Remote fetch failed: $e');
@@ -33,6 +39,7 @@ class VisitsRepository {
     }
     
     // Admin mode: use local database
+    print('📊 [VisitsRepository] ADMIN MODE - Reading from local database for patient: $patientCode');
     return await (_db.select(_db.visits)
           ..where((v) => v.patientCode.equals(patientCode))
           ..where((v) => v.isActive.equals(true))
@@ -42,11 +49,19 @@ class VisitsRepository {
   
   /// Map JSON to Visit object (includes ALL fields)
   Visit _mapToVisit(Map<String, dynamic> json) {
-    return Visit(
-      id: (json['id'] as num).toInt(),
-      patientCode: (json['patient_code'] as num).toInt(),
-      visitSequence: (json['visit_sequence'] as num?)?.toInt() ?? 1,
-      visitDate: DateTime.tryParse(json['visit_date'] as String? ?? '') ?? DateTime.now(),
+    try {
+      // DEBUG: Check if id is actually a number
+      if (json['id'] is! num) {
+        print('⚠️ [VisitsRepository] WARNING: id field is not a number!');
+        print('🔍 [DEBUG] json["id"] = ${json['id']} (type: ${json['id'].runtimeType})');
+        print('🔍 [DEBUG] Full JSON: $json');
+      }
+      
+      return Visit(
+        id: (json['id'] as num).toInt(),
+        patientCode: (json['patient_code'] as num).toInt(),
+        visitSequence: (json['visit_sequence'] as num?)?.toInt() ?? 1,
+        visitDate: DateTime.tryParse(json['visit_date'] as String? ?? '') ?? DateTime.now(),
       doctorName: json['doctor_name'] as String? ?? '',
       motif: json['motif'] as String?,
       diagnosis: json['diagnosis'] as String?,
@@ -97,6 +112,12 @@ class VisitsRepository {
       isActive: true,
       needsSync: false,
     );
+    } catch (e, stackTrace) {
+      print('❌ [VisitsRepository] Error mapping visit from JSON: $e');
+      print('🔍 [DEBUG] Problematic JSON: $json');
+      print('📍 Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   /// Get visit count for a patient

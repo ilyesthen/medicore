@@ -517,61 +517,76 @@ class _RoleBasedPaymentsTable extends StatelessWidget {
                     final payment = payments[index];
                     final isEven = index % 2 == 0;
                     
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isEven
-                            ? MediCoreColors.paperWhite
-                            : MediCoreColors.zebraRowAlt,
-                        border: const Border(
-                          bottom: BorderSide(
-                            color: MediCoreColors.gridLines,
-                            width: 1,
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          // Return patient info to filter dashboard
+                          Navigator.of(context).pop({
+                            'patientName': '${payment.patientLastName} ${payment.patientFirstName}',
+                            'patientCode': payment.patientCode,
+                          });
+                        },
+                        hoverColor: MediCoreColors.professionalBlue.withOpacity(0.1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isEven
+                                ? MediCoreColors.paperWhite
+                                : MediCoreColors.zebraRowAlt,
+                            border: const Border(
+                              bottom: BorderSide(
+                                color: MediCoreColors.gridLines,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              _TableCell(
+                                DateFormat('HH:mm').format(payment.paymentTime),
+                                flex: 1,
+                              ),
+                              _TableCell(
+                                payment.patientLastName,
+                                flex: 2,
+                                isClickable: true,
+                              ),
+                              _TableCell(
+                                payment.patientFirstName,
+                                flex: 2,
+                                isClickable: true,
+                              ),
+                              _TableCell(
+                                payment.medicalActName,
+                                flex: 3,
+                              ),
+                              _TableCell(
+                                _formatCurrency(payment.amount),
+                                flex: 2,
+                                isAmount: true,
+                              ),
+                              // Assistant: show their earnings for this payment
+                              if (isAssistant)
+                                _TableCell(
+                                  _formatCurrency((payment.amount * (currentUser?.percentage ?? 0) / 100).round()),
+                                  flex: 2,
+                                  isAmount: true,
+                                  isHighlight: true,
+                                ),
+                              // Nurse: show each assistant's earnings for this payment
+                              if (isNurse)
+                                ...assistants.map((a) => _TableCell(
+                                  _formatCurrency((payment.amount * (a.percentage ?? 0) / 100).round()),
+                                  flex: 2,
+                                  isAmount: true,
+                                )),
+                            ],
                           ),
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          _TableCell(
-                            DateFormat('HH:mm').format(payment.paymentTime),
-                            flex: 1,
-                          ),
-                          _TableCell(
-                            payment.patientLastName,
-                            flex: 2,
-                          ),
-                          _TableCell(
-                            payment.patientFirstName,
-                            flex: 2,
-                          ),
-                          _TableCell(
-                            payment.medicalActName,
-                            flex: 3,
-                          ),
-                          _TableCell(
-                            _formatCurrency(payment.amount),
-                            flex: 2,
-                            isAmount: true,
-                          ),
-                          // Assistant: show their earnings for this payment
-                          if (isAssistant)
-                            _TableCell(
-                              _formatCurrency((payment.amount * (currentUser?.percentage ?? 0) / 100).round()),
-                              flex: 2,
-                              isAmount: true,
-                              isHighlight: true,
-                            ),
-                          // Nurse: show each assistant's earnings for this payment
-                          if (isNurse)
-                            ...assistants.map((a) => _TableCell(
-                              _formatCurrency((payment.amount * (a.percentage ?? 0) / 100).round()),
-                              flex: 2,
-                              isAmount: true,
-                            )),
-                        ],
                       ),
                     );
                   },
@@ -912,12 +927,14 @@ class _TableCell extends StatelessWidget {
   final int flex;
   final bool isAmount;
   final bool isHighlight;
+  final bool isClickable;
 
   const _TableCell(
     this.text, {
     required this.flex,
     this.isAmount = false,
     this.isHighlight = false,
+    this.isClickable = false,
   });
 
   @override
@@ -929,7 +946,10 @@ class _TableCell extends StatelessWidget {
         style: MediCoreTypography.body.copyWith(
           fontSize: 12,
           fontWeight: isAmount ? FontWeight.w600 : FontWeight.normal,
-          color: isHighlight ? MediCoreColors.professionalBlue : null,
+          color: isClickable 
+              ? MediCoreColors.professionalBlue 
+              : (isHighlight ? MediCoreColors.professionalBlue : null),
+          decoration: isClickable ? TextDecoration.underline : null,
         ),
         textAlign: isAmount ? TextAlign.right : TextAlign.left,
       ),

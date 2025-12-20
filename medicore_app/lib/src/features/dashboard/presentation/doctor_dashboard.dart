@@ -8,6 +8,7 @@ import '../../../core/ui/data_grid.dart';
 import '../../../core/ui/notification_badge.dart';
 import '../../../core/utils/keyboard_shortcuts.dart';
 import '../../../core/database/app_database.dart';
+import '../../patients/data/age_calculator_service.dart';
 import '../../../core/api/realtime_sync_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../patients/presentation/patients_provider.dart';
@@ -23,6 +24,9 @@ import '../../waiting_queue/presentation/waiting_queue_provider.dart';
 import '../../waiting_queue/presentation/waiting_queue_dialog.dart';
 import '../../waiting_queue/presentation/urgences_dialog.dart';
 import '../../waiting_queue/presentation/dilatation_dialog.dart';
+import '../../rooms/presentation/rooms_provider.dart';
+import '../../appointments/presentation/appointments_dialog.dart';
+import '../../surgery_planning/presentation/surgery_planning_dialog.dart';
 
 /// Doctor/Assistant dashboard with enterprise messaging integration
 class DoctorDashboard extends ConsumerStatefulWidget {
@@ -120,6 +124,9 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
     // Track waiting count (no sound for doctor - only messages trigger sounds)
     _previousWaitingCount = waitingCount;
 
+    // Get patients list for keyboard navigation
+    final patients = patientsAsync.asData?.value ?? [];
+    
     return KeyboardShortcutHandler(
       onF1Pressed: () => _showPatientDialog(context, null),
       onF2Pressed: selectedRoom != null
@@ -129,6 +136,8 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
           ? () => _showSendMessageDialog(context, selectedRoom.id)
           : null,
       onF5Pressed: () => _showComptabiliteDialog(context),
+      onArrowUpPressed: () => _navigatePatients(patients, -1),
+      onArrowDownPressed: () => _navigatePatients(patients, 1),
       child: Scaffold(
         backgroundColor: MediCoreColors.canvasGrey,
         body: Row(
@@ -228,7 +237,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                     ),
                   ),
 
-                  // Room indicator
+                  // Room indicator with change button
                   if (selectedRoom != null)
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -241,33 +250,68 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                           width: 1,
                         ),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          const Icon(
-                            Icons.meeting_room,
-                            color: Colors.white,
-                            size: 18,
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.meeting_room,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'SALLE ACTIVE',
+                                      style: MediCoreTypography.label.copyWith(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                    Text(
+                                      selectedRoom.name,
+                                      style: MediCoreTypography.button.copyWith(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'SALLE ACTIVE',
-                                  style: MediCoreTypography.label.copyWith(
-                                    color: Colors.white.withOpacity(0.7),
-                                    fontSize: 9,
+                          const SizedBox(height: 10),
+                          // Change room button
+                          SizedBox(
+                            width: double.infinity,
+                            child: Material(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              child: InkWell(
+                                onTap: () => _showChangeRoomDialog(context, ref),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.swap_horiz, color: Colors.white.withOpacity(0.9), size: 16),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'CHANGER DE SALLE',
+                                        style: MediCoreTypography.label.copyWith(
+                                          color: Colors.white.withOpacity(0.9),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  selectedRoom.name,
-                                  style: MediCoreTypography.button.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ],
@@ -392,6 +436,20 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                           label: 'COMPTABILITÉ',
                           color: MediCoreColors.healthyGreen,
                           onPressed: () => _showComptabiliteDialog(context),
+                        ),
+                        const SizedBox(height: 8),
+                        _ActionButton(
+                          icon: Icons.calendar_month,
+                          label: 'RENDEZ-VOUS',
+                          color: const Color(0xFF9C27B0),
+                          onPressed: () => _showAppointmentsDialog(context),
+                        ),
+                        const SizedBox(height: 8),
+                        _ActionButton(
+                          icon: Icons.medical_services,
+                          label: 'PROGRAMME OP',
+                          color: const Color(0xFF1565C0),
+                          onPressed: () => _showSurgeryPlanningDialog(context),
                         ),
                       ],
                     ),
@@ -621,7 +679,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
         createdDate,
         patient.lastName,
         patient.firstName,
-        patient.age?.toString() ?? '-',
+        patient.currentAge?.toString() ?? '-',
         patient.address ?? '-',
       ];
     }).toList();
@@ -655,6 +713,27 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
         );
       },
     );
+  }
+
+  /// Navigate up/down in patient list using arrow keys
+  void _navigatePatients(List<Patient> patients, int direction) {
+    if (patients.isEmpty) return;
+    
+    final currentSelected = ref.read(selectedPatientProvider);
+    int currentIndex = currentSelected != null 
+        ? patients.indexWhere((p) => p.code == currentSelected.code)
+        : -1;
+    
+    int newIndex;
+    if (currentIndex == -1) {
+      // No selection - select first or last based on direction
+      newIndex = direction > 0 ? 0 : patients.length - 1;
+    } else {
+      // Move in direction
+      newIndex = (currentIndex + direction).clamp(0, patients.length - 1);
+    }
+    
+    ref.read(selectedPatientProvider.notifier).state = patients[newIndex];
   }
 
   void _showPatientDialog(BuildContext context, Patient? patient) {
@@ -694,9 +773,125 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
   }
 
   void _showComptabiliteDialog(BuildContext context) {
-    showDialog(
+    showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => const ComptabiliteDialog(),
+    ).then((result) {
+      if (result != null && result.containsKey('patientName')) {
+        // Set the search filter to the patient name
+        final patientName = result['patientName'] as String;
+        ref.read(patientSearchProvider.notifier).state = patientName;
+        ref.read(currentPageProvider.notifier).state = 0;
+      }
+    });
+  }
+
+  void _showAppointmentsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const AppointmentsDialog(),
+    );
+  }
+
+  void _showSurgeryPlanningDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const SurgeryPlanningDialog(),
+    );
+  }
+
+  void _showChangeRoomDialog(BuildContext context, WidgetRef ref) {
+    final roomsAsync = ref.read(roomsListProvider);
+    final currentRoom = ref.read(authStateProvider).selectedRoom;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: MediCoreColors.paperWhite,
+        title: Row(
+          children: [
+            const Icon(Icons.swap_horiz, color: MediCoreColors.professionalBlue),
+            const SizedBox(width: 8),
+            Text('Changer de salle', style: MediCoreTypography.sectionHeader),
+          ],
+        ),
+        content: SizedBox(
+          width: 350,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Salle actuelle: ${currentRoom?.name ?? "Aucune"}',
+                style: MediCoreTypography.label.copyWith(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              Text('Sélectionner une nouvelle salle:', style: MediCoreTypography.body),
+              const SizedBox(height: 12),
+              ...roomsAsync.map((room) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: room.id == currentRoom?.id 
+                      ? MediCoreColors.professionalBlue.withOpacity(0.1)
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                  child: InkWell(
+                    onTap: room.id == currentRoom?.id ? null : () {
+                      ref.read(authStateProvider.notifier).setRoom(room);
+                      Navigator.of(context).pop();
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: room.id == currentRoom?.id 
+                              ? MediCoreColors.professionalBlue 
+                              : Colors.grey.shade300,
+                          width: room.id == currentRoom?.id ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.meeting_room,
+                            color: room.id == currentRoom?.id 
+                                ? MediCoreColors.professionalBlue 
+                                : Colors.grey[600],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              room.name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: room.id == currentRoom?.id ? FontWeight.bold : FontWeight.normal,
+                                color: room.id == currentRoom?.id 
+                                    ? MediCoreColors.professionalBlue 
+                                    : MediCoreColors.deepNavy,
+                              ),
+                            ),
+                          ),
+                          if (room.id == currentRoom?.id)
+                            const Icon(Icons.check_circle, color: MediCoreColors.professionalBlue, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('ANNULER'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -957,14 +1152,25 @@ class _SearchBar extends ConsumerStatefulWidget {
 
 class _SearchBarState extends ConsumerState<_SearchBar> {
   Timer? _debounceTimer;
+  final _controller = TextEditingController();
+  bool _isUpdatingFromProvider = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with current search value
+    _controller.text = '';
+  }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
+    if (_isUpdatingFromProvider) return;
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       ref.read(patientSearchProvider.notifier).state = value;
@@ -974,6 +1180,15 @@ class _SearchBarState extends ConsumerState<_SearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to search provider changes (e.g., from comptabilité click)
+    final searchValue = ref.watch(patientSearchProvider);
+    if (_controller.text != searchValue) {
+      _isUpdatingFromProvider = true;
+      _controller.text = searchValue;
+      _controller.selection = TextSelection.collapsed(offset: searchValue.length);
+      _isUpdatingFromProvider = false;
+    }
+
     return Container(
       height: 36,
       decoration: BoxDecoration(
@@ -984,26 +1199,45 @@ class _SearchBarState extends ConsumerState<_SearchBar> {
           width: 1,
         ),
       ),
-      child: TextField(
-        onChanged: _onSearchChanged,
-        style: MediCoreTypography.body.copyWith(
-          color: Colors.white,
-          fontSize: 13,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Rechercher: Nom, Prénom ou Code...',
-          hintStyle: MediCoreTypography.body.copyWith(
-            color: Colors.white.withOpacity(0.5),
-            fontSize: 13,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              onChanged: _onSearchChanged,
+              style: MediCoreTypography.body.copyWith(
+                color: Colors.white,
+                fontSize: 13,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Rechercher: Nom, Prénom ou Code...',
+                hintStyle: MediCoreTypography.body.copyWith(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 13,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Colors.white.withOpacity(0.7),
+                  size: 18,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
           ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: Colors.white.withOpacity(0.7),
-            size: 18,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        ),
+          // Clear button when search is active
+          if (searchValue.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.close, color: Colors.white.withOpacity(0.7), size: 18),
+              onPressed: () {
+                _controller.clear();
+                ref.read(patientSearchProvider.notifier).state = '';
+                ref.read(currentPageProvider.notifier).state = 0;
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            ),
+        ],
       ),
     );
   }

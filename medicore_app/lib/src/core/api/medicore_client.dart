@@ -714,6 +714,87 @@ class MediCoreClient {
     await _request('ReorderMedicalActs', {'ids': ids});
   }
   
+  // ==================== APPOINTMENT OPERATIONS ====================
+  
+  /// Get appointments for a specific date
+  Future<Map<String, dynamic>> getAppointmentsForDate(DateTime date) async {
+    return await _request('GetAppointmentsForDate', {'date': date.toIso8601String()});
+  }
+  
+  /// Get all appointments
+  Future<Map<String, dynamic>> getAllAppointments() async {
+    return await _request('GetAllAppointments', {});
+  }
+  
+  /// Create appointment
+  Future<int> createAppointment(Map<String, dynamic> data) async {
+    final response = await _request('CreateAppointment', data);
+    return (response['id'] as num).toInt();
+  }
+  
+  /// Update appointment date
+  Future<bool> updateAppointmentDate(int id, DateTime newDate) async {
+    final response = await _request('UpdateAppointmentDate', {
+      'id': id,
+      'new_date': newDate.toIso8601String(),
+    });
+    return response['success'] == true;
+  }
+  
+  /// Mark appointment as added to patients
+  Future<bool> markAppointmentAsAdded(int id) async {
+    final response = await _request('MarkAppointmentAsAdded', {'id': id});
+    return response['success'] == true;
+  }
+  
+  /// Delete appointment
+  Future<bool> deleteAppointment(int id) async {
+    final response = await _request('DeleteAppointment', {'id': id});
+    return response['success'] == true;
+  }
+  
+  /// Cleanup past appointments that were not added
+  Future<int> cleanupPastAppointments() async {
+    final response = await _request('CleanupPastAppointments', {});
+    return (response['deleted'] as num).toInt();
+  }
+  
+  // ==================== SURGERY PLAN OPERATIONS ====================
+  
+  /// Get surgery plans for a specific date
+  Future<Map<String, dynamic>> getSurgeryPlansForDate(DateTime date) async {
+    return await _request('GetSurgeryPlansForDate', {'date': date.toIso8601String()});
+  }
+  
+  /// Get all surgery plans
+  Future<Map<String, dynamic>> getAllSurgeryPlans() async {
+    return await _request('GetAllSurgeryPlans', {});
+  }
+  
+  /// Create surgery plan
+  Future<int> createSurgeryPlan(Map<String, dynamic> data) async {
+    final response = await _request('CreateSurgeryPlan', data);
+    return (response['id'] as num).toInt();
+  }
+  
+  /// Update surgery plan
+  Future<bool> updateSurgeryPlan(int id, Map<String, dynamic> data) async {
+    final response = await _request('UpdateSurgeryPlan', {'id': id, ...data});
+    return response['success'] == true;
+  }
+  
+  /// Reschedule surgery
+  Future<bool> rescheduleSurgery(int id, Map<String, dynamic> data) async {
+    final response = await _request('RescheduleSurgery', {'id': id, ...data});
+    return response['success'] == true;
+  }
+  
+  /// Delete surgery plan
+  Future<bool> deleteSurgeryPlan(int id) async {
+    final response = await _request('DeleteSurgeryPlan', {'id': id});
+    return response['success'] == true;
+  }
+  
   /// Dispose client
   void dispose() {
     _httpClient?.close();

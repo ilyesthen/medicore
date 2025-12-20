@@ -8,6 +8,7 @@ import '../../../core/ui/data_grid.dart';
 import '../../../core/ui/notification_badge.dart';
 import '../../../core/utils/keyboard_shortcuts.dart';
 import '../../../core/database/app_database.dart';
+import '../../patients/data/age_calculator_service.dart';
 import '../../../core/api/realtime_sync_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../rooms/presentation/rooms_provider.dart';
@@ -27,6 +28,8 @@ import '../../waiting_queue/presentation/waiting_queue_dialog.dart';
 import '../../waiting_queue/presentation/send_urgent_dialog.dart';
 import '../../waiting_queue/presentation/urgences_dialog.dart';
 import '../../waiting_queue/presentation/dilatation_dialog.dart';
+import '../../appointments/presentation/appointments_dialog.dart';
+import '../../surgery_planning/presentation/surgery_planning_dialog.dart';
 
 /// Nurse dashboard with enterprise 3-room messaging integration
 class NurseDashboard extends ConsumerStatefulWidget {
@@ -266,6 +269,9 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
       }
     }).toList();
 
+    // Get patients list for keyboard navigation
+    final patients = patientsAsync.asData?.value ?? [];
+    
     return KeyboardShortcutHandler(
       onF1Pressed: () => _showPatientDialog(context, null),
       onF2Pressed: _activeRoomIds.isNotEmpty
@@ -275,6 +281,8 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
           ? () => _showSendMessageDialog(context, _activeRoomIds)
           : null,
       onF5Pressed: () => _showComptabiliteDialog(context),
+      onArrowUpPressed: () => _navigatePatients(patients, -1),
+      onArrowDownPressed: () => _navigatePatients(patients, 1),
       child: Scaffold(
         backgroundColor: MediCoreColors.canvasGrey,
         body: Row(
@@ -525,6 +533,20 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
                           color: MediCoreColors.professionalBlue,
                           onPressed: () => _showComptabiliteDialog(context),
                         ),
+                        const SizedBox(height: 8),
+                        _ActionButton(
+                          icon: Icons.calendar_month,
+                          label: 'RENDEZ-VOUS',
+                          color: const Color(0xFF9C27B0),
+                          onPressed: () => _showAppointmentsDialog(context),
+                        ),
+                        const SizedBox(height: 8),
+                        _ActionButton(
+                          icon: Icons.medical_services,
+                          label: 'PROGRAMME OP',
+                          color: const Color(0xFF1565C0),
+                          onPressed: () => _showSurgeryPlanningDialog(context),
+                        ),
                       ],
                     ),
                   ),
@@ -681,7 +703,7 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
         createdDate,
         patient.lastName,
         patient.firstName,
-        patient.age?.toString() ?? '-',
+        patient.currentAge?.toString() ?? '-',
         patient.address ?? '-',
       ];
     }).toList();
@@ -796,6 +818,27 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
     );
   }
 
+  /// Navigate up/down in patient list using arrow keys
+  void _navigatePatients(List<Patient> patients, int direction) {
+    if (patients.isEmpty) return;
+    
+    final currentSelected = ref.read(selectedPatientProvider);
+    int currentIndex = currentSelected != null 
+        ? patients.indexWhere((p) => p.code == currentSelected.code)
+        : -1;
+    
+    int newIndex;
+    if (currentIndex == -1) {
+      // No selection - select first or last based on direction
+      newIndex = direction > 0 ? 0 : patients.length - 1;
+    } else {
+      // Move in direction
+      newIndex = (currentIndex + direction).clamp(0, patients.length - 1);
+    }
+    
+    ref.read(selectedPatientProvider.notifier).state = patients[newIndex];
+  }
+
   void _showPatientDialog(BuildContext context, Patient? patient) {
     showDialog(
       context: context,
@@ -833,9 +876,30 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
   }
 
   void _showComptabiliteDialog(BuildContext context) {
-    showDialog(
+    showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => const ComptabiliteDialog(),
+    ).then((result) {
+      if (result != null && result.containsKey('patientName')) {
+        // Set the search filter to the patient name
+        final patientName = result['patientName'] as String;
+        ref.read(patientSearchProvider.notifier).state = patientName;
+        ref.read(currentPageProvider.notifier).state = 0;
+      }
+    });
+  }
+
+  void _showAppointmentsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const AppointmentsDialog(),
+    );
+  }
+
+  void _showSurgeryPlanningDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const SurgeryPlanningDialog(),
     );
   }
 
@@ -1362,14 +1426,24 @@ class _SearchBar extends ConsumerStatefulWidget {
 
 class _SearchBarState extends ConsumerState<_SearchBar> {
   Timer? _debounceTimer;
+  final _controller = TextEditingController();
+  bool _isUpdatingFromProvider = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.text = '';
+  }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
+    if (_isUpdatingFromProvider) return;
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       ref.read(patientSearchProvider.notifier).state = value;
@@ -1379,6 +1453,15 @@ class _SearchBarState extends ConsumerState<_SearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to search provider changes (e.g., from comptabilité click)
+    final searchValue = ref.watch(patientSearchProvider);
+    if (_controller.text != searchValue) {
+      _isUpdatingFromProvider = true;
+      _controller.text = searchValue;
+      _controller.selection = TextSelection.collapsed(offset: searchValue.length);
+      _isUpdatingFromProvider = false;
+    }
+
     return Container(
       height: 36,
       decoration: BoxDecoration(
@@ -1389,26 +1472,45 @@ class _SearchBarState extends ConsumerState<_SearchBar> {
           width: 1,
         ),
       ),
-      child: TextField(
-        onChanged: _onSearchChanged,
-        style: MediCoreTypography.body.copyWith(
-          color: Colors.white,
-          fontSize: 13,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Rechercher: Nom, Prénom ou Code...',
-          hintStyle: MediCoreTypography.body.copyWith(
-            color: Colors.white.withOpacity(0.5),
-            fontSize: 13,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              onChanged: _onSearchChanged,
+              style: MediCoreTypography.body.copyWith(
+                color: Colors.white,
+                fontSize: 13,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Rechercher: Nom, Prénom ou Code...',
+                hintStyle: MediCoreTypography.body.copyWith(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 13,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Colors.white.withOpacity(0.7),
+                  size: 18,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
           ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: Colors.white.withOpacity(0.7),
-            size: 18,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        ),
+          // Clear button when search is active
+          if (searchValue.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.close, color: Colors.white.withOpacity(0.7), size: 18),
+              onPressed: () {
+                _controller.clear();
+                ref.read(patientSearchProvider.notifier).state = '';
+                ref.read(currentPageProvider.notifier).state = 0;
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            ),
+        ],
       ),
     );
   }

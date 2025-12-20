@@ -17,6 +17,7 @@ import '../data/ordonnances_repository.dart';
 import '../data/medications_repository.dart';
 import '../../consultation/presentation/prescription_optique_dialog.dart';
 import '../../consultation/presentation/prescription_lentilles_dialog.dart';
+import '../../ai_agent/presentation/patient_ai_chat_widget.dart';
 
 /// Ordonnance Page - 3 tabs with different document types
 class OrdonnancePage extends ConsumerStatefulWidget {
@@ -642,6 +643,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
         backgroundColor: MediCoreColors.canvasGrey,
+        floatingActionButton: FloatingAIButton(patient: widget.patient),
         body: Column(children: [
           _buildTopBar(userName),
           _buildTabBar(),
@@ -1241,22 +1243,9 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
           ),
         ]),
       ),
-      // Word-like professional toolbar
-      _ProfessionalToolbar(doc: newDoc, onChanged: () => setState(() {})),
-      // Text Editor - preserves exact formatting
+      // Rich Text Editor with selection-based formatting
       Expanded(
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.steelOutline)),
-          child: TextField(
-            controller: newDoc.controller,
-            maxLines: null,
-            expands: true,
-            style: TextStyle(fontSize: newDoc.fontSize, fontFamily: newDoc.fontFamily, fontWeight: newDoc.isBold ? FontWeight.bold : FontWeight.normal, fontStyle: newDoc.isItalic ? FontStyle.italic : FontStyle.normal, decoration: newDoc.isUnderline ? TextDecoration.underline : null, color: newDoc.textColor),
-            textAlign: newDoc.alignment,
-            decoration: InputDecoration(hintText: 'Saisir le contenu...', hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13), border: InputBorder.none, contentPadding: const EdgeInsets.all(16)),
-          ),
-        ),
+        child: _RichTextEditor(doc: newDoc, onChanged: () => setState(() {})),
       ),
     ]);
   }
@@ -1780,179 +1769,471 @@ Sauf complications.
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PROFESSIONAL TOOLBAR (Word-like)
+// RICH TEXT EDITOR WITH SELECTION-BASED FORMATTING
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _ProfessionalToolbar extends StatefulWidget {
+class _RichTextEditor extends StatefulWidget {
   final DocumentData doc;
   final VoidCallback onChanged;
-  const _ProfessionalToolbar({required this.doc, required this.onChanged});
+  
+  const _RichTextEditor({required this.doc, required this.onChanged});
+  
   @override
-  State<_ProfessionalToolbar> createState() => _ProfessionalToolbarState();
+  State<_RichTextEditor> createState() => _RichTextEditorState();
 }
 
-class _ProfessionalToolbarState extends State<_ProfessionalToolbar> {
+class _RichTextEditorState extends State<_RichTextEditor> {
+  late FocusNode _focusNode;
+  TextSelection _lastSelection = const TextSelection.collapsed(offset: 0);
+  
   static const fonts = ['Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Helvetica'];
-  static const sizes = [8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0];
-  static const colors = [Colors.black, Colors.grey, Colors.red, Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.brown];
-
+  static const sizes = [8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0, 72.0];
+  static const colorOptions = [
+    Colors.black, Color(0xFF424242), Color(0xFF757575), Colors.white,
+    Color(0xFFC62828), Color(0xFFE53935), Color(0xFFEF5350), Color(0xFFFFCDD2),
+    Color(0xFF1565C0), Color(0xFF1E88E5), Color(0xFF42A5F5), Color(0xFFBBDEFB),
+    Color(0xFF2E7D32), Color(0xFF43A047), Color(0xFF66BB6A), Color(0xFFC8E6C9),
+    Color(0xFFF57F17), Color(0xFFFFC107), Color(0xFFFFEB3B), Color(0xFFFFF9C4),
+    Color(0xFF6A1B9A), Color(0xFF8E24AA), Color(0xFFAB47BC), Color(0xFFE1BEE7),
+    Color(0xFF00838F), Color(0xFF00ACC1), Color(0xFF26C6DA), Color(0xFFB2EBF2),
+    Color(0xFFD84315), Color(0xFFFF5722), Color(0xFFFF8A65), Color(0xFFFFCCBC),
+  ];
+  
   DocumentData get _doc => widget.doc;
-
+  
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _doc.controller.addListener(_onTextChanged);
+  }
+  
+  @override
+  void dispose() {
+    _doc.controller.removeListener(_onTextChanged);
+    _focusNode.dispose();
+    super.dispose();
+  }
+  
+  void _onTextChanged() {
+    // Sync styles when text changes
+    _doc._syncStyles();
+  }
+  
+  TextSelection get _selection => _doc.controller.selection;
+  bool get _hasSelection => _selection.isValid && _selection.start != _selection.end;
+  
+  void _applyFormat(CharStyle Function(CharStyle) modifier) {
+    if (_hasSelection) {
+      // Apply to selection only
+      _doc.applyStyleToSelection(_selection.start, _selection.end, modifier);
+    }
+    // Always update current style for future typing
+    _doc.currentStyle = modifier(_doc.currentStyle);
+    
+    // Force controller to rebuild text spans by triggering notifyListeners
+    // This is done by setting text to itself with selection preserved
+    final sel = _doc.controller.selection;
+    final text = _doc.controller.text;
+    _doc.controller.value = TextEditingValue(text: text, selection: sel);
+    
+    widget.onChanged();
+    setState(() {});
+  }
+  
+  void _setFontFamily(String font) {
+    _applyFormat((s) => s.copyWith(fontFamily: font));
+  }
+  
+  void _setFontSize(double size) {
+    _applyFormat((s) => s.copyWith(fontSize: size));
+  }
+  
+  void _toggleBold() {
+    final willBeBold = _hasSelection 
+        ? !_doc.selectionHasStyle(_selection.start, _selection.end, (s) => s.isBold)
+        : !_doc.currentStyle.isBold;
+    _applyFormat((s) => s.copyWith(isBold: willBeBold));
+  }
+  
+  void _toggleItalic() {
+    final willBeItalic = _hasSelection 
+        ? !_doc.selectionHasStyle(_selection.start, _selection.end, (s) => s.isItalic)
+        : !_doc.currentStyle.isItalic;
+    _applyFormat((s) => s.copyWith(isItalic: willBeItalic));
+  }
+  
+  void _toggleUnderline() {
+    final willBeUnderline = _hasSelection 
+        ? !_doc.selectionHasStyle(_selection.start, _selection.end, (s) => s.isUnderline)
+        : !_doc.currentStyle.isUnderline;
+    _applyFormat((s) => s.copyWith(isUnderline: willBeUnderline));
+  }
+  
+  void _setColor(Color color) {
+    _applyFormat((s) => s.copyWith(textColor: color));
+  }
+  
+  void _clearFormatting() {
+    if (_hasSelection) {
+      _doc.applyStyleToSelection(_selection.start, _selection.end, (_) => const CharStyle());
+    }
+    _doc.currentStyle = const CharStyle();
+    _doc.alignment = TextAlign.left;
+    widget.onChanged();
+    setState(() {});
+  }
+  
+  bool get _isBoldActive => _hasSelection 
+      ? _doc.selectionHasStyle(_selection.start, _selection.end, (s) => s.isBold)
+      : _doc.currentStyle.isBold;
+  
+  bool get _isItalicActive => _hasSelection 
+      ? _doc.selectionHasStyle(_selection.start, _selection.end, (s) => s.isItalic)
+      : _doc.currentStyle.isItalic;
+  
+  bool get _isUnderlineActive => _hasSelection 
+      ? _doc.selectionHasStyle(_selection.start, _selection.end, (s) => s.isUnderline)
+      : _doc.currentStyle.isUnderline;
+  
+  String get _currentFont => _hasSelection && _selection.start < _doc.charStyles.length
+      ? _doc.getStyleAt(_selection.start).fontFamily
+      : _doc.currentStyle.fontFamily;
+  
+  double get _currentSize => _hasSelection && _selection.start < _doc.charStyles.length
+      ? _doc.getStyleAt(_selection.start).fontSize
+      : _doc.currentStyle.fontSize;
+  
+  Color get _currentColor => _hasSelection && _selection.start < _doc.charStyles.length
+      ? _doc.getStyleAt(_selection.start).textColor
+      : _doc.currentStyle.textColor;
+  
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(color: Color(0xFFF8F9FA), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
-      child: Column(children: [
-        // Row 1: Font, Size, Bold, Italic, Underline, Color
-        Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(children: [
-            _fontDropdown(),
-            const SizedBox(width: 6),
-            _sizeDropdown(),
-            _divider(),
-            _formatBtn(Icons.format_bold, _doc.isBold, () => setState(() => _doc.isBold = !_doc.isBold)),
-            _formatBtn(Icons.format_italic, _doc.isItalic, () => setState(() => _doc.isItalic = !_doc.isItalic)),
-            _formatBtn(Icons.format_underline, _doc.isUnderline, () => setState(() => _doc.isUnderline = !_doc.isUnderline)),
-            _divider(),
-            _colorBtn(),
-          ]),
-        ),
-        // Row 2: Alignment, Lists, Line, Clear
-        Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE0E0E0)))),
-          child: Row(children: [
-            _alignBtn(Icons.format_align_left, TextAlign.left),
-            _alignBtn(Icons.format_align_center, TextAlign.center),
-            _alignBtn(Icons.format_align_right, TextAlign.right),
-            _divider(),
-            _actionBtn(Icons.format_list_bulleted, () => _doc.insertText('\n• ')),
-            _actionBtn(Icons.format_list_numbered, () => _doc.insertText('\n1. ')),
-            _divider(),
-            _actionBtn(Icons.horizontal_rule, () => _doc.insertText('\n────────────────────────────────────\n')),
-            _divider(),
-            _actionBtn(Icons.format_clear, _clearFormatting),
-            const Spacer(),
-          ]),
-        ),
-      ]),
-    );
-  }
-
-  Widget _fontDropdown() => Container(
-    width: 120, height: 28,
-    padding: const EdgeInsets.symmetric(horizontal: 6),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))),
-    child: DropdownButtonHideUnderline(child: DropdownButton<String>(
-      value: fonts.contains(_doc.fontFamily) ? _doc.fontFamily : 'Arial',
-      isExpanded: true, isDense: true,
-      style: const TextStyle(fontSize: 11, color: Colors.black87),
-      icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
-      items: fonts.map((f) => DropdownMenuItem(value: f, child: Text(f, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: f, fontSize: 11)))).toList(),
-      onChanged: (v) { setState(() => _doc.fontFamily = v ?? 'Arial'); widget.onChanged(); },
-    )),
-  );
-
-  Widget _sizeDropdown() => Container(
-    width: 55, height: 28,
-    padding: const EdgeInsets.symmetric(horizontal: 6),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))),
-    child: DropdownButtonHideUnderline(child: DropdownButton<double>(
-      value: sizes.contains(_doc.fontSize) ? _doc.fontSize : 14.0,
-      isExpanded: true, isDense: true,
-      style: const TextStyle(fontSize: 11, color: Colors.black87),
-      icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
-      items: sizes.map((s) => DropdownMenuItem(value: s, child: Text('${s.toInt()}'))).toList(),
-      onChanged: (v) { setState(() => _doc.fontSize = v ?? 14); widget.onChanged(); },
-    )),
-  );
-
-  Widget _divider() => Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 6), color: const Color(0xFFBDBDBD));
-
-  Widget _formatBtn(IconData icon, bool active, VoidCallback onTap) => Material(
-    color: active ? const Color(0xFFE3F2FD) : Colors.transparent,
-    borderRadius: BorderRadius.circular(4),
-    child: InkWell(
-      onTap: () { onTap(); widget.onChanged(); },
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        width: 28, height: 28, alignment: Alignment.center,
-        decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null,
-        child: Icon(icon, size: 18, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242)),
-      ),
-    ),
-  );
-
-  Widget _alignBtn(IconData icon, TextAlign align) {
-    final active = _doc.alignment == align;
-    return Material(
-      color: active ? const Color(0xFFE3F2FD) : Colors.transparent,
-      borderRadius: BorderRadius.circular(4),
-      child: InkWell(
-        onTap: () { setState(() => _doc.alignment = align); widget.onChanged(); },
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          width: 28, height: 28, alignment: Alignment.center,
-          decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null,
-          child: Icon(icon, size: 18, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242)),
-        ),
-      ),
-    );
-  }
-
-  Widget _actionBtn(IconData icon, VoidCallback onTap) => Material(
-    color: Colors.transparent,
-    borderRadius: BorderRadius.circular(4),
-    child: InkWell(
-      onTap: () { onTap(); widget.onChanged(); },
-      borderRadius: BorderRadius.circular(4),
-      child: Container(width: 28, height: 28, alignment: Alignment.center, child: Icon(icon, size: 18, color: const Color(0xFF424242))),
-    ),
-  );
-
-  Widget _colorBtn() => Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: _showColorPicker,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        width: 28, height: 28, alignment: Alignment.center,
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.format_color_text, size: 16, color: Color(0xFF424242)),
-          Container(height: 3, width: 16, decoration: BoxDecoration(color: _doc.textColor, borderRadius: BorderRadius.circular(1))),
+    return Column(children: [
+      // Toolbar Row 1: Font, Size, Bold, Italic, Underline, Color
+      Container(
+        decoration: const BoxDecoration(color: Color(0xFFF8F9FA), border: Border(bottom: BorderSide(color: Color(0xFFE0E0E0)))),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(children: [
+          _buildFontDropdown(),
+          const SizedBox(width: 6),
+          _buildSizeDropdown(),
+          _buildDivider(),
+          _buildFormatBtn(Icons.format_bold, _isBoldActive, _toggleBold, 'Gras'),
+          _buildFormatBtn(Icons.format_italic, _isItalicActive, _toggleItalic, 'Italique'),
+          _buildFormatBtn(Icons.format_underline, _isUnderlineActive, _toggleUnderline, 'Souligné'),
+          _buildDivider(),
+          _buildColorBtn(),
+          _buildDivider(),
+          _buildFormatBtn(Icons.format_strikethrough, false, () {}, 'Barré'),
+          _buildHighlightBtn(),
         ]),
       ),
-    ),
-  );
-
-  void _showColorPicker() => showDialog(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: const Text('Couleur du texte'),
-      content: SizedBox(
-        width: 200,
-        child: Wrap(spacing: 8, runSpacing: 8, children: colors.map((col) => InkWell(
-          onTap: () { setState(() => _doc.textColor = col); Navigator.pop(c); widget.onChanged(); },
-          child: Container(width: 32, height: 32, decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(4), border: Border.all(color: col == _doc.textColor ? const Color(0xFF1565C0) : Colors.grey.shade300, width: col == _doc.textColor ? 2 : 1))),
-        )).toList()),
+      // Toolbar Row 2: Alignment, Lists, Special
+      Container(
+        decoration: const BoxDecoration(color: Color(0xFFF8F9FA), border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline))),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(children: [
+          _buildAlignBtn(Icons.format_align_left, TextAlign.left),
+          _buildAlignBtn(Icons.format_align_center, TextAlign.center),
+          _buildAlignBtn(Icons.format_align_right, TextAlign.right),
+          _buildAlignBtn(Icons.format_align_justify, TextAlign.justify),
+          _buildDivider(),
+          _buildActionBtn(Icons.format_list_bulleted, () => _doc.insertText('\n• '), 'Liste à puces'),
+          _buildActionBtn(Icons.format_list_numbered, () { _doc.insertText('\n1. '); widget.onChanged(); }, 'Liste numérotée'),
+          _buildDivider(),
+          _buildActionBtn(Icons.horizontal_rule, () { _doc.insertText('\n────────────────────────────────────\n'); widget.onChanged(); }, 'Ligne'),
+          _buildActionBtn(Icons.format_indent_increase, () { _doc.insertText('    '); widget.onChanged(); }, 'Indentation'),
+          _buildDivider(),
+          _buildActionBtn(Icons.format_clear, _clearFormatting, 'Effacer formatage'),
+          const Spacer(),
+          // Selection indicator
+          if (_hasSelection)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: const Color(0xFF1565C0).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+              child: Text('${_selection.end - _selection.start} sélectionnés', style: const TextStyle(fontSize: 10, color: Color(0xFF1565C0))),
+            ),
+        ]),
       ),
-    ),
-  );
-
-  void _clearFormatting() {
-    setState(() {
-      _doc.isBold = false;
-      _doc.isItalic = false;
-      _doc.isUnderline = false;
-      _doc.alignment = TextAlign.left;
-      _doc.textColor = Colors.black;
-      _doc.fontSize = 14;
-      _doc.fontFamily = 'Arial';
+      // Editor area
+      Expanded(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: MediCoreColors.steelOutline),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: _buildEditableArea(),
+          ),
+        ),
+      ),
+    ]);
+  }
+  
+  Widget _buildEditableArea() {
+    return LayoutBuilder(builder: (context, constraints) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight - 32, minWidth: constraints.maxWidth - 32),
+          child: GestureDetector(
+            onTap: () => _focusNode.requestFocus(),
+            behavior: HitTestBehavior.translucent,
+            child: _buildRichTextField(),
+          ),
+        ),
+      );
     });
+  }
+  
+  Widget _buildRichTextField() {
+    return TextField(
+      controller: _doc.controller,
+      focusNode: _focusNode,
+      maxLines: null,
+      textAlign: _doc.alignment,
+      // Don't set style here - the controller's buildTextSpan handles it
+      decoration: InputDecoration(
+        hintText: 'Saisir le contenu du document...',
+        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.zero,
+      ),
+      onChanged: (text) {
+        // Handle text input - sync styles with text length
+        _handleTextChange(text);
+      },
+      buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+      onTap: () => setState(() {}),
+    );
+  }
+  
+  void _handleTextChange(String newText) {
+    final oldLength = _doc.charStyles.length;
+    final newLength = newText.length;
+    final cursorPos = _doc.controller.selection.baseOffset;
+    
+    if (newLength > oldLength) {
+      // Text was added - insert styles at cursor position
+      final addedCount = newLength - oldLength;
+      final insertPos = (cursorPos - addedCount).clamp(0, _doc.charStyles.length);
+      final newStyles = List.filled(addedCount, _doc.currentStyle);
+      _doc.charStyles.insertAll(insertPos, newStyles);
+    } else if (newLength < oldLength) {
+      // Text was deleted - remove styles at deletion point
+      final deletedCount = oldLength - newLength;
+      final deleteStart = cursorPos.clamp(0, _doc.charStyles.length - deletedCount);
+      if (deleteStart >= 0 && deleteStart + deletedCount <= _doc.charStyles.length) {
+        _doc.charStyles.removeRange(deleteStart, deleteStart + deletedCount);
+      } else {
+        // Fallback: just trim to new length
+        _doc.charStyles = _doc.charStyles.sublist(0, newLength.clamp(0, _doc.charStyles.length));
+      }
+    }
+    
+    // Ensure sync
+    _doc._syncStyles();
     widget.onChanged();
+  }
+  
+  Widget _buildFontDropdown() {
+    final font = fonts.contains(_currentFont) ? _currentFont : 'Arial';
+    return Container(
+      width: 130, height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: font,
+          isExpanded: true, isDense: true,
+          style: const TextStyle(fontSize: 11, color: Colors.black87),
+          icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
+          items: fonts.map((f) => DropdownMenuItem(value: f, child: Text(f, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: f, fontSize: 11)))).toList(),
+          onChanged: (v) { if (v != null) _setFontFamily(v); },
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSizeDropdown() {
+    final size = sizes.contains(_currentSize) ? _currentSize : 14.0;
+    return Container(
+      width: 60, height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFBDBDBD))),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<double>(
+          value: size,
+          isExpanded: true, isDense: true,
+          style: const TextStyle(fontSize: 11, color: Colors.black87),
+          icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
+          items: sizes.map((s) => DropdownMenuItem(value: s, child: Text('${s.toInt()}'))).toList(),
+          onChanged: (v) { if (v != null) _setFontSize(v); },
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDivider() => Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 6), color: const Color(0xFFBDBDBD));
+  
+  Widget _buildFormatBtn(IconData icon, bool active, VoidCallback onTap, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: active ? const Color(0xFFE3F2FD) : Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 28, height: 28, alignment: Alignment.center,
+            decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null,
+            child: Icon(icon, size: 18, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242)),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildAlignBtn(IconData icon, TextAlign align) {
+    final active = _doc.alignment == align;
+    return Tooltip(
+      message: align == TextAlign.left ? 'Gauche' : align == TextAlign.center ? 'Centrer' : align == TextAlign.right ? 'Droite' : 'Justifier',
+      child: Material(
+        color: active ? const Color(0xFFE3F2FD) : Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          onTap: () { setState(() => _doc.alignment = align); widget.onChanged(); },
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 28, height: 28, alignment: Alignment.center,
+            decoration: active ? BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF1565C0))) : null,
+            child: Icon(icon, size: 18, color: active ? const Color(0xFF1565C0) : const Color(0xFF424242)),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildActionBtn(IconData icon, VoidCallback onTap, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(width: 28, height: 28, alignment: Alignment.center, child: Icon(icon, size: 18, color: const Color(0xFF424242))),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildColorBtn() {
+    return Tooltip(
+      message: 'Couleur du texte',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showColorPicker,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 28, height: 28, alignment: Alignment.center,
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.format_color_text, size: 16, color: Color(0xFF424242)),
+              Container(height: 3, width: 16, decoration: BoxDecoration(color: _currentColor, borderRadius: BorderRadius.circular(1))),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildHighlightBtn() {
+    return Tooltip(
+      message: 'Surligner',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showHighlightPicker,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 28, height: 28, alignment: Alignment.center,
+            child: const Icon(Icons.highlight, size: 18, color: Color(0xFF424242)),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  void _showColorPicker() {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Row(children: [Icon(Icons.palette, color: Color(0xFF1565C0)), SizedBox(width: 8), Text('Couleur du texte')]),
+        content: SizedBox(
+          width: 280,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Wrap(
+              spacing: 6, runSpacing: 6,
+              children: colorOptions.map((col) => InkWell(
+                onTap: () { _setColor(col); Navigator.pop(c); },
+                child: Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: col,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: col == _currentColor ? const Color(0xFF1565C0) : Colors.grey.shade300, width: col == _currentColor ? 2 : 1),
+                    boxShadow: col == Colors.white ? [BoxShadow(color: Colors.grey.shade300, blurRadius: 1)] : null,
+                  ),
+                ),
+              )).toList(),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Annuler')),
+        ],
+      ),
+    );
+  }
+  
+  void _showHighlightPicker() {
+    final highlights = [Colors.yellow, Colors.lime, Colors.cyan, Colors.pink, Colors.orange, Colors.transparent];
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Row(children: [Icon(Icons.highlight, color: Color(0xFFFFC107)), SizedBox(width: 8), Text('Surlignage')]),
+        content: SizedBox(
+          width: 200,
+          child: Wrap(
+            spacing: 8, runSpacing: 8,
+            children: highlights.map((col) => InkWell(
+              onTap: () { Navigator.pop(c); },
+              child: Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: col == Colors.transparent ? Colors.white : col.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: col == Colors.transparent ? const Icon(Icons.block, size: 16, color: Colors.grey) : null,
+              ),
+            )).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Annuler')),
+        ],
+      ),
+    );
   }
 }
 
@@ -1969,25 +2250,138 @@ class _SmallField extends StatelessWidget { final TextEditingController controll
 class _ToolbarBtn extends StatelessWidget { final IconData icon; final VoidCallback onTap; const _ToolbarBtn({required this.icon, required this.onTap}); @override Widget build(BuildContext context) => Material(color: Colors.transparent, borderRadius: BorderRadius.circular(4), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(4), child: Container(width: 32, height: 32, alignment: Alignment.center, child: Icon(icon, size: 20, color: const Color(0xFF424242))))); }
 class _ActionBtn extends StatelessWidget { final IconData icon; final String label; final Color color; final VoidCallback onTap; final bool large; const _ActionBtn({required this.icon, required this.label, required this.color, required this.onTap, this.large = false}); @override Widget build(BuildContext context) => Material(color: color, borderRadius: BorderRadius.circular(6), elevation: 2, child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(6), child: Container(padding: EdgeInsets.symmetric(horizontal: large ? 24 : 12, vertical: 10), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 16), const SizedBox(width: 6), Text(label, style: TextStyle(color: Colors.white, fontSize: large ? 13 : 12, fontWeight: FontWeight.w600))])))); }
 
+/// Rich text character style
+class CharStyle {
+  final String fontFamily;
+  final double fontSize;
+  final bool isBold;
+  final bool isItalic;
+  final bool isUnderline;
+  final Color textColor;
+  
+  const CharStyle({
+    this.fontFamily = 'Arial',
+    this.fontSize = 14,
+    this.isBold = false,
+    this.isItalic = false,
+    this.isUnderline = false,
+    this.textColor = Colors.black,
+  });
+  
+  CharStyle copyWith({
+    String? fontFamily,
+    double? fontSize,
+    bool? isBold,
+    bool? isItalic,
+    bool? isUnderline,
+    Color? textColor,
+  }) {
+    return CharStyle(
+      fontFamily: fontFamily ?? this.fontFamily,
+      fontSize: fontSize ?? this.fontSize,
+      isBold: isBold ?? this.isBold,
+      isItalic: isItalic ?? this.isItalic,
+      isUnderline: isUnderline ?? this.isUnderline,
+      textColor: textColor ?? this.textColor,
+    );
+  }
+  
+  TextStyle toTextStyle() {
+    return TextStyle(
+      fontFamily: fontFamily,
+      fontSize: fontSize,
+      fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+      fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
+      decoration: isUnderline ? TextDecoration.underline : TextDecoration.none,
+      color: textColor,
+    );
+  }
+  
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CharStyle &&
+        other.fontFamily == fontFamily &&
+        other.fontSize == fontSize &&
+        other.isBold == isBold &&
+        other.isItalic == isItalic &&
+        other.isUnderline == isUnderline &&
+        other.textColor == textColor;
+  }
+  
+  @override
+  int get hashCode => Object.hash(fontFamily, fontSize, isBold, isItalic, isUnderline, textColor);
+}
+
+/// Custom TextEditingController that displays styled text
+class RichTextEditingController extends TextEditingController {
+  final DocumentData Function() getDoc;
+  
+  RichTextEditingController({required this.getDoc});
+  
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final doc = getDoc();
+    final text = this.text;
+    
+    if (text.isEmpty || doc.charStyles.isEmpty) {
+      return TextSpan(text: text, style: style ?? doc.currentStyle.toTextStyle());
+    }
+    
+    doc._syncStyles();
+    
+    final spans = <TextSpan>[];
+    int spanStart = 0;
+    CharStyle lastStyle = doc.charStyles.isNotEmpty ? doc.charStyles[0] : doc.currentStyle;
+    
+    for (int i = 0; i <= text.length; i++) {
+      final currentCharStyle = i < doc.charStyles.length ? doc.charStyles[i] : doc.currentStyle;
+      if (i == text.length || currentCharStyle != lastStyle) {
+        if (spanStart < i) {
+          spans.add(TextSpan(
+            text: text.substring(spanStart, i),
+            style: lastStyle.toTextStyle(),
+          ));
+        }
+        spanStart = i;
+        lastStyle = currentCharStyle;
+      }
+    }
+    
+    return TextSpan(children: spans.isEmpty ? [TextSpan(text: text, style: doc.currentStyle.toTextStyle())] : spans);
+  }
+}
+
 class DocumentData {
   String type;
   String eyeSelection = 'BOTH';
-  final TextEditingController controller = TextEditingController();
-  String fontFamily = 'Arial';
-  double fontSize = 14;
-  bool isBold = false, isItalic = false, isUnderline = false;
-  Color textColor = Colors.black;
+  late final RichTextEditingController controller;
+  
+  // Per-character styles (index = character position)
+  List<CharStyle> charStyles = [];
+  
+  // Current typing style (applied to new characters)
+  CharStyle currentStyle = const CharStyle();
+  
   TextAlign alignment = TextAlign.left;
-  bool isSaved = false;  // Track if already saved to DB
-  String? savedContent;  // Content when last saved (to detect edits)
-  DocumentData({required this.type});
+  bool isSaved = false;
+  String? savedContent;
+  
+  DocumentData({required this.type}) {
+    controller = RichTextEditingController(getDoc: () => this);
+  }
   
   /// Get plain text content
   String get plainText => controller.text;
   
-  /// Set plain text content
+  /// Set plain text content (resets all styles to default)
   void setPlainText(String text) {
     controller.text = text;
+    charStyles = List.filled(text.length, const CharStyle());
     controller.selection = TextSelection.collapsed(offset: text.length);
   }
   
@@ -2000,14 +2394,103 @@ class DocumentData {
     savedContent = controller.text;
   }
   
-  /// Insert text at current cursor position
+  /// Insert text at current cursor position with current style
   void insertText(String text) {
     final currentText = controller.text;
     final selection = controller.selection;
     final insertPos = selection.isValid ? selection.start : currentText.length;
-    final newText = currentText.substring(0, insertPos) + text + currentText.substring(selection.isValid ? selection.end : currentText.length);
+    final endPos = selection.isValid ? selection.end : currentText.length;
+    
+    // Remove styles for deleted selection
+    if (endPos > insertPos && charStyles.isNotEmpty) {
+      charStyles.removeRange(insertPos.clamp(0, charStyles.length), endPos.clamp(0, charStyles.length));
+    }
+    
+    // Insert new styles
+    final newStyles = List.filled(text.length, currentStyle);
+    if (insertPos <= charStyles.length) {
+      charStyles.insertAll(insertPos, newStyles);
+    } else {
+      charStyles.addAll(newStyles);
+    }
+    
+    final newText = currentText.substring(0, insertPos) + text + currentText.substring(endPos);
     controller.text = newText;
     controller.selection = TextSelection.collapsed(offset: insertPos + text.length);
+  }
+  
+  /// Apply style to selection range
+  void applyStyleToSelection(int start, int end, CharStyle Function(CharStyle) modifier) {
+    if (start < 0 || end <= start) return;
+    
+    // Ensure charStyles matches text length
+    _syncStyles();
+    
+    for (int i = start; i < end && i < charStyles.length; i++) {
+      charStyles[i] = modifier(charStyles[i]);
+    }
+  }
+  
+  /// Get style at position
+  CharStyle getStyleAt(int pos) {
+    _syncStyles();
+    if (pos >= 0 && pos < charStyles.length) {
+      return charStyles[pos];
+    }
+    return currentStyle;
+  }
+  
+  /// Check if selection has uniform style property
+  bool selectionHasStyle(int start, int end, bool Function(CharStyle) checker) {
+    if (start < 0 || end <= start) return checker(currentStyle);
+    _syncStyles();
+    for (int i = start; i < end && i < charStyles.length; i++) {
+      if (!checker(charStyles[i])) return false;
+    }
+    return true;
+  }
+  
+  /// Sync charStyles array with text length
+  void _syncStyles() {
+    final textLen = controller.text.length;
+    if (charStyles.length < textLen) {
+      charStyles.addAll(List.filled(textLen - charStyles.length, currentStyle));
+    } else if (charStyles.length > textLen) {
+      charStyles = charStyles.sublist(0, textLen);
+    }
+  }
+  
+  /// Build TextSpan with proper styling
+  TextSpan buildStyledText() {
+    _syncStyles();
+    final text = controller.text;
+    if (text.isEmpty) return const TextSpan(text: '');
+    
+    final spans = <TextSpan>[];
+    int spanStart = 0;
+    CharStyle? lastStyle = charStyles.isNotEmpty ? charStyles[0] : currentStyle;
+    
+    for (int i = 0; i <= text.length; i++) {
+      final currentCharStyle = i < charStyles.length ? charStyles[i] : currentStyle;
+      if (i == text.length || currentCharStyle != lastStyle) {
+        if (spanStart < i) {
+          spans.add(TextSpan(
+            text: text.substring(spanStart, i),
+            style: lastStyle?.toTextStyle(),
+          ));
+        }
+        spanStart = i;
+        lastStyle = currentCharStyle;
+      }
+    }
+    
+    return TextSpan(children: spans);
+  }
+  
+  /// Clear all formatting
+  void clearFormatting() {
+    currentStyle = const CharStyle();
+    charStyles = List.filled(controller.text.length, const CharStyle());
   }
 }
 

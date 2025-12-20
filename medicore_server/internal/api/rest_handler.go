@@ -177,6 +177,23 @@ func (h *RESTHandler) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/GetAllTemplatesCR", cors(h.GetAllTemplatesCR))
 	mux.HandleFunc("/api/IncrementTemplateCRUsage", cors(h.IncrementTemplateCRUsage))
 
+	// Appointment endpoints
+	mux.HandleFunc("/api/GetAppointmentsForDate", cors(h.GetAppointmentsForDate))
+	mux.HandleFunc("/api/GetAllAppointments", cors(h.GetAllAppointments))
+	mux.HandleFunc("/api/CreateAppointment", cors(h.CreateAppointment))
+	mux.HandleFunc("/api/UpdateAppointmentDate", cors(h.UpdateAppointmentDate))
+	mux.HandleFunc("/api/MarkAppointmentAsAdded", cors(h.MarkAppointmentAsAdded))
+	mux.HandleFunc("/api/DeleteAppointment", cors(h.DeleteAppointment))
+	mux.HandleFunc("/api/CleanupPastAppointments", cors(h.CleanupPastAppointments))
+
+	// Surgery Plan endpoints
+	mux.HandleFunc("/api/GetSurgeryPlansForDate", cors(h.GetSurgeryPlansForDate))
+	mux.HandleFunc("/api/GetAllSurgeryPlans", cors(h.GetAllSurgeryPlans))
+	mux.HandleFunc("/api/CreateSurgeryPlan", cors(h.CreateSurgeryPlan))
+	mux.HandleFunc("/api/UpdateSurgeryPlan", cors(h.UpdateSurgeryPlan))
+	mux.HandleFunc("/api/RescheduleSurgery", cors(h.RescheduleSurgery))
+	mux.HandleFunc("/api/DeleteSurgeryPlan", cors(h.DeleteSurgeryPlan))
+
 	log.Println("📡 REST API endpoints registered")
 }
 
@@ -3147,6 +3164,646 @@ func (h *RESTHandler) IncrementTemplateCRUsage(w http.ResponseWriter, r *http.Re
 		return
 	}
 	respondJSON(w, map[string]interface{}{})
+}
+
+// ==================== APPOINTMENT HANDLERS ====================
+
+func (h *RESTHandler) GetAppointmentsForDate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	dateStr := req["date"].(string)
+	date, _ := time.Parse(time.RFC3339, dateStr)
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+	endOfDay := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, time.Local)
+
+	rows, err := h.db.Query(`
+		SELECT id, appointment_date, first_name, last_name, age, date_of_birth, 
+		       phone_number, address, notes, existing_patient_code, was_added, created_at, created_by
+		FROM appointments 
+		WHERE appointment_date BETWEEN ? AND ?
+		ORDER BY last_name
+	`, startOfDay, endOfDay)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	appointments := []map[string]interface{}{}
+	for rows.Next() {
+		var id int
+		var appointmentDate time.Time
+		var firstName, lastName string
+		var age sql.NullInt64
+		var dateOfBirth sql.NullTime
+		var phoneNumber, address, notes, createdBy sql.NullString
+		var existingPatientCode sql.NullInt64
+		var wasAdded bool
+		var createdAt time.Time
+
+		if err := rows.Scan(&id, &appointmentDate, &firstName, &lastName, &age, &dateOfBirth,
+			&phoneNumber, &address, &notes, &existingPatientCode, &wasAdded, &createdAt, &createdBy); err != nil {
+			continue
+		}
+
+		apt := map[string]interface{}{
+			"id":               id,
+			"appointment_date": appointmentDate.Format(time.RFC3339),
+			"first_name":       firstName,
+			"last_name":        lastName,
+			"was_added":        wasAdded,
+			"created_at":       createdAt.Format(time.RFC3339),
+		}
+		if age.Valid {
+			apt["age"] = age.Int64
+		}
+		if dateOfBirth.Valid {
+			apt["date_of_birth"] = dateOfBirth.Time.Format(time.RFC3339)
+		}
+		if phoneNumber.Valid {
+			apt["phone_number"] = phoneNumber.String
+		}
+		if address.Valid {
+			apt["address"] = address.String
+		}
+		if notes.Valid {
+			apt["notes"] = notes.String
+		}
+		if existingPatientCode.Valid {
+			apt["existing_patient_code"] = existingPatientCode.Int64
+		}
+		if createdBy.Valid {
+			apt["created_by"] = createdBy.String
+		}
+		appointments = append(appointments, apt)
+	}
+	respondJSON(w, map[string]interface{}{"appointments": appointments})
+}
+
+func (h *RESTHandler) GetAllAppointments(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(`
+		SELECT id, appointment_date, first_name, last_name, age, date_of_birth, 
+		       phone_number, address, notes, existing_patient_code, was_added, created_at, created_by
+		FROM appointments 
+		ORDER BY appointment_date
+	`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	appointments := []map[string]interface{}{}
+	for rows.Next() {
+		var id int
+		var appointmentDate time.Time
+		var firstName, lastName string
+		var age sql.NullInt64
+		var dateOfBirth sql.NullTime
+		var phoneNumber, address, notes, createdBy sql.NullString
+		var existingPatientCode sql.NullInt64
+		var wasAdded bool
+		var createdAt time.Time
+
+		if err := rows.Scan(&id, &appointmentDate, &firstName, &lastName, &age, &dateOfBirth,
+			&phoneNumber, &address, &notes, &existingPatientCode, &wasAdded, &createdAt, &createdBy); err != nil {
+			continue
+		}
+
+		apt := map[string]interface{}{
+			"id":               id,
+			"appointment_date": appointmentDate.Format(time.RFC3339),
+			"first_name":       firstName,
+			"last_name":        lastName,
+			"was_added":        wasAdded,
+			"created_at":       createdAt.Format(time.RFC3339),
+		}
+		if age.Valid {
+			apt["age"] = age.Int64
+		}
+		if dateOfBirth.Valid {
+			apt["date_of_birth"] = dateOfBirth.Time.Format(time.RFC3339)
+		}
+		if phoneNumber.Valid {
+			apt["phone_number"] = phoneNumber.String
+		}
+		if address.Valid {
+			apt["address"] = address.String
+		}
+		if notes.Valid {
+			apt["notes"] = notes.String
+		}
+		if existingPatientCode.Valid {
+			apt["existing_patient_code"] = existingPatientCode.Int64
+		}
+		if createdBy.Valid {
+			apt["created_by"] = createdBy.String
+		}
+		appointments = append(appointments, apt)
+	}
+	respondJSON(w, map[string]interface{}{"appointments": appointments})
+}
+
+func (h *RESTHandler) CreateAppointment(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	appointmentDate, _ := time.Parse(time.RFC3339, req["appointment_date"].(string))
+	firstName := req["first_name"].(string)
+	lastName := req["last_name"].(string)
+
+	var age sql.NullInt64
+	if v, ok := req["age"]; ok && v != nil {
+		age = sql.NullInt64{Int64: int64(v.(float64)), Valid: true}
+	}
+
+	var dateOfBirth sql.NullTime
+	if v, ok := req["date_of_birth"]; ok && v != nil {
+		if t, err := time.Parse(time.RFC3339, v.(string)); err == nil {
+			dateOfBirth = sql.NullTime{Time: t, Valid: true}
+		}
+	}
+
+	var phoneNumber, address, notes, createdBy sql.NullString
+	if v, ok := req["phone_number"]; ok && v != nil {
+		phoneNumber = sql.NullString{String: v.(string), Valid: true}
+	}
+	if v, ok := req["address"]; ok && v != nil {
+		address = sql.NullString{String: v.(string), Valid: true}
+	}
+	if v, ok := req["notes"]; ok && v != nil {
+		notes = sql.NullString{String: v.(string), Valid: true}
+	}
+	if v, ok := req["created_by"]; ok && v != nil {
+		createdBy = sql.NullString{String: v.(string), Valid: true}
+	}
+
+	var existingPatientCode sql.NullInt64
+	if v, ok := req["existing_patient_code"]; ok && v != nil {
+		existingPatientCode = sql.NullInt64{Int64: int64(v.(float64)), Valid: true}
+	}
+
+	result, err := h.db.Exec(`
+		INSERT INTO appointments (appointment_date, first_name, last_name, age, date_of_birth, 
+		                          phone_number, address, notes, existing_patient_code, created_by, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, appointmentDate, firstName, lastName, age, dateOfBirth, phoneNumber, address, notes, existingPatientCode, createdBy, time.Now())
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateAppointmentDate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	newDate, _ := time.Parse(time.RFC3339, req["new_date"].(string))
+
+	_, err := h.db.Exec(`UPDATE appointments SET appointment_date = ? WHERE id = ?`, newDate, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{"success": true})
+}
+
+func (h *RESTHandler) MarkAppointmentAsAdded(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`UPDATE appointments SET was_added = 1 WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{"success": true})
+}
+
+func (h *RESTHandler) DeleteAppointment(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`DELETE FROM appointments WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{"success": true})
+}
+
+func (h *RESTHandler) CleanupPastAppointments(w http.ResponseWriter, r *http.Request) {
+	startOfToday := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Local)
+
+	result, err := h.db.Exec(`DELETE FROM appointments WHERE appointment_date < ? AND was_added = 0`, startOfToday)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+
+	deleted, _ := result.RowsAffected()
+	respondJSON(w, map[string]interface{}{"deleted": deleted})
+}
+
+// ==================== SURGERY PLAN HANDLERS ====================
+
+func (h *RESTHandler) GetSurgeryPlansForDate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	date, _ := time.Parse(time.RFC3339, req["date"].(string))
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+	endOfDay := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, time.Local)
+
+	rows, err := h.db.Query(`
+		SELECT id, surgery_date, surgery_hour, patient_code, patient_first_name, patient_last_name,
+		       patient_age, patient_phone, surgery_type, eye_to_operate, implant_power, tarif,
+		       payment_status, amount_remaining, surgery_status, patient_came, notes,
+		       created_at, created_by, updated_at, needs_sync
+		FROM surgery_plans 
+		WHERE surgery_date BETWEEN ? AND ?
+		ORDER BY surgery_hour
+	`, startOfDay, endOfDay)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	plans := []map[string]interface{}{}
+	for rows.Next() {
+		var id, patientCode int
+		var surgeryDate time.Time
+		var surgeryHour, patientFirstName, patientLastName, surgeryType, eyeToOperate string
+		var patientAge sql.NullInt64
+		var patientPhone, implantPower, notes, createdBy sql.NullString
+		var tarif, amountRemaining sql.NullInt64
+		var paymentStatus, surgeryStatus string
+		var patientCame, needsSync bool
+		var createdAt, updatedAt time.Time
+
+		if err := rows.Scan(&id, &surgeryDate, &surgeryHour, &patientCode, &patientFirstName, &patientLastName,
+			&patientAge, &patientPhone, &surgeryType, &eyeToOperate, &implantPower, &tarif,
+			&paymentStatus, &amountRemaining, &surgeryStatus, &patientCame, &notes,
+			&createdAt, &createdBy, &updatedAt, &needsSync); err != nil {
+			continue
+		}
+
+		plan := map[string]interface{}{
+			"id":                 id,
+			"surgery_date":       surgeryDate.Format(time.RFC3339),
+			"surgery_hour":       surgeryHour,
+			"patient_code":       patientCode,
+			"patient_first_name": patientFirstName,
+			"patient_last_name":  patientLastName,
+			"surgery_type":       surgeryType,
+			"eye_to_operate":     eyeToOperate,
+			"payment_status":     paymentStatus,
+			"surgery_status":     surgeryStatus,
+			"patient_came":       patientCame,
+			"created_at":         createdAt.Format(time.RFC3339),
+			"updated_at":         updatedAt.Format(time.RFC3339),
+			"needs_sync":         needsSync,
+		}
+		if patientAge.Valid {
+			plan["patient_age"] = patientAge.Int64
+		}
+		if patientPhone.Valid {
+			plan["patient_phone"] = patientPhone.String
+		}
+		if implantPower.Valid {
+			plan["implant_power"] = implantPower.String
+		}
+		if tarif.Valid {
+			plan["tarif"] = tarif.Int64
+		}
+		if amountRemaining.Valid {
+			plan["amount_remaining"] = amountRemaining.Int64
+		}
+		if notes.Valid {
+			plan["notes"] = notes.String
+		}
+		if createdBy.Valid {
+			plan["created_by"] = createdBy.String
+		}
+		plans = append(plans, plan)
+	}
+	respondJSON(w, map[string]interface{}{"surgery_plans": plans})
+}
+
+func (h *RESTHandler) GetAllSurgeryPlans(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(`
+		SELECT id, surgery_date, surgery_hour, patient_code, patient_first_name, patient_last_name,
+		       patient_age, patient_phone, surgery_type, eye_to_operate, implant_power, tarif,
+		       payment_status, amount_remaining, surgery_status, patient_came, notes,
+		       created_at, created_by, updated_at, needs_sync
+		FROM surgery_plans 
+		ORDER BY surgery_date, surgery_hour
+	`)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	plans := []map[string]interface{}{}
+	for rows.Next() {
+		var id, patientCode int
+		var surgeryDate time.Time
+		var surgeryHour, patientFirstName, patientLastName, surgeryType, eyeToOperate string
+		var patientAge sql.NullInt64
+		var patientPhone, implantPower, notes, createdBy sql.NullString
+		var tarif, amountRemaining sql.NullInt64
+		var paymentStatus, surgeryStatus string
+		var patientCame, needsSync bool
+		var createdAt, updatedAt time.Time
+
+		if err := rows.Scan(&id, &surgeryDate, &surgeryHour, &patientCode, &patientFirstName, &patientLastName,
+			&patientAge, &patientPhone, &surgeryType, &eyeToOperate, &implantPower, &tarif,
+			&paymentStatus, &amountRemaining, &surgeryStatus, &patientCame, &notes,
+			&createdAt, &createdBy, &updatedAt, &needsSync); err != nil {
+			continue
+		}
+
+		plan := map[string]interface{}{
+			"id":                 id,
+			"surgery_date":       surgeryDate.Format(time.RFC3339),
+			"surgery_hour":       surgeryHour,
+			"patient_code":       patientCode,
+			"patient_first_name": patientFirstName,
+			"patient_last_name":  patientLastName,
+			"surgery_type":       surgeryType,
+			"eye_to_operate":     eyeToOperate,
+			"payment_status":     paymentStatus,
+			"surgery_status":     surgeryStatus,
+			"patient_came":       patientCame,
+			"created_at":         createdAt.Format(time.RFC3339),
+			"updated_at":         updatedAt.Format(time.RFC3339),
+			"needs_sync":         needsSync,
+		}
+		if patientAge.Valid {
+			plan["patient_age"] = patientAge.Int64
+		}
+		if patientPhone.Valid {
+			plan["patient_phone"] = patientPhone.String
+		}
+		if implantPower.Valid {
+			plan["implant_power"] = implantPower.String
+		}
+		if tarif.Valid {
+			plan["tarif"] = tarif.Int64
+		}
+		if amountRemaining.Valid {
+			plan["amount_remaining"] = amountRemaining.Int64
+		}
+		if notes.Valid {
+			plan["notes"] = notes.String
+		}
+		if createdBy.Valid {
+			plan["created_by"] = createdBy.String
+		}
+		plans = append(plans, plan)
+	}
+	respondJSON(w, map[string]interface{}{"surgery_plans": plans})
+}
+
+func (h *RESTHandler) CreateSurgeryPlan(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	surgeryDate, _ := time.Parse(time.RFC3339, req["surgery_date"].(string))
+	surgeryHour := req["surgery_hour"].(string)
+	patientCode := int(req["patient_code"].(float64))
+	patientFirstName := req["patient_first_name"].(string)
+	patientLastName := req["patient_last_name"].(string)
+	surgeryType := req["surgery_type"].(string)
+	eyeToOperate := req["eye_to_operate"].(string)
+
+	var patientAge *int
+	if v, ok := req["patient_age"]; ok && v != nil {
+		age := int(v.(float64))
+		patientAge = &age
+	}
+
+	var patientPhone, implantPower, notes, createdBy *string
+	if v, ok := req["patient_phone"]; ok && v != nil {
+		s := v.(string)
+		patientPhone = &s
+	}
+	if v, ok := req["implant_power"]; ok && v != nil {
+		s := v.(string)
+		implantPower = &s
+	}
+	if v, ok := req["notes"]; ok && v != nil {
+		s := v.(string)
+		notes = &s
+	}
+	if v, ok := req["created_by"]; ok && v != nil {
+		s := v.(string)
+		createdBy = &s
+	}
+
+	var tarif *int
+	if v, ok := req["tarif"]; ok && v != nil {
+		t := int(v.(float64))
+		tarif = &t
+	}
+
+	now := time.Now()
+	result, err := h.db.Exec(`
+		INSERT INTO surgery_plans (surgery_date, surgery_hour, patient_code, patient_first_name, patient_last_name,
+		                          patient_age, patient_phone, surgery_type, eye_to_operate, implant_power, tarif,
+		                          payment_status, surgery_status, notes, created_by, created_at, updated_at, needs_sync)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'scheduled', ?, ?, ?, ?, 1)
+	`, surgeryDate, surgeryHour, patientCode, patientFirstName, patientLastName,
+		patientAge, patientPhone, surgeryType, eyeToOperate, implantPower, tarif,
+		notes, createdBy, now, now)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	id, _ := result.LastInsertId()
+	respondJSON(w, map[string]interface{}{"id": id})
+}
+
+func (h *RESTHandler) UpdateSurgeryPlan(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+
+	// Build dynamic update query
+	updates := []string{}
+	args := []interface{}{}
+
+	if v, ok := req["surgery_hour"]; ok && v != nil {
+		updates = append(updates, "surgery_hour = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["surgery_type"]; ok && v != nil {
+		updates = append(updates, "surgery_type = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["eye_to_operate"]; ok && v != nil {
+		updates = append(updates, "eye_to_operate = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["implant_power"]; ok && v != nil {
+		updates = append(updates, "implant_power = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["tarif"]; ok && v != nil {
+		updates = append(updates, "tarif = ?")
+		args = append(args, int(v.(float64)))
+	}
+	if v, ok := req["payment_status"]; ok && v != nil {
+		updates = append(updates, "payment_status = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["amount_remaining"]; ok && v != nil {
+		updates = append(updates, "amount_remaining = ?")
+		args = append(args, int(v.(float64)))
+	}
+	if v, ok := req["surgery_status"]; ok && v != nil {
+		updates = append(updates, "surgery_status = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["patient_came"]; ok && v != nil {
+		updates = append(updates, "patient_came = ?")
+		if v.(bool) {
+			args = append(args, 1)
+		} else {
+			args = append(args, 0)
+		}
+	}
+	if v, ok := req["notes"]; ok && v != nil {
+		updates = append(updates, "notes = ?")
+		args = append(args, v.(string))
+	}
+
+	if len(updates) == 0 {
+		respondJSON(w, map[string]interface{}{"success": true})
+		return
+	}
+
+	updates = append(updates, "updated_at = ?", "needs_sync = 1")
+	args = append(args, time.Now())
+	args = append(args, id)
+
+	query := "UPDATE surgery_plans SET " + joinStrings(updates, ", ") + " WHERE id = ?"
+	_, err := h.db.Exec(query, args...)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{"success": true})
+}
+
+func (h *RESTHandler) RescheduleSurgery(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	newDate, _ := time.Parse(time.RFC3339, req["surgery_date"].(string))
+
+	// Build dynamic update query
+	updates := []string{"surgery_date = ?"}
+	args := []interface{}{newDate}
+
+	if v, ok := req["surgery_hour"]; ok && v != nil {
+		updates = append(updates, "surgery_hour = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["surgery_type"]; ok && v != nil {
+		updates = append(updates, "surgery_type = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["eye_to_operate"]; ok && v != nil {
+		updates = append(updates, "eye_to_operate = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["implant_power"]; ok && v != nil {
+		updates = append(updates, "implant_power = ?")
+		args = append(args, v.(string))
+	}
+	if v, ok := req["tarif"]; ok && v != nil {
+		updates = append(updates, "tarif = ?")
+		args = append(args, int(v.(float64)))
+	}
+
+	updates = append(updates, "updated_at = ?", "needs_sync = 1")
+	args = append(args, time.Now())
+	args = append(args, id)
+
+	query := "UPDATE surgery_plans SET " + joinStrings(updates, ", ") + " WHERE id = ?"
+	_, err := h.db.Exec(query, args...)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{"success": true})
+}
+
+func (h *RESTHandler) DeleteSurgeryPlan(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	if err := decodeBody(r, &req); err != nil {
+		respondError(w, 400, err.Error())
+		return
+	}
+
+	id := int(req["id"].(float64))
+	_, err := h.db.Exec(`DELETE FROM surgery_plans WHERE id = ?`, id)
+	if err != nil {
+		respondError(w, 500, err.Error())
+		return
+	}
+	respondJSON(w, map[string]interface{}{"success": true})
+}
+
+// Helper function to join strings
+func joinStrings(strs []string, sep string) string {
+	result := ""
+	for i, s := range strs {
+		if i > 0 {
+			result += sep
+		}
+		result += s
+	}
+	return result
 }
 
 // StartRESTServer starts the REST API server

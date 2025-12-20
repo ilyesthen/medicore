@@ -26,6 +26,7 @@ import 'src/features/auth/presentation/room_selection_wrapper.dart';
 import 'src/features/dashboard/presentation/admin_dashboard.dart';
 import 'src/features/setup/presentation/setup_wizard.dart';
 import 'src/features/messages/services/notification_service.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Current app version - bump this to force setup wizard on upgrade
 const String _currentAppVersion = '4.0.5';
@@ -90,6 +91,14 @@ Future<bool> _isSetupComplete() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Prevent PC from sleeping while app is running
+  try {
+    await WakelockPlus.enable();
+    print('🔒 Wakelock enabled - PC will stay awake');
+  } catch (e) {
+    print('⚠️ Could not enable wakelock: $e');
+  }
   
   // Initialize French locale for date formatting
   await initializeDateFormatting('fr_FR', null);

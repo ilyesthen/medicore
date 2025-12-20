@@ -19,6 +19,18 @@ class GrpcClientConfig {
     final prefs = await SharedPreferences.getInstance();
     _isServer = prefs.getBool('is_server') ?? true;
     _serverHost = prefs.getString('server_ip');
+    
+    // DEBUG: Log the configuration to help diagnose issues
+    print('🔧 [GrpcClientConfig] Initialized: isServer=$_isServer, serverHost=$_serverHost');
+    
+    // SAFETY CHECK: If server_ip is null or localhost, this MUST be server mode
+    if (_serverHost == null || _serverHost == 'localhost' || _serverHost == '127.0.0.1') {
+      if (!_isServer) {
+        print('⚠️ [GrpcClientConfig] FIXING MISCONFIGURATION: No server IP but is_server=false. Forcing server mode.');
+        _isServer = true;
+        await prefs.setBool('is_server', true);
+      }
+    }
   }
   
   /// Check if this instance is the server

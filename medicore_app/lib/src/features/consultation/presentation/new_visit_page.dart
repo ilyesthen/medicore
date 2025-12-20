@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
+import '../../patients/data/age_calculator_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../messages/presentation/send_message_dialog.dart';
 import '../../messages/presentation/receive_messages_dialog.dart';
@@ -16,6 +17,7 @@ import 'validate_payment_dialog.dart';
 import 'prescription_optique_dialog.dart';
 import 'prescription_lentilles_dialog.dart';
 import '../../ordonnance/presentation/ordonnance_page.dart';
+import '../../ai_agent/presentation/patient_ai_chat_widget.dart';
 
 /// New Visit Page - For creating new visits or editing existing ones
 class NewVisitPage extends ConsumerStatefulWidget {
@@ -74,7 +76,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
     final patientName = '${widget.patient.firstName} ${widget.patient.lastName}';
     final patientCode = widget.patient.code.toString();
     final barcode = widget.patient.barcode;
-    final age = widget.patient.age?.toString();
+    final age = widget.patient.currentAge?.toString();
     showDialog(context: context, builder: (context) => PrescriptionOptiqueDialog(
       vlOD: vlOD, vlOG: vlOG, addition: addition,
       patientName: patientName, patientCode: patientCode, barcode: barcode, age: age,
@@ -90,7 +92,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
     final patientName = '${widget.patient.firstName} ${widget.patient.lastName}';
     final patientCode = widget.patient.code.toString();
     final barcode = widget.patient.barcode;
-    final age = widget.patient.age?.toString();
+    final age = widget.patient.currentAge?.toString();
     showDialog(context: context, builder: (context) => PrescriptionLentillesDialog(
       vlOD: vlOD, vlOG: vlOG,
       patientName: patientName, patientCode: patientCode, barcode: barcode, age: age,
@@ -429,7 +431,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
     }
     try {
       final repository = ref.read(waitingQueueRepositoryProvider);
-      await repository.addToDilatation(patientCode: widget.patient.code, patientFirstName: widget.patient.firstName, patientLastName: widget.patient.lastName, patientBirthDate: widget.patient.dateOfBirth, patientAge: widget.patient.age, roomId: selectedRoom.id, roomName: selectedRoom.name, dilatationType: dilatationType, sentByUserId: authState.user?.id ?? '', sentByUserName: authState.user?.name ?? '');
+      await repository.addToDilatation(patientCode: widget.patient.code, patientFirstName: widget.patient.firstName, patientLastName: widget.patient.lastName, patientBirthDate: widget.patient.dateOfBirth, patientAge: widget.patient.age, patientCreatedAt: widget.patient.createdAt, roomId: selectedRoom.id, roomName: selectedRoom.name, dilatationType: dilatationType, sentByUserId: authState.user?.id ?? '', sentByUserName: authState.user?.name ?? '');
       final label = {'skiacol': 'Dilatation sous Skiacol', 'od': 'Dilatation OD', 'og': 'Dilatation OG', 'odg': 'Dilatation ODG'}[dilatationType] ?? dilatationType;
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Row(children: [const Icon(Icons.opacity, color: Colors.white), const SizedBox(width: 8), Expanded(child: Text('💊 $label envoyé pour ${widget.patient.firstName}'))]), backgroundColor: MediCoreColors.healthyGreen));
     } catch (e) {
@@ -453,14 +455,68 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
       focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        backgroundColor: MediCoreColors.canvasGrey,
+        // Different background for new/edit visits - subtle warm tint
+        backgroundColor: const Color(0xFFF5F0E8), // Warm cream background instead of grey
+        floatingActionButton: FloatingAIButton(patient: widget.patient),
         body: Column(children: [
-          // TOP BAR
+          // MODE INDICATOR STRIP - Shows clearly that we're editing/creating
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isEditMode 
+                    ? [const Color(0xFFFF9800), const Color(0xFFFFC107)] // Orange for edit mode
+                    : [const Color(0xFF4CAF50), const Color(0xFF8BC34A)], // Green for new visit
+              ),
+            ),
+          ),
+          // TOP BAR - Different color tint for new/edit
           Container(
             height: 70,
-            decoration: const BoxDecoration(color: MediCoreColors.deepNavy, border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline, width: 2))),
+            decoration: BoxDecoration(
+              // Warmer navy with subtle tint based on mode
+              color: isEditMode 
+                  ? const Color(0xFF2D3A4A) // Slightly warmer navy for edit
+                  : const Color(0xFF1E3D2F), // Green-tinted navy for new
+              border: Border(bottom: BorderSide(
+                color: isEditMode ? const Color(0xFFFF9800) : const Color(0xFF4CAF50), 
+                width: 3,
+              )),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(children: [
+              // MODE BADGE
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: isEditMode 
+                      ? const Color(0xFFFF9800).withOpacity(0.2) 
+                      : const Color(0xFF4CAF50).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: isEditMode ? const Color(0xFFFF9800) : const Color(0xFF4CAF50), 
+                    width: 2,
+                  ),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(
+                    isEditMode ? Icons.edit_document : Icons.add_circle_outline, 
+                    color: isEditMode ? const Color(0xFFFF9800) : const Color(0xFF4CAF50), 
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isEditMode ? 'MODIFICATION' : 'NOUVELLE VISITE',
+                    style: TextStyle(
+                      color: isEditMode ? const Color(0xFFFF9800) : const Color(0xFF4CAF50),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ]),
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(color: MediCoreColors.professionalBlue.withOpacity(0.3), borderRadius: BorderRadius.circular(4), border: Border.all(color: MediCoreColors.professionalBlue, width: 1)),
@@ -478,7 +534,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
                   Text('Patient N° ${patient.code}', style: MediCoreTypography.body.copyWith(color: Colors.white.withOpacity(0.6), fontSize: 11)),
                 ]),
                 const SizedBox(width: 32),
-                if (patient.age != null) ...[_InfoChip(icon: Icons.cake_outlined, label: '${patient.age} ans'), const SizedBox(width: 16)],
+                if (patient.currentAge != null) ...[_InfoChip(icon: Icons.cake_outlined, label: '${patient.currentAge} ans'), const SizedBox(width: 16)],
                 if (patient.address != null && patient.address!.isNotEmpty) _InfoChip(icon: Icons.location_on_outlined, label: patient.address!, maxWidth: 200),
               ])),
               if (_hasChanges) Container(
@@ -710,11 +766,7 @@ class _AutocompleteBoxState extends State<_AutocompleteBox> {
                 shrinkWrap: true,
                 children: filtered.map((o) => InkWell(
                   onTap: () {
-                    _controller.text = o;
-                    widget.onChanged(o);
-                    _removeOverlay();
-                    _filterText = '';
-                    _focusNode.unfocus();
+                    _selectOption(o);
                   },
                   child: Container(
                     color: o.toLowerCase().startsWith(filter.toLowerCase()) ? const Color(0xFFE3F2FD) : Colors.white,
@@ -729,6 +781,21 @@ class _AutocompleteBoxState extends State<_AutocompleteBox> {
       ),
     );
     overlay.insert(_overlayEntry!);
+  }
+  
+  void _selectOption(String option) {
+    // Remove listener temporarily to avoid triggering _onTextChanged
+    _controller.removeListener(_onTextChanged);
+    _controller.text = option;
+    _controller.addListener(_onTextChanged);
+    
+    // Call the callback with selected value
+    widget.onChanged(option);
+    
+    // Reset filter and close
+    _filterText = '';
+    _removeOverlay();
+    _focusNode.unfocus();
   }
 
   void _showAllOptions() {
@@ -754,10 +821,7 @@ class _AutocompleteBoxState extends State<_AutocompleteBox> {
                 shrinkWrap: true,
                 children: widget.options.map((o) => InkWell(
                   onTap: () {
-                    _controller.text = o;
-                    widget.onChanged(o);
-                    _removeOverlay();
-                    _focusNode.unfocus();
+                    _selectOption(o);
                   },
                   child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), child: Text(o, style: const TextStyle(fontSize: 12))),
                 )).toList(),

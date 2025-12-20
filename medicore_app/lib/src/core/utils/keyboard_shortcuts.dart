@@ -3,12 +3,15 @@ import 'package:flutter/services.dart';
 
 /// Enterprise-grade keyboard shortcut handler
 /// F1: New Patient, F2: Receive Messages, F3: Send Message, F5: Comptabilité
+/// Arrow Up/Down: Navigate patient list
 class KeyboardShortcutHandler extends StatefulWidget {
   final Widget child;
   final VoidCallback? onF1Pressed; // New Patient
   final VoidCallback? onF2Pressed; // Receive Messages
   final VoidCallback? onF3Pressed; // Send Message
   final VoidCallback? onF5Pressed; // Comptabilité
+  final VoidCallback? onArrowUpPressed; // Navigate up in patient list
+  final VoidCallback? onArrowDownPressed; // Navigate down in patient list
 
   const KeyboardShortcutHandler({
     super.key,
@@ -17,6 +20,8 @@ class KeyboardShortcutHandler extends StatefulWidget {
     this.onF2Pressed,
     this.onF3Pressed,
     this.onF5Pressed,
+    this.onArrowUpPressed,
+    this.onArrowDownPressed,
   });
 
   @override
@@ -70,6 +75,22 @@ class _KeyboardShortcutHandlerState extends State<KeyboardShortcutHandler> {
           if (event.logicalKey == LogicalKeyboardKey.f5) {
             widget.onF5Pressed?.call();
             return KeyEventResult.handled;
+          }
+          
+          // Arrow Up - Navigate up in patient list
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            if (widget.onArrowUpPressed != null) {
+              widget.onArrowUpPressed!();
+              return KeyEventResult.handled;
+            }
+          }
+          
+          // Arrow Down - Navigate down in patient list
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            if (widget.onArrowDownPressed != null) {
+              widget.onArrowDownPressed!();
+              return KeyEventResult.handled;
+            }
           }
         }
         return KeyEventResult.ignored;

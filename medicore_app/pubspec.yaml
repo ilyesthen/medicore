@@ -47,6 +47,14 @@ dependencies:
   # Multi-pane layouts
   multi_split_view: ^3.0.0
   
+  # Prevent PC from sleeping
+  wakelock_plus: ^1.2.8
+  
+  # AI Chat Features
+  speech_to_text: ^6.6.0
+  flutter_markdown: ^0.6.18+2
+  http: ^1.1.0
+  
 
 dev_dependencies:
   flutter_test:

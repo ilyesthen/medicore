@@ -21,6 +21,9 @@ class WaitingPatients extends Table {
   /// Patient age (used when birthDate is not available)
   IntColumn get patientAge => integer().nullable()();
   
+  /// Patient creation date (for dynamic age calculation when birthDate is null)
+  DateTimeColumn get patientCreatedAt => dateTime().nullable()();
+  
   /// Whether this is an urgent case
   BoolColumn get isUrgent => boolean().withDefault(const Constant(false))();
   

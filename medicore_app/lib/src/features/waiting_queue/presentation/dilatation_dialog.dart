@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
+import '../../patients/data/age_calculator_service.dart';
 import '../../patients/data/patients_repository.dart';
 import '../../consultation/presentation/patient_consultation_page.dart';
 import '../../messages/services/notification_service.dart';
@@ -294,19 +295,8 @@ class _DilatationPatientRow extends ConsumerWidget {
   });
 
   String _getAge() {
-    if (patient.patientBirthDate != null) {
-      final now = DateTime.now();
-      int age = now.year - patient.patientBirthDate!.year;
-      if (now.month < patient.patientBirthDate!.month || 
-          (now.month == patient.patientBirthDate!.month && now.day < patient.patientBirthDate!.day)) {
-        age--;
-      }
-      return '$age';
-    }
-    if (patient.patientAge != null) {
-      return '${patient.patientAge}';
-    }
-    return '-';
+    final age = patient.currentAge;
+    return age?.toString() ?? '-';
   }
 
   String _formatTimer(DateTime sentAt) {

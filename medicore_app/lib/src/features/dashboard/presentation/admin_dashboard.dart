@@ -13,6 +13,7 @@ import '../../auth/presentation/auth_provider.dart';
 import '../../users/presentation/user_management_screen.dart';
 import '../../rooms/presentation/room_management_screen.dart';
 import '../../admin/presentation/import_patients_dialog.dart';
+import '../../ai_agent/presentation/ai_agent_screen.dart';
 
 /// Admin dashboard with user, template, and room management
 class AdminDashboard extends ConsumerStatefulWidget {
@@ -29,7 +30,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -189,6 +190,10 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
                   icon: Icon(Icons.backup),
                   text: 'SAUVEGARDE',
                 ),
+                Tab(
+                  icon: Icon(Icons.psychology),
+                  text: 'AGENT IA',
+                ),
               ],
             ),
           ),
@@ -201,6 +206,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
                 const UserManagementScreen(),
                 const RoomManagementScreen(),
                 _buildBackupTab(),
+                const AIAgentScreen(),
               ],
             ),
           ),

@@ -6295,6 +6295,12 @@ class $WaitingPatientsTable extends WaitingPatients
   late final GeneratedColumn<int> patientAge = GeneratedColumn<int>(
       'patient_age', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _patientCreatedAtMeta =
+      const VerificationMeta('patientCreatedAt');
+  @override
+  late final GeneratedColumn<DateTime> patientCreatedAt =
+      GeneratedColumn<DateTime>('patient_created_at', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _isUrgentMeta =
       const VerificationMeta('isUrgent');
   @override
@@ -6392,6 +6398,7 @@ class $WaitingPatientsTable extends WaitingPatients
         patientLastName,
         patientBirthDate,
         patientAge,
+        patientCreatedAt,
         isUrgent,
         isDilatation,
         dilatationType,
@@ -6453,6 +6460,12 @@ class $WaitingPatientsTable extends WaitingPatients
           _patientAgeMeta,
           patientAge.isAcceptableOrUnknown(
               data['patient_age']!, _patientAgeMeta));
+    }
+    if (data.containsKey('patient_created_at')) {
+      context.handle(
+          _patientCreatedAtMeta,
+          patientCreatedAt.isAcceptableOrUnknown(
+              data['patient_created_at']!, _patientCreatedAtMeta));
     }
     if (data.containsKey('is_urgent')) {
       context.handle(_isUrgentMeta,
@@ -6545,6 +6558,8 @@ class $WaitingPatientsTable extends WaitingPatients
           DriftSqlType.dateTime, data['${effectivePrefix}patient_birth_date']),
       patientAge: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}patient_age']),
+      patientCreatedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}patient_created_at']),
       isUrgent: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_urgent'])!,
       isDilatation: attachedDatabase.typeMapping
@@ -6597,6 +6612,9 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
   /// Patient age (used when birthDate is not available)
   final int? patientAge;
 
+  /// Patient creation date (for dynamic age calculation when birthDate is null)
+  final DateTime? patientCreatedAt;
+
   /// Whether this is an urgent case
   final bool isUrgent;
 
@@ -6639,6 +6657,7 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
       required this.patientLastName,
       this.patientBirthDate,
       this.patientAge,
+      this.patientCreatedAt,
       required this.isUrgent,
       required this.isDilatation,
       this.dilatationType,
@@ -6663,6 +6682,9 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
     }
     if (!nullToAbsent || patientAge != null) {
       map['patient_age'] = Variable<int>(patientAge);
+    }
+    if (!nullToAbsent || patientCreatedAt != null) {
+      map['patient_created_at'] = Variable<DateTime>(patientCreatedAt);
     }
     map['is_urgent'] = Variable<bool>(isUrgent);
     map['is_dilatation'] = Variable<bool>(isDilatation);
@@ -6693,6 +6715,9 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
       patientAge: patientAge == null && nullToAbsent
           ? const Value.absent()
           : Value(patientAge),
+      patientCreatedAt: patientCreatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(patientCreatedAt),
       isUrgent: Value(isUrgent),
       isDilatation: Value(isDilatation),
       dilatationType: dilatationType == null && nullToAbsent
@@ -6721,6 +6746,8 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
       patientBirthDate:
           serializer.fromJson<DateTime?>(json['patientBirthDate']),
       patientAge: serializer.fromJson<int?>(json['patientAge']),
+      patientCreatedAt:
+          serializer.fromJson<DateTime?>(json['patientCreatedAt']),
       isUrgent: serializer.fromJson<bool>(json['isUrgent']),
       isDilatation: serializer.fromJson<bool>(json['isDilatation']),
       dilatationType: serializer.fromJson<String?>(json['dilatationType']),
@@ -6745,6 +6772,7 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
       'patientLastName': serializer.toJson<String>(patientLastName),
       'patientBirthDate': serializer.toJson<DateTime?>(patientBirthDate),
       'patientAge': serializer.toJson<int?>(patientAge),
+      'patientCreatedAt': serializer.toJson<DateTime?>(patientCreatedAt),
       'isUrgent': serializer.toJson<bool>(isUrgent),
       'isDilatation': serializer.toJson<bool>(isDilatation),
       'dilatationType': serializer.toJson<String?>(dilatationType),
@@ -6767,6 +6795,7 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
           String? patientLastName,
           Value<DateTime?> patientBirthDate = const Value.absent(),
           Value<int?> patientAge = const Value.absent(),
+          Value<DateTime?> patientCreatedAt = const Value.absent(),
           bool? isUrgent,
           bool? isDilatation,
           Value<String?> dilatationType = const Value.absent(),
@@ -6788,6 +6817,9 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
             ? patientBirthDate.value
             : this.patientBirthDate,
         patientAge: patientAge.present ? patientAge.value : this.patientAge,
+        patientCreatedAt: patientCreatedAt.present
+            ? patientCreatedAt.value
+            : this.patientCreatedAt,
         isUrgent: isUrgent ?? this.isUrgent,
         isDilatation: isDilatation ?? this.isDilatation,
         dilatationType:
@@ -6818,6 +6850,9 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
           : this.patientBirthDate,
       patientAge:
           data.patientAge.present ? data.patientAge.value : this.patientAge,
+      patientCreatedAt: data.patientCreatedAt.present
+          ? data.patientCreatedAt.value
+          : this.patientCreatedAt,
       isUrgent: data.isUrgent.present ? data.isUrgent.value : this.isUrgent,
       isDilatation: data.isDilatation.present
           ? data.isDilatation.value
@@ -6851,6 +6886,7 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
           ..write('patientLastName: $patientLastName, ')
           ..write('patientBirthDate: $patientBirthDate, ')
           ..write('patientAge: $patientAge, ')
+          ..write('patientCreatedAt: $patientCreatedAt, ')
           ..write('isUrgent: $isUrgent, ')
           ..write('isDilatation: $isDilatation, ')
           ..write('dilatationType: $dilatationType, ')
@@ -6875,6 +6911,7 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
       patientLastName,
       patientBirthDate,
       patientAge,
+      patientCreatedAt,
       isUrgent,
       isDilatation,
       dilatationType,
@@ -6897,6 +6934,7 @@ class WaitingPatient extends DataClass implements Insertable<WaitingPatient> {
           other.patientLastName == this.patientLastName &&
           other.patientBirthDate == this.patientBirthDate &&
           other.patientAge == this.patientAge &&
+          other.patientCreatedAt == this.patientCreatedAt &&
           other.isUrgent == this.isUrgent &&
           other.isDilatation == this.isDilatation &&
           other.dilatationType == this.dilatationType &&
@@ -6918,6 +6956,7 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
   final Value<String> patientLastName;
   final Value<DateTime?> patientBirthDate;
   final Value<int?> patientAge;
+  final Value<DateTime?> patientCreatedAt;
   final Value<bool> isUrgent;
   final Value<bool> isDilatation;
   final Value<String?> dilatationType;
@@ -6937,6 +6976,7 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
     this.patientLastName = const Value.absent(),
     this.patientBirthDate = const Value.absent(),
     this.patientAge = const Value.absent(),
+    this.patientCreatedAt = const Value.absent(),
     this.isUrgent = const Value.absent(),
     this.isDilatation = const Value.absent(),
     this.dilatationType = const Value.absent(),
@@ -6957,6 +6997,7 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
     required String patientLastName,
     this.patientBirthDate = const Value.absent(),
     this.patientAge = const Value.absent(),
+    this.patientCreatedAt = const Value.absent(),
     this.isUrgent = const Value.absent(),
     this.isDilatation = const Value.absent(),
     this.dilatationType = const Value.absent(),
@@ -6985,6 +7026,7 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
     Expression<String>? patientLastName,
     Expression<DateTime>? patientBirthDate,
     Expression<int>? patientAge,
+    Expression<DateTime>? patientCreatedAt,
     Expression<bool>? isUrgent,
     Expression<bool>? isDilatation,
     Expression<String>? dilatationType,
@@ -7005,6 +7047,7 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
       if (patientLastName != null) 'patient_last_name': patientLastName,
       if (patientBirthDate != null) 'patient_birth_date': patientBirthDate,
       if (patientAge != null) 'patient_age': patientAge,
+      if (patientCreatedAt != null) 'patient_created_at': patientCreatedAt,
       if (isUrgent != null) 'is_urgent': isUrgent,
       if (isDilatation != null) 'is_dilatation': isDilatation,
       if (dilatationType != null) 'dilatation_type': dilatationType,
@@ -7027,6 +7070,7 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
       Value<String>? patientLastName,
       Value<DateTime?>? patientBirthDate,
       Value<int?>? patientAge,
+      Value<DateTime?>? patientCreatedAt,
       Value<bool>? isUrgent,
       Value<bool>? isDilatation,
       Value<String?>? dilatationType,
@@ -7046,6 +7090,7 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
       patientLastName: patientLastName ?? this.patientLastName,
       patientBirthDate: patientBirthDate ?? this.patientBirthDate,
       patientAge: patientAge ?? this.patientAge,
+      patientCreatedAt: patientCreatedAt ?? this.patientCreatedAt,
       isUrgent: isUrgent ?? this.isUrgent,
       isDilatation: isDilatation ?? this.isDilatation,
       dilatationType: dilatationType ?? this.dilatationType,
@@ -7081,6 +7126,9 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
     }
     if (patientAge.present) {
       map['patient_age'] = Variable<int>(patientAge.value);
+    }
+    if (patientCreatedAt.present) {
+      map['patient_created_at'] = Variable<DateTime>(patientCreatedAt.value);
     }
     if (isUrgent.present) {
       map['is_urgent'] = Variable<bool>(isUrgent.value);
@@ -7130,6 +7178,7 @@ class WaitingPatientsCompanion extends UpdateCompanion<WaitingPatient> {
           ..write('patientLastName: $patientLastName, ')
           ..write('patientBirthDate: $patientBirthDate, ')
           ..write('patientAge: $patientAge, ')
+          ..write('patientCreatedAt: $patientCreatedAt, ')
           ..write('isUrgent: $isUrgent, ')
           ..write('isDilatation: $isDilatation, ')
           ..write('dilatationType: $dilatationType, ')
@@ -8667,6 +8716,1712 @@ class MedicationsCompanion extends UpdateCompanion<Medication> {
   }
 }
 
+class $AppointmentsTable extends Appointments
+    with TableInfo<$AppointmentsTable, Appointment> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppointmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _appointmentDateMeta =
+      const VerificationMeta('appointmentDate');
+  @override
+  late final GeneratedColumn<DateTime> appointmentDate =
+      GeneratedColumn<DateTime>('appointment_date', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _firstNameMeta =
+      const VerificationMeta('firstName');
+  @override
+  late final GeneratedColumn<String> firstName = GeneratedColumn<String>(
+      'first_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _lastNameMeta =
+      const VerificationMeta('lastName');
+  @override
+  late final GeneratedColumn<String> lastName = GeneratedColumn<String>(
+      'last_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _ageMeta = const VerificationMeta('age');
+  @override
+  late final GeneratedColumn<int> age = GeneratedColumn<int>(
+      'age', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _dateOfBirthMeta =
+      const VerificationMeta('dateOfBirth');
+  @override
+  late final GeneratedColumn<DateTime> dateOfBirth = GeneratedColumn<DateTime>(
+      'date_of_birth', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _phoneNumberMeta =
+      const VerificationMeta('phoneNumber');
+  @override
+  late final GeneratedColumn<String> phoneNumber = GeneratedColumn<String>(
+      'phone_number', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _addressMeta =
+      const VerificationMeta('address');
+  @override
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+      'address', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _existingPatientCodeMeta =
+      const VerificationMeta('existingPatientCode');
+  @override
+  late final GeneratedColumn<int> existingPatientCode = GeneratedColumn<int>(
+      'existing_patient_code', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _wasAddedMeta =
+      const VerificationMeta('wasAdded');
+  @override
+  late final GeneratedColumn<bool> wasAdded = GeneratedColumn<bool>(
+      'was_added', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("was_added" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _createdByMeta =
+      const VerificationMeta('createdBy');
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+      'created_by', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        appointmentDate,
+        firstName,
+        lastName,
+        age,
+        dateOfBirth,
+        phoneNumber,
+        address,
+        notes,
+        existingPatientCode,
+        wasAdded,
+        createdAt,
+        createdBy
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'appointments';
+  @override
+  VerificationContext validateIntegrity(Insertable<Appointment> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('appointment_date')) {
+      context.handle(
+          _appointmentDateMeta,
+          appointmentDate.isAcceptableOrUnknown(
+              data['appointment_date']!, _appointmentDateMeta));
+    } else if (isInserting) {
+      context.missing(_appointmentDateMeta);
+    }
+    if (data.containsKey('first_name')) {
+      context.handle(_firstNameMeta,
+          firstName.isAcceptableOrUnknown(data['first_name']!, _firstNameMeta));
+    } else if (isInserting) {
+      context.missing(_firstNameMeta);
+    }
+    if (data.containsKey('last_name')) {
+      context.handle(_lastNameMeta,
+          lastName.isAcceptableOrUnknown(data['last_name']!, _lastNameMeta));
+    } else if (isInserting) {
+      context.missing(_lastNameMeta);
+    }
+    if (data.containsKey('age')) {
+      context.handle(
+          _ageMeta, age.isAcceptableOrUnknown(data['age']!, _ageMeta));
+    }
+    if (data.containsKey('date_of_birth')) {
+      context.handle(
+          _dateOfBirthMeta,
+          dateOfBirth.isAcceptableOrUnknown(
+              data['date_of_birth']!, _dateOfBirthMeta));
+    }
+    if (data.containsKey('phone_number')) {
+      context.handle(
+          _phoneNumberMeta,
+          phoneNumber.isAcceptableOrUnknown(
+              data['phone_number']!, _phoneNumberMeta));
+    }
+    if (data.containsKey('address')) {
+      context.handle(_addressMeta,
+          address.isAcceptableOrUnknown(data['address']!, _addressMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('existing_patient_code')) {
+      context.handle(
+          _existingPatientCodeMeta,
+          existingPatientCode.isAcceptableOrUnknown(
+              data['existing_patient_code']!, _existingPatientCodeMeta));
+    }
+    if (data.containsKey('was_added')) {
+      context.handle(_wasAddedMeta,
+          wasAdded.isAcceptableOrUnknown(data['was_added']!, _wasAddedMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(_createdByMeta,
+          createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Appointment map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Appointment(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      appointmentDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}appointment_date'])!,
+      firstName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}first_name'])!,
+      lastName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}last_name'])!,
+      age: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}age']),
+      dateOfBirth: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}date_of_birth']),
+      phoneNumber: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}phone_number']),
+      address: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}address']),
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      existingPatientCode: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}existing_patient_code']),
+      wasAdded: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}was_added'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      createdBy: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}created_by']),
+    );
+  }
+
+  @override
+  $AppointmentsTable createAlias(String alias) {
+    return $AppointmentsTable(attachedDatabase, alias);
+  }
+}
+
+class Appointment extends DataClass implements Insertable<Appointment> {
+  /// Unique appointment ID (auto-increment)
+  final int id;
+
+  /// Appointment date (the day the patient is expected)
+  final DateTime appointmentDate;
+
+  /// Patient first name
+  final String firstName;
+
+  /// Patient last name
+  final String lastName;
+
+  /// Age (optional)
+  final int? age;
+
+  /// Date of birth (optional)
+  final DateTime? dateOfBirth;
+
+  /// Phone number (optional but recommended for appointments)
+  final String? phoneNumber;
+
+  /// Address (optional)
+  final String? address;
+
+  /// Other info/notes (optional)
+  final String? notes;
+
+  /// If this appointment was created from an existing patient, store their code
+  /// This allows us to link back to the patient without duplicating
+  final int? existingPatientCode;
+
+  /// Whether the patient was added to the main patients table
+  final bool wasAdded;
+
+  /// Creation timestamp
+  final DateTime createdAt;
+
+  /// Who created this appointment
+  final String? createdBy;
+  const Appointment(
+      {required this.id,
+      required this.appointmentDate,
+      required this.firstName,
+      required this.lastName,
+      this.age,
+      this.dateOfBirth,
+      this.phoneNumber,
+      this.address,
+      this.notes,
+      this.existingPatientCode,
+      required this.wasAdded,
+      required this.createdAt,
+      this.createdBy});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['appointment_date'] = Variable<DateTime>(appointmentDate);
+    map['first_name'] = Variable<String>(firstName);
+    map['last_name'] = Variable<String>(lastName);
+    if (!nullToAbsent || age != null) {
+      map['age'] = Variable<int>(age);
+    }
+    if (!nullToAbsent || dateOfBirth != null) {
+      map['date_of_birth'] = Variable<DateTime>(dateOfBirth);
+    }
+    if (!nullToAbsent || phoneNumber != null) {
+      map['phone_number'] = Variable<String>(phoneNumber);
+    }
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || existingPatientCode != null) {
+      map['existing_patient_code'] = Variable<int>(existingPatientCode);
+    }
+    map['was_added'] = Variable<bool>(wasAdded);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || createdBy != null) {
+      map['created_by'] = Variable<String>(createdBy);
+    }
+    return map;
+  }
+
+  AppointmentsCompanion toCompanion(bool nullToAbsent) {
+    return AppointmentsCompanion(
+      id: Value(id),
+      appointmentDate: Value(appointmentDate),
+      firstName: Value(firstName),
+      lastName: Value(lastName),
+      age: age == null && nullToAbsent ? const Value.absent() : Value(age),
+      dateOfBirth: dateOfBirth == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateOfBirth),
+      phoneNumber: phoneNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(phoneNumber),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      existingPatientCode: existingPatientCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(existingPatientCode),
+      wasAdded: Value(wasAdded),
+      createdAt: Value(createdAt),
+      createdBy: createdBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdBy),
+    );
+  }
+
+  factory Appointment.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Appointment(
+      id: serializer.fromJson<int>(json['id']),
+      appointmentDate: serializer.fromJson<DateTime>(json['appointmentDate']),
+      firstName: serializer.fromJson<String>(json['firstName']),
+      lastName: serializer.fromJson<String>(json['lastName']),
+      age: serializer.fromJson<int?>(json['age']),
+      dateOfBirth: serializer.fromJson<DateTime?>(json['dateOfBirth']),
+      phoneNumber: serializer.fromJson<String?>(json['phoneNumber']),
+      address: serializer.fromJson<String?>(json['address']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      existingPatientCode:
+          serializer.fromJson<int?>(json['existingPatientCode']),
+      wasAdded: serializer.fromJson<bool>(json['wasAdded']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      createdBy: serializer.fromJson<String?>(json['createdBy']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'appointmentDate': serializer.toJson<DateTime>(appointmentDate),
+      'firstName': serializer.toJson<String>(firstName),
+      'lastName': serializer.toJson<String>(lastName),
+      'age': serializer.toJson<int?>(age),
+      'dateOfBirth': serializer.toJson<DateTime?>(dateOfBirth),
+      'phoneNumber': serializer.toJson<String?>(phoneNumber),
+      'address': serializer.toJson<String?>(address),
+      'notes': serializer.toJson<String?>(notes),
+      'existingPatientCode': serializer.toJson<int?>(existingPatientCode),
+      'wasAdded': serializer.toJson<bool>(wasAdded),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'createdBy': serializer.toJson<String?>(createdBy),
+    };
+  }
+
+  Appointment copyWith(
+          {int? id,
+          DateTime? appointmentDate,
+          String? firstName,
+          String? lastName,
+          Value<int?> age = const Value.absent(),
+          Value<DateTime?> dateOfBirth = const Value.absent(),
+          Value<String?> phoneNumber = const Value.absent(),
+          Value<String?> address = const Value.absent(),
+          Value<String?> notes = const Value.absent(),
+          Value<int?> existingPatientCode = const Value.absent(),
+          bool? wasAdded,
+          DateTime? createdAt,
+          Value<String?> createdBy = const Value.absent()}) =>
+      Appointment(
+        id: id ?? this.id,
+        appointmentDate: appointmentDate ?? this.appointmentDate,
+        firstName: firstName ?? this.firstName,
+        lastName: lastName ?? this.lastName,
+        age: age.present ? age.value : this.age,
+        dateOfBirth: dateOfBirth.present ? dateOfBirth.value : this.dateOfBirth,
+        phoneNumber: phoneNumber.present ? phoneNumber.value : this.phoneNumber,
+        address: address.present ? address.value : this.address,
+        notes: notes.present ? notes.value : this.notes,
+        existingPatientCode: existingPatientCode.present
+            ? existingPatientCode.value
+            : this.existingPatientCode,
+        wasAdded: wasAdded ?? this.wasAdded,
+        createdAt: createdAt ?? this.createdAt,
+        createdBy: createdBy.present ? createdBy.value : this.createdBy,
+      );
+  Appointment copyWithCompanion(AppointmentsCompanion data) {
+    return Appointment(
+      id: data.id.present ? data.id.value : this.id,
+      appointmentDate: data.appointmentDate.present
+          ? data.appointmentDate.value
+          : this.appointmentDate,
+      firstName: data.firstName.present ? data.firstName.value : this.firstName,
+      lastName: data.lastName.present ? data.lastName.value : this.lastName,
+      age: data.age.present ? data.age.value : this.age,
+      dateOfBirth:
+          data.dateOfBirth.present ? data.dateOfBirth.value : this.dateOfBirth,
+      phoneNumber:
+          data.phoneNumber.present ? data.phoneNumber.value : this.phoneNumber,
+      address: data.address.present ? data.address.value : this.address,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      existingPatientCode: data.existingPatientCode.present
+          ? data.existingPatientCode.value
+          : this.existingPatientCode,
+      wasAdded: data.wasAdded.present ? data.wasAdded.value : this.wasAdded,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Appointment(')
+          ..write('id: $id, ')
+          ..write('appointmentDate: $appointmentDate, ')
+          ..write('firstName: $firstName, ')
+          ..write('lastName: $lastName, ')
+          ..write('age: $age, ')
+          ..write('dateOfBirth: $dateOfBirth, ')
+          ..write('phoneNumber: $phoneNumber, ')
+          ..write('address: $address, ')
+          ..write('notes: $notes, ')
+          ..write('existingPatientCode: $existingPatientCode, ')
+          ..write('wasAdded: $wasAdded, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('createdBy: $createdBy')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      appointmentDate,
+      firstName,
+      lastName,
+      age,
+      dateOfBirth,
+      phoneNumber,
+      address,
+      notes,
+      existingPatientCode,
+      wasAdded,
+      createdAt,
+      createdBy);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Appointment &&
+          other.id == this.id &&
+          other.appointmentDate == this.appointmentDate &&
+          other.firstName == this.firstName &&
+          other.lastName == this.lastName &&
+          other.age == this.age &&
+          other.dateOfBirth == this.dateOfBirth &&
+          other.phoneNumber == this.phoneNumber &&
+          other.address == this.address &&
+          other.notes == this.notes &&
+          other.existingPatientCode == this.existingPatientCode &&
+          other.wasAdded == this.wasAdded &&
+          other.createdAt == this.createdAt &&
+          other.createdBy == this.createdBy);
+}
+
+class AppointmentsCompanion extends UpdateCompanion<Appointment> {
+  final Value<int> id;
+  final Value<DateTime> appointmentDate;
+  final Value<String> firstName;
+  final Value<String> lastName;
+  final Value<int?> age;
+  final Value<DateTime?> dateOfBirth;
+  final Value<String?> phoneNumber;
+  final Value<String?> address;
+  final Value<String?> notes;
+  final Value<int?> existingPatientCode;
+  final Value<bool> wasAdded;
+  final Value<DateTime> createdAt;
+  final Value<String?> createdBy;
+  const AppointmentsCompanion({
+    this.id = const Value.absent(),
+    this.appointmentDate = const Value.absent(),
+    this.firstName = const Value.absent(),
+    this.lastName = const Value.absent(),
+    this.age = const Value.absent(),
+    this.dateOfBirth = const Value.absent(),
+    this.phoneNumber = const Value.absent(),
+    this.address = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.existingPatientCode = const Value.absent(),
+    this.wasAdded = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+  });
+  AppointmentsCompanion.insert({
+    this.id = const Value.absent(),
+    required DateTime appointmentDate,
+    required String firstName,
+    required String lastName,
+    this.age = const Value.absent(),
+    this.dateOfBirth = const Value.absent(),
+    this.phoneNumber = const Value.absent(),
+    this.address = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.existingPatientCode = const Value.absent(),
+    this.wasAdded = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+  })  : appointmentDate = Value(appointmentDate),
+        firstName = Value(firstName),
+        lastName = Value(lastName);
+  static Insertable<Appointment> custom({
+    Expression<int>? id,
+    Expression<DateTime>? appointmentDate,
+    Expression<String>? firstName,
+    Expression<String>? lastName,
+    Expression<int>? age,
+    Expression<DateTime>? dateOfBirth,
+    Expression<String>? phoneNumber,
+    Expression<String>? address,
+    Expression<String>? notes,
+    Expression<int>? existingPatientCode,
+    Expression<bool>? wasAdded,
+    Expression<DateTime>? createdAt,
+    Expression<String>? createdBy,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (appointmentDate != null) 'appointment_date': appointmentDate,
+      if (firstName != null) 'first_name': firstName,
+      if (lastName != null) 'last_name': lastName,
+      if (age != null) 'age': age,
+      if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
+      if (phoneNumber != null) 'phone_number': phoneNumber,
+      if (address != null) 'address': address,
+      if (notes != null) 'notes': notes,
+      if (existingPatientCode != null)
+        'existing_patient_code': existingPatientCode,
+      if (wasAdded != null) 'was_added': wasAdded,
+      if (createdAt != null) 'created_at': createdAt,
+      if (createdBy != null) 'created_by': createdBy,
+    });
+  }
+
+  AppointmentsCompanion copyWith(
+      {Value<int>? id,
+      Value<DateTime>? appointmentDate,
+      Value<String>? firstName,
+      Value<String>? lastName,
+      Value<int?>? age,
+      Value<DateTime?>? dateOfBirth,
+      Value<String?>? phoneNumber,
+      Value<String?>? address,
+      Value<String?>? notes,
+      Value<int?>? existingPatientCode,
+      Value<bool>? wasAdded,
+      Value<DateTime>? createdAt,
+      Value<String?>? createdBy}) {
+    return AppointmentsCompanion(
+      id: id ?? this.id,
+      appointmentDate: appointmentDate ?? this.appointmentDate,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      age: age ?? this.age,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      address: address ?? this.address,
+      notes: notes ?? this.notes,
+      existingPatientCode: existingPatientCode ?? this.existingPatientCode,
+      wasAdded: wasAdded ?? this.wasAdded,
+      createdAt: createdAt ?? this.createdAt,
+      createdBy: createdBy ?? this.createdBy,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (appointmentDate.present) {
+      map['appointment_date'] = Variable<DateTime>(appointmentDate.value);
+    }
+    if (firstName.present) {
+      map['first_name'] = Variable<String>(firstName.value);
+    }
+    if (lastName.present) {
+      map['last_name'] = Variable<String>(lastName.value);
+    }
+    if (age.present) {
+      map['age'] = Variable<int>(age.value);
+    }
+    if (dateOfBirth.present) {
+      map['date_of_birth'] = Variable<DateTime>(dateOfBirth.value);
+    }
+    if (phoneNumber.present) {
+      map['phone_number'] = Variable<String>(phoneNumber.value);
+    }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (existingPatientCode.present) {
+      map['existing_patient_code'] = Variable<int>(existingPatientCode.value);
+    }
+    if (wasAdded.present) {
+      map['was_added'] = Variable<bool>(wasAdded.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppointmentsCompanion(')
+          ..write('id: $id, ')
+          ..write('appointmentDate: $appointmentDate, ')
+          ..write('firstName: $firstName, ')
+          ..write('lastName: $lastName, ')
+          ..write('age: $age, ')
+          ..write('dateOfBirth: $dateOfBirth, ')
+          ..write('phoneNumber: $phoneNumber, ')
+          ..write('address: $address, ')
+          ..write('notes: $notes, ')
+          ..write('existingPatientCode: $existingPatientCode, ')
+          ..write('wasAdded: $wasAdded, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('createdBy: $createdBy')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SurgeryPlansTable extends SurgeryPlans
+    with TableInfo<$SurgeryPlansTable, SurgeryPlan> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SurgeryPlansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _surgeryDateMeta =
+      const VerificationMeta('surgeryDate');
+  @override
+  late final GeneratedColumn<DateTime> surgeryDate = GeneratedColumn<DateTime>(
+      'surgery_date', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _surgeryHourMeta =
+      const VerificationMeta('surgeryHour');
+  @override
+  late final GeneratedColumn<String> surgeryHour = GeneratedColumn<String>(
+      'surgery_hour', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _patientCodeMeta =
+      const VerificationMeta('patientCode');
+  @override
+  late final GeneratedColumn<int> patientCode = GeneratedColumn<int>(
+      'patient_code', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _patientFirstNameMeta =
+      const VerificationMeta('patientFirstName');
+  @override
+  late final GeneratedColumn<String> patientFirstName = GeneratedColumn<String>(
+      'patient_first_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _patientLastNameMeta =
+      const VerificationMeta('patientLastName');
+  @override
+  late final GeneratedColumn<String> patientLastName = GeneratedColumn<String>(
+      'patient_last_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _patientAgeMeta =
+      const VerificationMeta('patientAge');
+  @override
+  late final GeneratedColumn<int> patientAge = GeneratedColumn<int>(
+      'patient_age', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _patientPhoneMeta =
+      const VerificationMeta('patientPhone');
+  @override
+  late final GeneratedColumn<String> patientPhone = GeneratedColumn<String>(
+      'patient_phone', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _surgeryTypeMeta =
+      const VerificationMeta('surgeryType');
+  @override
+  late final GeneratedColumn<String> surgeryType = GeneratedColumn<String>(
+      'surgery_type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _eyeToOperateMeta =
+      const VerificationMeta('eyeToOperate');
+  @override
+  late final GeneratedColumn<String> eyeToOperate = GeneratedColumn<String>(
+      'eye_to_operate', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _implantPowerMeta =
+      const VerificationMeta('implantPower');
+  @override
+  late final GeneratedColumn<String> implantPower = GeneratedColumn<String>(
+      'implant_power', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _tarifMeta = const VerificationMeta('tarif');
+  @override
+  late final GeneratedColumn<int> tarif = GeneratedColumn<int>(
+      'tarif', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _paymentStatusMeta =
+      const VerificationMeta('paymentStatus');
+  @override
+  late final GeneratedColumn<String> paymentStatus = GeneratedColumn<String>(
+      'payment_status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('pending'));
+  static const VerificationMeta _amountRemainingMeta =
+      const VerificationMeta('amountRemaining');
+  @override
+  late final GeneratedColumn<int> amountRemaining = GeneratedColumn<int>(
+      'amount_remaining', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _surgeryStatusMeta =
+      const VerificationMeta('surgeryStatus');
+  @override
+  late final GeneratedColumn<String> surgeryStatus = GeneratedColumn<String>(
+      'surgery_status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('scheduled'));
+  static const VerificationMeta _patientCameMeta =
+      const VerificationMeta('patientCame');
+  @override
+  late final GeneratedColumn<bool> patientCame = GeneratedColumn<bool>(
+      'patient_came', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("patient_came" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+      'notes', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _createdByMeta =
+      const VerificationMeta('createdBy');
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+      'created_by', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _needsSyncMeta =
+      const VerificationMeta('needsSync');
+  @override
+  late final GeneratedColumn<bool> needsSync = GeneratedColumn<bool>(
+      'needs_sync', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("needs_sync" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        surgeryDate,
+        surgeryHour,
+        patientCode,
+        patientFirstName,
+        patientLastName,
+        patientAge,
+        patientPhone,
+        surgeryType,
+        eyeToOperate,
+        implantPower,
+        tarif,
+        paymentStatus,
+        amountRemaining,
+        surgeryStatus,
+        patientCame,
+        notes,
+        createdAt,
+        createdBy,
+        updatedAt,
+        needsSync
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'surgery_plans';
+  @override
+  VerificationContext validateIntegrity(Insertable<SurgeryPlan> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('surgery_date')) {
+      context.handle(
+          _surgeryDateMeta,
+          surgeryDate.isAcceptableOrUnknown(
+              data['surgery_date']!, _surgeryDateMeta));
+    } else if (isInserting) {
+      context.missing(_surgeryDateMeta);
+    }
+    if (data.containsKey('surgery_hour')) {
+      context.handle(
+          _surgeryHourMeta,
+          surgeryHour.isAcceptableOrUnknown(
+              data['surgery_hour']!, _surgeryHourMeta));
+    } else if (isInserting) {
+      context.missing(_surgeryHourMeta);
+    }
+    if (data.containsKey('patient_code')) {
+      context.handle(
+          _patientCodeMeta,
+          patientCode.isAcceptableOrUnknown(
+              data['patient_code']!, _patientCodeMeta));
+    } else if (isInserting) {
+      context.missing(_patientCodeMeta);
+    }
+    if (data.containsKey('patient_first_name')) {
+      context.handle(
+          _patientFirstNameMeta,
+          patientFirstName.isAcceptableOrUnknown(
+              data['patient_first_name']!, _patientFirstNameMeta));
+    } else if (isInserting) {
+      context.missing(_patientFirstNameMeta);
+    }
+    if (data.containsKey('patient_last_name')) {
+      context.handle(
+          _patientLastNameMeta,
+          patientLastName.isAcceptableOrUnknown(
+              data['patient_last_name']!, _patientLastNameMeta));
+    } else if (isInserting) {
+      context.missing(_patientLastNameMeta);
+    }
+    if (data.containsKey('patient_age')) {
+      context.handle(
+          _patientAgeMeta,
+          patientAge.isAcceptableOrUnknown(
+              data['patient_age']!, _patientAgeMeta));
+    }
+    if (data.containsKey('patient_phone')) {
+      context.handle(
+          _patientPhoneMeta,
+          patientPhone.isAcceptableOrUnknown(
+              data['patient_phone']!, _patientPhoneMeta));
+    }
+    if (data.containsKey('surgery_type')) {
+      context.handle(
+          _surgeryTypeMeta,
+          surgeryType.isAcceptableOrUnknown(
+              data['surgery_type']!, _surgeryTypeMeta));
+    } else if (isInserting) {
+      context.missing(_surgeryTypeMeta);
+    }
+    if (data.containsKey('eye_to_operate')) {
+      context.handle(
+          _eyeToOperateMeta,
+          eyeToOperate.isAcceptableOrUnknown(
+              data['eye_to_operate']!, _eyeToOperateMeta));
+    } else if (isInserting) {
+      context.missing(_eyeToOperateMeta);
+    }
+    if (data.containsKey('implant_power')) {
+      context.handle(
+          _implantPowerMeta,
+          implantPower.isAcceptableOrUnknown(
+              data['implant_power']!, _implantPowerMeta));
+    }
+    if (data.containsKey('tarif')) {
+      context.handle(
+          _tarifMeta, tarif.isAcceptableOrUnknown(data['tarif']!, _tarifMeta));
+    }
+    if (data.containsKey('payment_status')) {
+      context.handle(
+          _paymentStatusMeta,
+          paymentStatus.isAcceptableOrUnknown(
+              data['payment_status']!, _paymentStatusMeta));
+    }
+    if (data.containsKey('amount_remaining')) {
+      context.handle(
+          _amountRemainingMeta,
+          amountRemaining.isAcceptableOrUnknown(
+              data['amount_remaining']!, _amountRemainingMeta));
+    }
+    if (data.containsKey('surgery_status')) {
+      context.handle(
+          _surgeryStatusMeta,
+          surgeryStatus.isAcceptableOrUnknown(
+              data['surgery_status']!, _surgeryStatusMeta));
+    }
+    if (data.containsKey('patient_came')) {
+      context.handle(
+          _patientCameMeta,
+          patientCame.isAcceptableOrUnknown(
+              data['patient_came']!, _patientCameMeta));
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+          _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(_createdByMeta,
+          createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    if (data.containsKey('needs_sync')) {
+      context.handle(_needsSyncMeta,
+          needsSync.isAcceptableOrUnknown(data['needs_sync']!, _needsSyncMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SurgeryPlan map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SurgeryPlan(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      surgeryDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}surgery_date'])!,
+      surgeryHour: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}surgery_hour'])!,
+      patientCode: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}patient_code'])!,
+      patientFirstName: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}patient_first_name'])!,
+      patientLastName: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}patient_last_name'])!,
+      patientAge: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}patient_age']),
+      patientPhone: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}patient_phone']),
+      surgeryType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}surgery_type'])!,
+      eyeToOperate: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}eye_to_operate'])!,
+      implantPower: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}implant_power']),
+      tarif: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}tarif']),
+      paymentStatus: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payment_status'])!,
+      amountRemaining: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}amount_remaining']),
+      surgeryStatus: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}surgery_status'])!,
+      patientCame: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}patient_came'])!,
+      notes: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      createdBy: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}created_by']),
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      needsSync: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}needs_sync'])!,
+    );
+  }
+
+  @override
+  $SurgeryPlansTable createAlias(String alias) {
+    return $SurgeryPlansTable(attachedDatabase, alias);
+  }
+}
+
+class SurgeryPlan extends DataClass implements Insertable<SurgeryPlan> {
+  /// Unique surgery plan ID (auto-increment)
+  final int id;
+
+  /// Scheduled date for surgery
+  final DateTime surgeryDate;
+
+  /// Scheduled hour (e.g., "08:00", "09:30")
+  final String surgeryHour;
+
+  /// Patient code (linked to patients table)
+  final int patientCode;
+
+  /// Patient first name (cached for display)
+  final String patientFirstName;
+
+  /// Patient last name (cached for display)
+  final String patientLastName;
+
+  /// Patient age (cached for display)
+  final int? patientAge;
+
+  /// Patient phone number (cached for display)
+  final String? patientPhone;
+
+  /// Type of surgery - predefined options:
+  /// - Cataracte - phacoemulsification
+  /// - Cataracte - EEC
+  /// - ICL
+  /// - DCR
+  /// - Sondage sous AG
+  /// - Entropion
+  /// - ECTROPION
+  /// - PTOSIS - Résection RPS
+  /// - Custom (user can add their own)
+  final String surgeryType;
+
+  /// Eye to operate: 'OD' (right), 'OG' (left), 'ODG' (both)
+  final String eyeToOperate;
+
+  /// Puissance de l'implant (power of implant)
+  final String? implantPower;
+
+  /// Tarif (price/fee)
+  final int? tarif;
+
+  /// Payment status: 'pending', 'partial', 'paid'
+  final String paymentStatus;
+
+  /// Amount remaining to pay (for partial payments)
+  final int? amountRemaining;
+
+  /// Surgery status: 'scheduled', 'done', 'cancelled'
+  final String surgeryStatus;
+
+  /// Whether patient came for surgery (set to true when done)
+  final bool patientCame;
+
+  /// Notes (optional)
+  final String? notes;
+
+  /// Creation timestamp
+  final DateTime createdAt;
+
+  /// Who created this surgery plan
+  final String? createdBy;
+
+  /// Last update timestamp
+  final DateTime updatedAt;
+
+  /// Sync flag for cloud/LAN sync
+  final bool needsSync;
+  const SurgeryPlan(
+      {required this.id,
+      required this.surgeryDate,
+      required this.surgeryHour,
+      required this.patientCode,
+      required this.patientFirstName,
+      required this.patientLastName,
+      this.patientAge,
+      this.patientPhone,
+      required this.surgeryType,
+      required this.eyeToOperate,
+      this.implantPower,
+      this.tarif,
+      required this.paymentStatus,
+      this.amountRemaining,
+      required this.surgeryStatus,
+      required this.patientCame,
+      this.notes,
+      required this.createdAt,
+      this.createdBy,
+      required this.updatedAt,
+      required this.needsSync});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['surgery_date'] = Variable<DateTime>(surgeryDate);
+    map['surgery_hour'] = Variable<String>(surgeryHour);
+    map['patient_code'] = Variable<int>(patientCode);
+    map['patient_first_name'] = Variable<String>(patientFirstName);
+    map['patient_last_name'] = Variable<String>(patientLastName);
+    if (!nullToAbsent || patientAge != null) {
+      map['patient_age'] = Variable<int>(patientAge);
+    }
+    if (!nullToAbsent || patientPhone != null) {
+      map['patient_phone'] = Variable<String>(patientPhone);
+    }
+    map['surgery_type'] = Variable<String>(surgeryType);
+    map['eye_to_operate'] = Variable<String>(eyeToOperate);
+    if (!nullToAbsent || implantPower != null) {
+      map['implant_power'] = Variable<String>(implantPower);
+    }
+    if (!nullToAbsent || tarif != null) {
+      map['tarif'] = Variable<int>(tarif);
+    }
+    map['payment_status'] = Variable<String>(paymentStatus);
+    if (!nullToAbsent || amountRemaining != null) {
+      map['amount_remaining'] = Variable<int>(amountRemaining);
+    }
+    map['surgery_status'] = Variable<String>(surgeryStatus);
+    map['patient_came'] = Variable<bool>(patientCame);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || createdBy != null) {
+      map['created_by'] = Variable<String>(createdBy);
+    }
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['needs_sync'] = Variable<bool>(needsSync);
+    return map;
+  }
+
+  SurgeryPlansCompanion toCompanion(bool nullToAbsent) {
+    return SurgeryPlansCompanion(
+      id: Value(id),
+      surgeryDate: Value(surgeryDate),
+      surgeryHour: Value(surgeryHour),
+      patientCode: Value(patientCode),
+      patientFirstName: Value(patientFirstName),
+      patientLastName: Value(patientLastName),
+      patientAge: patientAge == null && nullToAbsent
+          ? const Value.absent()
+          : Value(patientAge),
+      patientPhone: patientPhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(patientPhone),
+      surgeryType: Value(surgeryType),
+      eyeToOperate: Value(eyeToOperate),
+      implantPower: implantPower == null && nullToAbsent
+          ? const Value.absent()
+          : Value(implantPower),
+      tarif:
+          tarif == null && nullToAbsent ? const Value.absent() : Value(tarif),
+      paymentStatus: Value(paymentStatus),
+      amountRemaining: amountRemaining == null && nullToAbsent
+          ? const Value.absent()
+          : Value(amountRemaining),
+      surgeryStatus: Value(surgeryStatus),
+      patientCame: Value(patientCame),
+      notes:
+          notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      createdAt: Value(createdAt),
+      createdBy: createdBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdBy),
+      updatedAt: Value(updatedAt),
+      needsSync: Value(needsSync),
+    );
+  }
+
+  factory SurgeryPlan.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SurgeryPlan(
+      id: serializer.fromJson<int>(json['id']),
+      surgeryDate: serializer.fromJson<DateTime>(json['surgeryDate']),
+      surgeryHour: serializer.fromJson<String>(json['surgeryHour']),
+      patientCode: serializer.fromJson<int>(json['patientCode']),
+      patientFirstName: serializer.fromJson<String>(json['patientFirstName']),
+      patientLastName: serializer.fromJson<String>(json['patientLastName']),
+      patientAge: serializer.fromJson<int?>(json['patientAge']),
+      patientPhone: serializer.fromJson<String?>(json['patientPhone']),
+      surgeryType: serializer.fromJson<String>(json['surgeryType']),
+      eyeToOperate: serializer.fromJson<String>(json['eyeToOperate']),
+      implantPower: serializer.fromJson<String?>(json['implantPower']),
+      tarif: serializer.fromJson<int?>(json['tarif']),
+      paymentStatus: serializer.fromJson<String>(json['paymentStatus']),
+      amountRemaining: serializer.fromJson<int?>(json['amountRemaining']),
+      surgeryStatus: serializer.fromJson<String>(json['surgeryStatus']),
+      patientCame: serializer.fromJson<bool>(json['patientCame']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      createdBy: serializer.fromJson<String?>(json['createdBy']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      needsSync: serializer.fromJson<bool>(json['needsSync']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'surgeryDate': serializer.toJson<DateTime>(surgeryDate),
+      'surgeryHour': serializer.toJson<String>(surgeryHour),
+      'patientCode': serializer.toJson<int>(patientCode),
+      'patientFirstName': serializer.toJson<String>(patientFirstName),
+      'patientLastName': serializer.toJson<String>(patientLastName),
+      'patientAge': serializer.toJson<int?>(patientAge),
+      'patientPhone': serializer.toJson<String?>(patientPhone),
+      'surgeryType': serializer.toJson<String>(surgeryType),
+      'eyeToOperate': serializer.toJson<String>(eyeToOperate),
+      'implantPower': serializer.toJson<String?>(implantPower),
+      'tarif': serializer.toJson<int?>(tarif),
+      'paymentStatus': serializer.toJson<String>(paymentStatus),
+      'amountRemaining': serializer.toJson<int?>(amountRemaining),
+      'surgeryStatus': serializer.toJson<String>(surgeryStatus),
+      'patientCame': serializer.toJson<bool>(patientCame),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'createdBy': serializer.toJson<String?>(createdBy),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'needsSync': serializer.toJson<bool>(needsSync),
+    };
+  }
+
+  SurgeryPlan copyWith(
+          {int? id,
+          DateTime? surgeryDate,
+          String? surgeryHour,
+          int? patientCode,
+          String? patientFirstName,
+          String? patientLastName,
+          Value<int?> patientAge = const Value.absent(),
+          Value<String?> patientPhone = const Value.absent(),
+          String? surgeryType,
+          String? eyeToOperate,
+          Value<String?> implantPower = const Value.absent(),
+          Value<int?> tarif = const Value.absent(),
+          String? paymentStatus,
+          Value<int?> amountRemaining = const Value.absent(),
+          String? surgeryStatus,
+          bool? patientCame,
+          Value<String?> notes = const Value.absent(),
+          DateTime? createdAt,
+          Value<String?> createdBy = const Value.absent(),
+          DateTime? updatedAt,
+          bool? needsSync}) =>
+      SurgeryPlan(
+        id: id ?? this.id,
+        surgeryDate: surgeryDate ?? this.surgeryDate,
+        surgeryHour: surgeryHour ?? this.surgeryHour,
+        patientCode: patientCode ?? this.patientCode,
+        patientFirstName: patientFirstName ?? this.patientFirstName,
+        patientLastName: patientLastName ?? this.patientLastName,
+        patientAge: patientAge.present ? patientAge.value : this.patientAge,
+        patientPhone:
+            patientPhone.present ? patientPhone.value : this.patientPhone,
+        surgeryType: surgeryType ?? this.surgeryType,
+        eyeToOperate: eyeToOperate ?? this.eyeToOperate,
+        implantPower:
+            implantPower.present ? implantPower.value : this.implantPower,
+        tarif: tarif.present ? tarif.value : this.tarif,
+        paymentStatus: paymentStatus ?? this.paymentStatus,
+        amountRemaining: amountRemaining.present
+            ? amountRemaining.value
+            : this.amountRemaining,
+        surgeryStatus: surgeryStatus ?? this.surgeryStatus,
+        patientCame: patientCame ?? this.patientCame,
+        notes: notes.present ? notes.value : this.notes,
+        createdAt: createdAt ?? this.createdAt,
+        createdBy: createdBy.present ? createdBy.value : this.createdBy,
+        updatedAt: updatedAt ?? this.updatedAt,
+        needsSync: needsSync ?? this.needsSync,
+      );
+  SurgeryPlan copyWithCompanion(SurgeryPlansCompanion data) {
+    return SurgeryPlan(
+      id: data.id.present ? data.id.value : this.id,
+      surgeryDate:
+          data.surgeryDate.present ? data.surgeryDate.value : this.surgeryDate,
+      surgeryHour:
+          data.surgeryHour.present ? data.surgeryHour.value : this.surgeryHour,
+      patientCode:
+          data.patientCode.present ? data.patientCode.value : this.patientCode,
+      patientFirstName: data.patientFirstName.present
+          ? data.patientFirstName.value
+          : this.patientFirstName,
+      patientLastName: data.patientLastName.present
+          ? data.patientLastName.value
+          : this.patientLastName,
+      patientAge:
+          data.patientAge.present ? data.patientAge.value : this.patientAge,
+      patientPhone: data.patientPhone.present
+          ? data.patientPhone.value
+          : this.patientPhone,
+      surgeryType:
+          data.surgeryType.present ? data.surgeryType.value : this.surgeryType,
+      eyeToOperate: data.eyeToOperate.present
+          ? data.eyeToOperate.value
+          : this.eyeToOperate,
+      implantPower: data.implantPower.present
+          ? data.implantPower.value
+          : this.implantPower,
+      tarif: data.tarif.present ? data.tarif.value : this.tarif,
+      paymentStatus: data.paymentStatus.present
+          ? data.paymentStatus.value
+          : this.paymentStatus,
+      amountRemaining: data.amountRemaining.present
+          ? data.amountRemaining.value
+          : this.amountRemaining,
+      surgeryStatus: data.surgeryStatus.present
+          ? data.surgeryStatus.value
+          : this.surgeryStatus,
+      patientCame:
+          data.patientCame.present ? data.patientCame.value : this.patientCame,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      needsSync: data.needsSync.present ? data.needsSync.value : this.needsSync,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SurgeryPlan(')
+          ..write('id: $id, ')
+          ..write('surgeryDate: $surgeryDate, ')
+          ..write('surgeryHour: $surgeryHour, ')
+          ..write('patientCode: $patientCode, ')
+          ..write('patientFirstName: $patientFirstName, ')
+          ..write('patientLastName: $patientLastName, ')
+          ..write('patientAge: $patientAge, ')
+          ..write('patientPhone: $patientPhone, ')
+          ..write('surgeryType: $surgeryType, ')
+          ..write('eyeToOperate: $eyeToOperate, ')
+          ..write('implantPower: $implantPower, ')
+          ..write('tarif: $tarif, ')
+          ..write('paymentStatus: $paymentStatus, ')
+          ..write('amountRemaining: $amountRemaining, ')
+          ..write('surgeryStatus: $surgeryStatus, ')
+          ..write('patientCame: $patientCame, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('needsSync: $needsSync')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+        id,
+        surgeryDate,
+        surgeryHour,
+        patientCode,
+        patientFirstName,
+        patientLastName,
+        patientAge,
+        patientPhone,
+        surgeryType,
+        eyeToOperate,
+        implantPower,
+        tarif,
+        paymentStatus,
+        amountRemaining,
+        surgeryStatus,
+        patientCame,
+        notes,
+        createdAt,
+        createdBy,
+        updatedAt,
+        needsSync
+      ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SurgeryPlan &&
+          other.id == this.id &&
+          other.surgeryDate == this.surgeryDate &&
+          other.surgeryHour == this.surgeryHour &&
+          other.patientCode == this.patientCode &&
+          other.patientFirstName == this.patientFirstName &&
+          other.patientLastName == this.patientLastName &&
+          other.patientAge == this.patientAge &&
+          other.patientPhone == this.patientPhone &&
+          other.surgeryType == this.surgeryType &&
+          other.eyeToOperate == this.eyeToOperate &&
+          other.implantPower == this.implantPower &&
+          other.tarif == this.tarif &&
+          other.paymentStatus == this.paymentStatus &&
+          other.amountRemaining == this.amountRemaining &&
+          other.surgeryStatus == this.surgeryStatus &&
+          other.patientCame == this.patientCame &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.createdBy == this.createdBy &&
+          other.updatedAt == this.updatedAt &&
+          other.needsSync == this.needsSync);
+}
+
+class SurgeryPlansCompanion extends UpdateCompanion<SurgeryPlan> {
+  final Value<int> id;
+  final Value<DateTime> surgeryDate;
+  final Value<String> surgeryHour;
+  final Value<int> patientCode;
+  final Value<String> patientFirstName;
+  final Value<String> patientLastName;
+  final Value<int?> patientAge;
+  final Value<String?> patientPhone;
+  final Value<String> surgeryType;
+  final Value<String> eyeToOperate;
+  final Value<String?> implantPower;
+  final Value<int?> tarif;
+  final Value<String> paymentStatus;
+  final Value<int?> amountRemaining;
+  final Value<String> surgeryStatus;
+  final Value<bool> patientCame;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<String?> createdBy;
+  final Value<DateTime> updatedAt;
+  final Value<bool> needsSync;
+  const SurgeryPlansCompanion({
+    this.id = const Value.absent(),
+    this.surgeryDate = const Value.absent(),
+    this.surgeryHour = const Value.absent(),
+    this.patientCode = const Value.absent(),
+    this.patientFirstName = const Value.absent(),
+    this.patientLastName = const Value.absent(),
+    this.patientAge = const Value.absent(),
+    this.patientPhone = const Value.absent(),
+    this.surgeryType = const Value.absent(),
+    this.eyeToOperate = const Value.absent(),
+    this.implantPower = const Value.absent(),
+    this.tarif = const Value.absent(),
+    this.paymentStatus = const Value.absent(),
+    this.amountRemaining = const Value.absent(),
+    this.surgeryStatus = const Value.absent(),
+    this.patientCame = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.needsSync = const Value.absent(),
+  });
+  SurgeryPlansCompanion.insert({
+    this.id = const Value.absent(),
+    required DateTime surgeryDate,
+    required String surgeryHour,
+    required int patientCode,
+    required String patientFirstName,
+    required String patientLastName,
+    this.patientAge = const Value.absent(),
+    this.patientPhone = const Value.absent(),
+    required String surgeryType,
+    required String eyeToOperate,
+    this.implantPower = const Value.absent(),
+    this.tarif = const Value.absent(),
+    this.paymentStatus = const Value.absent(),
+    this.amountRemaining = const Value.absent(),
+    this.surgeryStatus = const Value.absent(),
+    this.patientCame = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.needsSync = const Value.absent(),
+  })  : surgeryDate = Value(surgeryDate),
+        surgeryHour = Value(surgeryHour),
+        patientCode = Value(patientCode),
+        patientFirstName = Value(patientFirstName),
+        patientLastName = Value(patientLastName),
+        surgeryType = Value(surgeryType),
+        eyeToOperate = Value(eyeToOperate);
+  static Insertable<SurgeryPlan> custom({
+    Expression<int>? id,
+    Expression<DateTime>? surgeryDate,
+    Expression<String>? surgeryHour,
+    Expression<int>? patientCode,
+    Expression<String>? patientFirstName,
+    Expression<String>? patientLastName,
+    Expression<int>? patientAge,
+    Expression<String>? patientPhone,
+    Expression<String>? surgeryType,
+    Expression<String>? eyeToOperate,
+    Expression<String>? implantPower,
+    Expression<int>? tarif,
+    Expression<String>? paymentStatus,
+    Expression<int>? amountRemaining,
+    Expression<String>? surgeryStatus,
+    Expression<bool>? patientCame,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<String>? createdBy,
+    Expression<DateTime>? updatedAt,
+    Expression<bool>? needsSync,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (surgeryDate != null) 'surgery_date': surgeryDate,
+      if (surgeryHour != null) 'surgery_hour': surgeryHour,
+      if (patientCode != null) 'patient_code': patientCode,
+      if (patientFirstName != null) 'patient_first_name': patientFirstName,
+      if (patientLastName != null) 'patient_last_name': patientLastName,
+      if (patientAge != null) 'patient_age': patientAge,
+      if (patientPhone != null) 'patient_phone': patientPhone,
+      if (surgeryType != null) 'surgery_type': surgeryType,
+      if (eyeToOperate != null) 'eye_to_operate': eyeToOperate,
+      if (implantPower != null) 'implant_power': implantPower,
+      if (tarif != null) 'tarif': tarif,
+      if (paymentStatus != null) 'payment_status': paymentStatus,
+      if (amountRemaining != null) 'amount_remaining': amountRemaining,
+      if (surgeryStatus != null) 'surgery_status': surgeryStatus,
+      if (patientCame != null) 'patient_came': patientCame,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (createdBy != null) 'created_by': createdBy,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (needsSync != null) 'needs_sync': needsSync,
+    });
+  }
+
+  SurgeryPlansCompanion copyWith(
+      {Value<int>? id,
+      Value<DateTime>? surgeryDate,
+      Value<String>? surgeryHour,
+      Value<int>? patientCode,
+      Value<String>? patientFirstName,
+      Value<String>? patientLastName,
+      Value<int?>? patientAge,
+      Value<String?>? patientPhone,
+      Value<String>? surgeryType,
+      Value<String>? eyeToOperate,
+      Value<String?>? implantPower,
+      Value<int?>? tarif,
+      Value<String>? paymentStatus,
+      Value<int?>? amountRemaining,
+      Value<String>? surgeryStatus,
+      Value<bool>? patientCame,
+      Value<String?>? notes,
+      Value<DateTime>? createdAt,
+      Value<String?>? createdBy,
+      Value<DateTime>? updatedAt,
+      Value<bool>? needsSync}) {
+    return SurgeryPlansCompanion(
+      id: id ?? this.id,
+      surgeryDate: surgeryDate ?? this.surgeryDate,
+      surgeryHour: surgeryHour ?? this.surgeryHour,
+      patientCode: patientCode ?? this.patientCode,
+      patientFirstName: patientFirstName ?? this.patientFirstName,
+      patientLastName: patientLastName ?? this.patientLastName,
+      patientAge: patientAge ?? this.patientAge,
+      patientPhone: patientPhone ?? this.patientPhone,
+      surgeryType: surgeryType ?? this.surgeryType,
+      eyeToOperate: eyeToOperate ?? this.eyeToOperate,
+      implantPower: implantPower ?? this.implantPower,
+      tarif: tarif ?? this.tarif,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      amountRemaining: amountRemaining ?? this.amountRemaining,
+      surgeryStatus: surgeryStatus ?? this.surgeryStatus,
+      patientCame: patientCame ?? this.patientCame,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      createdBy: createdBy ?? this.createdBy,
+      updatedAt: updatedAt ?? this.updatedAt,
+      needsSync: needsSync ?? this.needsSync,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (surgeryDate.present) {
+      map['surgery_date'] = Variable<DateTime>(surgeryDate.value);
+    }
+    if (surgeryHour.present) {
+      map['surgery_hour'] = Variable<String>(surgeryHour.value);
+    }
+    if (patientCode.present) {
+      map['patient_code'] = Variable<int>(patientCode.value);
+    }
+    if (patientFirstName.present) {
+      map['patient_first_name'] = Variable<String>(patientFirstName.value);
+    }
+    if (patientLastName.present) {
+      map['patient_last_name'] = Variable<String>(patientLastName.value);
+    }
+    if (patientAge.present) {
+      map['patient_age'] = Variable<int>(patientAge.value);
+    }
+    if (patientPhone.present) {
+      map['patient_phone'] = Variable<String>(patientPhone.value);
+    }
+    if (surgeryType.present) {
+      map['surgery_type'] = Variable<String>(surgeryType.value);
+    }
+    if (eyeToOperate.present) {
+      map['eye_to_operate'] = Variable<String>(eyeToOperate.value);
+    }
+    if (implantPower.present) {
+      map['implant_power'] = Variable<String>(implantPower.value);
+    }
+    if (tarif.present) {
+      map['tarif'] = Variable<int>(tarif.value);
+    }
+    if (paymentStatus.present) {
+      map['payment_status'] = Variable<String>(paymentStatus.value);
+    }
+    if (amountRemaining.present) {
+      map['amount_remaining'] = Variable<int>(amountRemaining.value);
+    }
+    if (surgeryStatus.present) {
+      map['surgery_status'] = Variable<String>(surgeryStatus.value);
+    }
+    if (patientCame.present) {
+      map['patient_came'] = Variable<bool>(patientCame.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (needsSync.present) {
+      map['needs_sync'] = Variable<bool>(needsSync.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SurgeryPlansCompanion(')
+          ..write('id: $id, ')
+          ..write('surgeryDate: $surgeryDate, ')
+          ..write('surgeryHour: $surgeryHour, ')
+          ..write('patientCode: $patientCode, ')
+          ..write('patientFirstName: $patientFirstName, ')
+          ..write('patientLastName: $patientLastName, ')
+          ..write('patientAge: $patientAge, ')
+          ..write('patientPhone: $patientPhone, ')
+          ..write('surgeryType: $surgeryType, ')
+          ..write('eyeToOperate: $eyeToOperate, ')
+          ..write('implantPower: $implantPower, ')
+          ..write('tarif: $tarif, ')
+          ..write('paymentStatus: $paymentStatus, ')
+          ..write('amountRemaining: $amountRemaining, ')
+          ..write('surgeryStatus: $surgeryStatus, ')
+          ..write('patientCame: $patientCame, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('needsSync: $needsSync')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8684,6 +10439,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $WaitingPatientsTable(this);
   late final $OrdonnancesTable ordonnances = $OrdonnancesTable(this);
   late final $MedicationsTable medications = $MedicationsTable(this);
+  late final $AppointmentsTable appointments = $AppointmentsTable(this);
+  late final $SurgeryPlansTable surgeryPlans = $SurgeryPlansTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8700,7 +10457,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         visits,
         waitingPatients,
         ordonnances,
-        medications
+        medications,
+        appointments,
+        surgeryPlans
       ];
   @override
   DriftDatabaseOptions get options =>
@@ -11440,6 +13199,7 @@ typedef $$WaitingPatientsTableCreateCompanionBuilder = WaitingPatientsCompanion
   required String patientLastName,
   Value<DateTime?> patientBirthDate,
   Value<int?> patientAge,
+  Value<DateTime?> patientCreatedAt,
   Value<bool> isUrgent,
   Value<bool> isDilatation,
   Value<String?> dilatationType,
@@ -11461,6 +13221,7 @@ typedef $$WaitingPatientsTableUpdateCompanionBuilder = WaitingPatientsCompanion
   Value<String> patientLastName,
   Value<DateTime?> patientBirthDate,
   Value<int?> patientAge,
+  Value<DateTime?> patientCreatedAt,
   Value<bool> isUrgent,
   Value<bool> isDilatation,
   Value<String?> dilatationType,
@@ -11504,6 +13265,10 @@ class $$WaitingPatientsTableFilterComposer
 
   ColumnFilters<int> get patientAge => $composableBuilder(
       column: $table.patientAge, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get patientCreatedAt => $composableBuilder(
+      column: $table.patientCreatedAt,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get isUrgent => $composableBuilder(
       column: $table.isUrgent, builder: (column) => ColumnFilters(column));
@@ -11574,6 +13339,10 @@ class $$WaitingPatientsTableOrderingComposer
   ColumnOrderings<int> get patientAge => $composableBuilder(
       column: $table.patientAge, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<DateTime> get patientCreatedAt => $composableBuilder(
+      column: $table.patientCreatedAt,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get isUrgent => $composableBuilder(
       column: $table.isUrgent, builder: (column) => ColumnOrderings(column));
 
@@ -11641,6 +13410,9 @@ class $$WaitingPatientsTableAnnotationComposer
 
   GeneratedColumn<int> get patientAge => $composableBuilder(
       column: $table.patientAge, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get patientCreatedAt => $composableBuilder(
+      column: $table.patientCreatedAt, builder: (column) => column);
 
   GeneratedColumn<bool> get isUrgent =>
       $composableBuilder(column: $table.isUrgent, builder: (column) => column);
@@ -11712,6 +13484,7 @@ class $$WaitingPatientsTableTableManager extends RootTableManager<
             Value<String> patientLastName = const Value.absent(),
             Value<DateTime?> patientBirthDate = const Value.absent(),
             Value<int?> patientAge = const Value.absent(),
+            Value<DateTime?> patientCreatedAt = const Value.absent(),
             Value<bool> isUrgent = const Value.absent(),
             Value<bool> isDilatation = const Value.absent(),
             Value<String?> dilatationType = const Value.absent(),
@@ -11732,6 +13505,7 @@ class $$WaitingPatientsTableTableManager extends RootTableManager<
             patientLastName: patientLastName,
             patientBirthDate: patientBirthDate,
             patientAge: patientAge,
+            patientCreatedAt: patientCreatedAt,
             isUrgent: isUrgent,
             isDilatation: isDilatation,
             dilatationType: dilatationType,
@@ -11752,6 +13526,7 @@ class $$WaitingPatientsTableTableManager extends RootTableManager<
             required String patientLastName,
             Value<DateTime?> patientBirthDate = const Value.absent(),
             Value<int?> patientAge = const Value.absent(),
+            Value<DateTime?> patientCreatedAt = const Value.absent(),
             Value<bool> isUrgent = const Value.absent(),
             Value<bool> isDilatation = const Value.absent(),
             Value<String?> dilatationType = const Value.absent(),
@@ -11772,6 +13547,7 @@ class $$WaitingPatientsTableTableManager extends RootTableManager<
             patientLastName: patientLastName,
             patientBirthDate: patientBirthDate,
             patientAge: patientAge,
+            patientCreatedAt: patientCreatedAt,
             isUrgent: isUrgent,
             isDilatation: isDilatation,
             dilatationType: dilatationType,
@@ -12448,6 +14224,715 @@ typedef $$MedicationsTableProcessedTableManager = ProcessedTableManager<
     (Medication, BaseReferences<_$AppDatabase, $MedicationsTable, Medication>),
     Medication,
     PrefetchHooks Function()>;
+typedef $$AppointmentsTableCreateCompanionBuilder = AppointmentsCompanion
+    Function({
+  Value<int> id,
+  required DateTime appointmentDate,
+  required String firstName,
+  required String lastName,
+  Value<int?> age,
+  Value<DateTime?> dateOfBirth,
+  Value<String?> phoneNumber,
+  Value<String?> address,
+  Value<String?> notes,
+  Value<int?> existingPatientCode,
+  Value<bool> wasAdded,
+  Value<DateTime> createdAt,
+  Value<String?> createdBy,
+});
+typedef $$AppointmentsTableUpdateCompanionBuilder = AppointmentsCompanion
+    Function({
+  Value<int> id,
+  Value<DateTime> appointmentDate,
+  Value<String> firstName,
+  Value<String> lastName,
+  Value<int?> age,
+  Value<DateTime?> dateOfBirth,
+  Value<String?> phoneNumber,
+  Value<String?> address,
+  Value<String?> notes,
+  Value<int?> existingPatientCode,
+  Value<bool> wasAdded,
+  Value<DateTime> createdAt,
+  Value<String?> createdBy,
+});
+
+class $$AppointmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $AppointmentsTable> {
+  $$AppointmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get appointmentDate => $composableBuilder(
+      column: $table.appointmentDate,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get firstName => $composableBuilder(
+      column: $table.firstName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lastName => $composableBuilder(
+      column: $table.lastName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get age => $composableBuilder(
+      column: $table.age, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get dateOfBirth => $composableBuilder(
+      column: $table.dateOfBirth, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get phoneNumber => $composableBuilder(
+      column: $table.phoneNumber, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get address => $composableBuilder(
+      column: $table.address, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get existingPatientCode => $composableBuilder(
+      column: $table.existingPatientCode,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get wasAdded => $composableBuilder(
+      column: $table.wasAdded, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+      column: $table.createdBy, builder: (column) => ColumnFilters(column));
+}
+
+class $$AppointmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppointmentsTable> {
+  $$AppointmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get appointmentDate => $composableBuilder(
+      column: $table.appointmentDate,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get firstName => $composableBuilder(
+      column: $table.firstName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lastName => $composableBuilder(
+      column: $table.lastName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get age => $composableBuilder(
+      column: $table.age, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get dateOfBirth => $composableBuilder(
+      column: $table.dateOfBirth, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get phoneNumber => $composableBuilder(
+      column: $table.phoneNumber, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get address => $composableBuilder(
+      column: $table.address, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get existingPatientCode => $composableBuilder(
+      column: $table.existingPatientCode,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get wasAdded => $composableBuilder(
+      column: $table.wasAdded, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+      column: $table.createdBy, builder: (column) => ColumnOrderings(column));
+}
+
+class $$AppointmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppointmentsTable> {
+  $$AppointmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get appointmentDate => $composableBuilder(
+      column: $table.appointmentDate, builder: (column) => column);
+
+  GeneratedColumn<String> get firstName =>
+      $composableBuilder(column: $table.firstName, builder: (column) => column);
+
+  GeneratedColumn<String> get lastName =>
+      $composableBuilder(column: $table.lastName, builder: (column) => column);
+
+  GeneratedColumn<int> get age =>
+      $composableBuilder(column: $table.age, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dateOfBirth => $composableBuilder(
+      column: $table.dateOfBirth, builder: (column) => column);
+
+  GeneratedColumn<String> get phoneNumber => $composableBuilder(
+      column: $table.phoneNumber, builder: (column) => column);
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<int> get existingPatientCode => $composableBuilder(
+      column: $table.existingPatientCode, builder: (column) => column);
+
+  GeneratedColumn<bool> get wasAdded =>
+      $composableBuilder(column: $table.wasAdded, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+}
+
+class $$AppointmentsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $AppointmentsTable,
+    Appointment,
+    $$AppointmentsTableFilterComposer,
+    $$AppointmentsTableOrderingComposer,
+    $$AppointmentsTableAnnotationComposer,
+    $$AppointmentsTableCreateCompanionBuilder,
+    $$AppointmentsTableUpdateCompanionBuilder,
+    (
+      Appointment,
+      BaseReferences<_$AppDatabase, $AppointmentsTable, Appointment>
+    ),
+    Appointment,
+    PrefetchHooks Function()> {
+  $$AppointmentsTableTableManager(_$AppDatabase db, $AppointmentsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppointmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppointmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppointmentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<DateTime> appointmentDate = const Value.absent(),
+            Value<String> firstName = const Value.absent(),
+            Value<String> lastName = const Value.absent(),
+            Value<int?> age = const Value.absent(),
+            Value<DateTime?> dateOfBirth = const Value.absent(),
+            Value<String?> phoneNumber = const Value.absent(),
+            Value<String?> address = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<int?> existingPatientCode = const Value.absent(),
+            Value<bool> wasAdded = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<String?> createdBy = const Value.absent(),
+          }) =>
+              AppointmentsCompanion(
+            id: id,
+            appointmentDate: appointmentDate,
+            firstName: firstName,
+            lastName: lastName,
+            age: age,
+            dateOfBirth: dateOfBirth,
+            phoneNumber: phoneNumber,
+            address: address,
+            notes: notes,
+            existingPatientCode: existingPatientCode,
+            wasAdded: wasAdded,
+            createdAt: createdAt,
+            createdBy: createdBy,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required DateTime appointmentDate,
+            required String firstName,
+            required String lastName,
+            Value<int?> age = const Value.absent(),
+            Value<DateTime?> dateOfBirth = const Value.absent(),
+            Value<String?> phoneNumber = const Value.absent(),
+            Value<String?> address = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<int?> existingPatientCode = const Value.absent(),
+            Value<bool> wasAdded = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<String?> createdBy = const Value.absent(),
+          }) =>
+              AppointmentsCompanion.insert(
+            id: id,
+            appointmentDate: appointmentDate,
+            firstName: firstName,
+            lastName: lastName,
+            age: age,
+            dateOfBirth: dateOfBirth,
+            phoneNumber: phoneNumber,
+            address: address,
+            notes: notes,
+            existingPatientCode: existingPatientCode,
+            wasAdded: wasAdded,
+            createdAt: createdAt,
+            createdBy: createdBy,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$AppointmentsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $AppointmentsTable,
+    Appointment,
+    $$AppointmentsTableFilterComposer,
+    $$AppointmentsTableOrderingComposer,
+    $$AppointmentsTableAnnotationComposer,
+    $$AppointmentsTableCreateCompanionBuilder,
+    $$AppointmentsTableUpdateCompanionBuilder,
+    (
+      Appointment,
+      BaseReferences<_$AppDatabase, $AppointmentsTable, Appointment>
+    ),
+    Appointment,
+    PrefetchHooks Function()>;
+typedef $$SurgeryPlansTableCreateCompanionBuilder = SurgeryPlansCompanion
+    Function({
+  Value<int> id,
+  required DateTime surgeryDate,
+  required String surgeryHour,
+  required int patientCode,
+  required String patientFirstName,
+  required String patientLastName,
+  Value<int?> patientAge,
+  Value<String?> patientPhone,
+  required String surgeryType,
+  required String eyeToOperate,
+  Value<String?> implantPower,
+  Value<int?> tarif,
+  Value<String> paymentStatus,
+  Value<int?> amountRemaining,
+  Value<String> surgeryStatus,
+  Value<bool> patientCame,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<String?> createdBy,
+  Value<DateTime> updatedAt,
+  Value<bool> needsSync,
+});
+typedef $$SurgeryPlansTableUpdateCompanionBuilder = SurgeryPlansCompanion
+    Function({
+  Value<int> id,
+  Value<DateTime> surgeryDate,
+  Value<String> surgeryHour,
+  Value<int> patientCode,
+  Value<String> patientFirstName,
+  Value<String> patientLastName,
+  Value<int?> patientAge,
+  Value<String?> patientPhone,
+  Value<String> surgeryType,
+  Value<String> eyeToOperate,
+  Value<String?> implantPower,
+  Value<int?> tarif,
+  Value<String> paymentStatus,
+  Value<int?> amountRemaining,
+  Value<String> surgeryStatus,
+  Value<bool> patientCame,
+  Value<String?> notes,
+  Value<DateTime> createdAt,
+  Value<String?> createdBy,
+  Value<DateTime> updatedAt,
+  Value<bool> needsSync,
+});
+
+class $$SurgeryPlansTableFilterComposer
+    extends Composer<_$AppDatabase, $SurgeryPlansTable> {
+  $$SurgeryPlansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get surgeryDate => $composableBuilder(
+      column: $table.surgeryDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get surgeryHour => $composableBuilder(
+      column: $table.surgeryHour, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get patientCode => $composableBuilder(
+      column: $table.patientCode, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get patientFirstName => $composableBuilder(
+      column: $table.patientFirstName,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get patientLastName => $composableBuilder(
+      column: $table.patientLastName,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get patientAge => $composableBuilder(
+      column: $table.patientAge, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get patientPhone => $composableBuilder(
+      column: $table.patientPhone, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get surgeryType => $composableBuilder(
+      column: $table.surgeryType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get eyeToOperate => $composableBuilder(
+      column: $table.eyeToOperate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get implantPower => $composableBuilder(
+      column: $table.implantPower, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get tarif => $composableBuilder(
+      column: $table.tarif, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get paymentStatus => $composableBuilder(
+      column: $table.paymentStatus, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get amountRemaining => $composableBuilder(
+      column: $table.amountRemaining,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get surgeryStatus => $composableBuilder(
+      column: $table.surgeryStatus, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get patientCame => $composableBuilder(
+      column: $table.patientCame, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+      column: $table.createdBy, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get needsSync => $composableBuilder(
+      column: $table.needsSync, builder: (column) => ColumnFilters(column));
+}
+
+class $$SurgeryPlansTableOrderingComposer
+    extends Composer<_$AppDatabase, $SurgeryPlansTable> {
+  $$SurgeryPlansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get surgeryDate => $composableBuilder(
+      column: $table.surgeryDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get surgeryHour => $composableBuilder(
+      column: $table.surgeryHour, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get patientCode => $composableBuilder(
+      column: $table.patientCode, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get patientFirstName => $composableBuilder(
+      column: $table.patientFirstName,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get patientLastName => $composableBuilder(
+      column: $table.patientLastName,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get patientAge => $composableBuilder(
+      column: $table.patientAge, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get patientPhone => $composableBuilder(
+      column: $table.patientPhone,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get surgeryType => $composableBuilder(
+      column: $table.surgeryType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get eyeToOperate => $composableBuilder(
+      column: $table.eyeToOperate,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get implantPower => $composableBuilder(
+      column: $table.implantPower,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get tarif => $composableBuilder(
+      column: $table.tarif, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get paymentStatus => $composableBuilder(
+      column: $table.paymentStatus,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get amountRemaining => $composableBuilder(
+      column: $table.amountRemaining,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get surgeryStatus => $composableBuilder(
+      column: $table.surgeryStatus,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get patientCame => $composableBuilder(
+      column: $table.patientCame, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+      column: $table.notes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+      column: $table.createdBy, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get needsSync => $composableBuilder(
+      column: $table.needsSync, builder: (column) => ColumnOrderings(column));
+}
+
+class $$SurgeryPlansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SurgeryPlansTable> {
+  $$SurgeryPlansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get surgeryDate => $composableBuilder(
+      column: $table.surgeryDate, builder: (column) => column);
+
+  GeneratedColumn<String> get surgeryHour => $composableBuilder(
+      column: $table.surgeryHour, builder: (column) => column);
+
+  GeneratedColumn<int> get patientCode => $composableBuilder(
+      column: $table.patientCode, builder: (column) => column);
+
+  GeneratedColumn<String> get patientFirstName => $composableBuilder(
+      column: $table.patientFirstName, builder: (column) => column);
+
+  GeneratedColumn<String> get patientLastName => $composableBuilder(
+      column: $table.patientLastName, builder: (column) => column);
+
+  GeneratedColumn<int> get patientAge => $composableBuilder(
+      column: $table.patientAge, builder: (column) => column);
+
+  GeneratedColumn<String> get patientPhone => $composableBuilder(
+      column: $table.patientPhone, builder: (column) => column);
+
+  GeneratedColumn<String> get surgeryType => $composableBuilder(
+      column: $table.surgeryType, builder: (column) => column);
+
+  GeneratedColumn<String> get eyeToOperate => $composableBuilder(
+      column: $table.eyeToOperate, builder: (column) => column);
+
+  GeneratedColumn<String> get implantPower => $composableBuilder(
+      column: $table.implantPower, builder: (column) => column);
+
+  GeneratedColumn<int> get tarif =>
+      $composableBuilder(column: $table.tarif, builder: (column) => column);
+
+  GeneratedColumn<String> get paymentStatus => $composableBuilder(
+      column: $table.paymentStatus, builder: (column) => column);
+
+  GeneratedColumn<int> get amountRemaining => $composableBuilder(
+      column: $table.amountRemaining, builder: (column) => column);
+
+  GeneratedColumn<String> get surgeryStatus => $composableBuilder(
+      column: $table.surgeryStatus, builder: (column) => column);
+
+  GeneratedColumn<bool> get patientCame => $composableBuilder(
+      column: $table.patientCame, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get needsSync =>
+      $composableBuilder(column: $table.needsSync, builder: (column) => column);
+}
+
+class $$SurgeryPlansTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $SurgeryPlansTable,
+    SurgeryPlan,
+    $$SurgeryPlansTableFilterComposer,
+    $$SurgeryPlansTableOrderingComposer,
+    $$SurgeryPlansTableAnnotationComposer,
+    $$SurgeryPlansTableCreateCompanionBuilder,
+    $$SurgeryPlansTableUpdateCompanionBuilder,
+    (
+      SurgeryPlan,
+      BaseReferences<_$AppDatabase, $SurgeryPlansTable, SurgeryPlan>
+    ),
+    SurgeryPlan,
+    PrefetchHooks Function()> {
+  $$SurgeryPlansTableTableManager(_$AppDatabase db, $SurgeryPlansTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SurgeryPlansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SurgeryPlansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SurgeryPlansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<DateTime> surgeryDate = const Value.absent(),
+            Value<String> surgeryHour = const Value.absent(),
+            Value<int> patientCode = const Value.absent(),
+            Value<String> patientFirstName = const Value.absent(),
+            Value<String> patientLastName = const Value.absent(),
+            Value<int?> patientAge = const Value.absent(),
+            Value<String?> patientPhone = const Value.absent(),
+            Value<String> surgeryType = const Value.absent(),
+            Value<String> eyeToOperate = const Value.absent(),
+            Value<String?> implantPower = const Value.absent(),
+            Value<int?> tarif = const Value.absent(),
+            Value<String> paymentStatus = const Value.absent(),
+            Value<int?> amountRemaining = const Value.absent(),
+            Value<String> surgeryStatus = const Value.absent(),
+            Value<bool> patientCame = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<String?> createdBy = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<bool> needsSync = const Value.absent(),
+          }) =>
+              SurgeryPlansCompanion(
+            id: id,
+            surgeryDate: surgeryDate,
+            surgeryHour: surgeryHour,
+            patientCode: patientCode,
+            patientFirstName: patientFirstName,
+            patientLastName: patientLastName,
+            patientAge: patientAge,
+            patientPhone: patientPhone,
+            surgeryType: surgeryType,
+            eyeToOperate: eyeToOperate,
+            implantPower: implantPower,
+            tarif: tarif,
+            paymentStatus: paymentStatus,
+            amountRemaining: amountRemaining,
+            surgeryStatus: surgeryStatus,
+            patientCame: patientCame,
+            notes: notes,
+            createdAt: createdAt,
+            createdBy: createdBy,
+            updatedAt: updatedAt,
+            needsSync: needsSync,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required DateTime surgeryDate,
+            required String surgeryHour,
+            required int patientCode,
+            required String patientFirstName,
+            required String patientLastName,
+            Value<int?> patientAge = const Value.absent(),
+            Value<String?> patientPhone = const Value.absent(),
+            required String surgeryType,
+            required String eyeToOperate,
+            Value<String?> implantPower = const Value.absent(),
+            Value<int?> tarif = const Value.absent(),
+            Value<String> paymentStatus = const Value.absent(),
+            Value<int?> amountRemaining = const Value.absent(),
+            Value<String> surgeryStatus = const Value.absent(),
+            Value<bool> patientCame = const Value.absent(),
+            Value<String?> notes = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<String?> createdBy = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<bool> needsSync = const Value.absent(),
+          }) =>
+              SurgeryPlansCompanion.insert(
+            id: id,
+            surgeryDate: surgeryDate,
+            surgeryHour: surgeryHour,
+            patientCode: patientCode,
+            patientFirstName: patientFirstName,
+            patientLastName: patientLastName,
+            patientAge: patientAge,
+            patientPhone: patientPhone,
+            surgeryType: surgeryType,
+            eyeToOperate: eyeToOperate,
+            implantPower: implantPower,
+            tarif: tarif,
+            paymentStatus: paymentStatus,
+            amountRemaining: amountRemaining,
+            surgeryStatus: surgeryStatus,
+            patientCame: patientCame,
+            notes: notes,
+            createdAt: createdAt,
+            createdBy: createdBy,
+            updatedAt: updatedAt,
+            needsSync: needsSync,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$SurgeryPlansTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $SurgeryPlansTable,
+    SurgeryPlan,
+    $$SurgeryPlansTableFilterComposer,
+    $$SurgeryPlansTableOrderingComposer,
+    $$SurgeryPlansTableAnnotationComposer,
+    $$SurgeryPlansTableCreateCompanionBuilder,
+    $$SurgeryPlansTableUpdateCompanionBuilder,
+    (
+      SurgeryPlan,
+      BaseReferences<_$AppDatabase, $SurgeryPlansTable, SurgeryPlan>
+    ),
+    SurgeryPlan,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -12476,4 +14961,8 @@ class $AppDatabaseManager {
       $$OrdonnancesTableTableManager(_db, _db.ordonnances);
   $$MedicationsTableTableManager get medications =>
       $$MedicationsTableTableManager(_db, _db.medications);
+  $$AppointmentsTableTableManager get appointments =>
+      $$AppointmentsTableTableManager(_db, _db.appointments);
+  $$SurgeryPlansTableTableManager get surgeryPlans =>
+      $$SurgeryPlansTableTableManager(_db, _db.surgeryPlans);
 }

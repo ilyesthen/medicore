@@ -32,6 +32,27 @@ class PrescriptionPrintService {
         .replaceAll('æ', 'ae');
   }
   
+  /// Build content lines preserving exact formatting (line breaks and empty lines)
+  static List<pw.Widget> _buildContentLines(String content, double fontSize) {
+    final lines = content.split('\n');
+    final widgets = <pw.Widget>[];
+    
+    for (final line in lines) {
+      if (line.trim().isEmpty) {
+        // Empty line - add spacing
+        widgets.add(pw.SizedBox(height: fontSize * 0.8));
+      } else {
+        // Text line - preserve leading spaces for indentation
+        widgets.add(pw.Text(
+          line,
+          style: pw.TextStyle(fontSize: fontSize),
+        ));
+      }
+    }
+    
+    return widgets;
+  }
+  
   // ═══════════════════════════════════════════════════════════════════════════
   // OPTIQUE - PRINT METHODS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -792,13 +813,13 @@ class PrescriptionPrintService {
                     ),
                     pw.SizedBox(height: 14),
                     
-                    // Content - the prescription text, preserving formatting
+                    // Content - the prescription text, preserving formatting line by line
                     pw.Expanded(
                       child: pw.Container(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text(
-                          _sanitizeForPrint(content),
-                          style: pw.TextStyle(fontSize: fontSize, lineSpacing: 1.3),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: _buildContentLines(_sanitizeForPrint(content), fontSize),
                         ),
                       ),
                     ),
@@ -917,11 +938,8 @@ class PrescriptionPrintService {
             ),
           ),
           
-          // Content - preserves exact formatting with line breaks
-          pw.Text(
-            _sanitizeForPrint(content),
-            style: const pw.TextStyle(fontSize: 18, lineSpacing: 1.6),
-          ),
+          // Content - preserves exact formatting with line breaks (line by line)
+          ..._buildContentLines(_sanitizeForPrint(content), 18),
           
           // Signature area at bottom
           pw.SizedBox(height: 30),
