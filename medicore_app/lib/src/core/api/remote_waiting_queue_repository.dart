@@ -1,5 +1,5 @@
 import 'dart:async';
-import '../generated/medicore.pb.dart';
+import '../generated/medicore.pb.dart' as pb;
 import 'medicore_client.dart';
 import 'realtime_sync_service.dart';
 
