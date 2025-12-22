@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'sse_client.dart';
 import 'grpc_client.dart';
 import '../../features/messages/services/notification_service.dart';
-import '../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// Real-time sync service that connects SSE events to data refreshes
 /// This is the central hub for instant updates across all clients

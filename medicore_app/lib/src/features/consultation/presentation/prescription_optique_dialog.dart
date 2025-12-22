@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/services/prescription_print_service.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 class PrescriptionOptiqueDialog extends StatefulWidget {
   final String? vlOD; // VL from right eye

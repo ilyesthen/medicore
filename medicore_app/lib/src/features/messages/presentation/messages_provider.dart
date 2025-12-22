@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_messages_repository.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// Abstract interface for message operations
-abstract class IMessagesRepository {
+abstract class IRemoteMessagesRepository {
   Future<Message> sendMessage({
     required String roomId,
     required String senderId,
@@ -28,8 +28,8 @@ abstract class IMessagesRepository {
 }
 
 /// Local messages adapter
-class LocalMessagesAdapter implements IMessagesRepository {
-  final MessagesRepository _local;
+class LocalMessagesAdapter implements IRemoteMessagesRepository {
+  final RemoteMessagesRepository _local;
   LocalMessagesAdapter(this._local);
   
   @override
@@ -89,8 +89,8 @@ class LocalMessagesAdapter implements IMessagesRepository {
 }
 
 /// Remote messages adapter
-class RemoteMessagesAdapter implements IMessagesRepository {
-  final RemoteMessagesRepository _remote;
+class RemoteMessagesAdapter implements IRemoteMessagesRepository {
+  final RemoteRemoteMessagesRepository _remote;
   RemoteMessagesAdapter(this._remote);
   
   @override
@@ -150,25 +150,25 @@ class RemoteMessagesAdapter implements IMessagesRepository {
 }
 
 // Singleton instances to prevent multiple SSE registrations
-RemoteMessagesRepository? _remoteMessagesRepo;
-MessagesRepository? _localMessagesRepo;
+RemoteRemoteMessagesRepository? _remoteMessagesRepo;
+RemoteMessagesRepository? _localMessagesRepo;
 
 /// Messages repository provider - switches between local and remote
-final messagesRepositoryProvider = Provider<IMessagesRepository>((ref) {
+final messagesRepositoryProvider = Provider<IRemoteMessagesRepository>((ref) {
   if (GrpcClientConfig.isServer) {
-    print('✓ [MessagesRepository] Using LOCAL database (Admin mode)');
-    _localMessagesRepo ??= MessagesRepository();
+    print('✓ [RemoteMessagesRepository] Using LOCAL database (Admin mode)');
+    _localMessagesRepo ??= RemoteMessagesRepository();
     return LocalMessagesAdapter(_localMessagesRepo!);
   } else {
-    print('✓ [MessagesRepository] Using REMOTE API (Client mode)');
-    _remoteMessagesRepo ??= RemoteMessagesRepository();
+    print('✓ [RemoteMessagesRepository] Using REMOTE API (Client mode)');
+    _remoteMessagesRepo ??= RemoteRemoteMessagesRepository();
     return RemoteMessagesAdapter(_remoteMessagesRepo!);
   }
 });
 
 /// Message templates repository provider
-final messageTemplatesRepositoryProvider = Provider<MessageTemplatesRepository>((ref) {
-  return MessageTemplatesRepository();
+final messageTemplatesRepositoryProvider = Provider<RemoteMessageTemplatesRepository>((ref) {
+  return RemoteMessageTemplatesRepository();
 });
 
 /// All message templates stream provider

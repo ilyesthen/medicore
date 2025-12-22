@@ -5,7 +5,7 @@ import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../patients/presentation/patients_provider.dart';
 import '../../auth/presentation/auth_provider.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// Appointments Dialog - View and manage patient appointments
 /// Works on both admin and client modes

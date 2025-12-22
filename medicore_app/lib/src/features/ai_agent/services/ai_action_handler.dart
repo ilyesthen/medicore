@@ -1,5 +1,5 @@
 import 'dart:convert';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// AI Action Handler - Middleware between AI output and Repositories
 /// Parses AI JSON actions and executes them against the database

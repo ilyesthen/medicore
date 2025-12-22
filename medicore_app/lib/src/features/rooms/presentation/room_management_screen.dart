@@ -7,7 +7,7 @@ import '../../../core/ui/cockpit_button.dart';
 import '../../../core/ui/data_grid.dart';
 import 'rooms_provider.dart';
 import 'room_form_dialog.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// Room management screen with CRUD operations
 class RoomManagementScreen extends ConsumerWidget {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_patients_repository.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// Global refresh trigger for instant CRUD updates
 final _patientsRefreshController = StreamController<void>.broadcast();
@@ -42,66 +42,7 @@ abstract class IPatientsRepository {
   Future<int> getPatientCount();
 }
 
-/// Local patients adapter
-class LocalPatientsAdapter implements IPatientsRepository {
-  final PatientsRepository _local;
-  LocalPatientsAdapter(this._local);
-  
-  @override
-  Stream<List<Patient>> watchAllPatients() => _local.watchAllPatients();
-  
-  @override
-  Future<Patient?> getPatientByCode(int code) => _local.getPatientByCode(code);
-  
-  @override
-  Stream<List<Patient>> searchPatients(String query) => _local.searchPatients(query);
-  
-  @override
-  Future<Patient> createPatient({
-    required String firstName,
-    required String lastName,
-    int? age,
-    DateTime? dateOfBirth,
-    String? address,
-    String? phoneNumber,
-    String? otherInfo,
-  }) => _local.createPatient(
-    firstName: firstName,
-    lastName: lastName,
-    age: age,
-    dateOfBirth: dateOfBirth,
-    address: address,
-    phoneNumber: phoneNumber,
-    otherInfo: otherInfo,
-  );
-  
-  @override
-  Future<void> updatePatient({
-    required int code,
-    required String firstName,
-    required String lastName,
-    int? age,
-    DateTime? dateOfBirth,
-    String? address,
-    String? phoneNumber,
-    String? otherInfo,
-  }) => _local.updatePatient(
-    code: code,
-    firstName: firstName,
-    lastName: lastName,
-    age: age,
-    dateOfBirth: dateOfBirth,
-    address: address,
-    phoneNumber: phoneNumber,
-    otherInfo: otherInfo,
-  );
-  
-  @override
-  Future<void> deletePatient(int code) => _local.deletePatient(code);
-  
-  @override
-  Future<int> getPatientCount() => _local.getPatientCount();
-}
+
 
 /// Remote patients adapter
 class RemotePatientsAdapter implements IPatientsRepository {
@@ -169,16 +110,8 @@ RemotePatientsRepository? _remotePatientsRepo;
 PatientsRepository? _localPatientsRepo;
 
 /// Patients repository provider - switches between local and remote
-final patientsRepositoryProvider = Provider<IPatientsRepository>((ref) {
-  if (GrpcClientConfig.isServer) {
-    print('✓ [PatientsRepository] Using LOCAL database (Admin mode)');
-    _localPatientsRepo ??= PatientsRepository();
-    return LocalPatientsAdapter(_localPatientsRepo!);
-  } else {
-    print('✓ [PatientsRepository] Using REMOTE API (Client mode)');
-    _remotePatientsRepo ??= RemotePatientsRepository();
-    return RemotePatientsAdapter(_remotePatientsRepo!);
-  }
+final patientsRepositoryProvider = Provider<RemotePatientsRepository>((ref) {
+  return RemotePatientsRepository(ref.read(grpcClientProvider));
 });
 
 /// All patients stream provider with instant refresh support

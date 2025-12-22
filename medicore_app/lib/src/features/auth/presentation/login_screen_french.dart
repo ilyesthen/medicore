@@ -8,7 +8,7 @@ import 'auth_provider.dart';
 import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';
 import '../../users/data/models/template_model.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// Professional French login screen with template support
 class LoginScreenFrench extends ConsumerStatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_rooms_repository.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// Abstract interface for room operations
 abstract class IRoomsRepository {
@@ -12,26 +12,7 @@ abstract class IRoomsRepository {
   Future<void> deleteRoom(String id);
 }
 
-/// Local rooms adapter
-class LocalRoomsAdapter implements IRoomsRepository {
-  final RoomsRepository _local;
-  LocalRoomsAdapter(this._local);
-  
-  @override
-  Future<List<Room>> getAllRooms() => _local.getAllRooms();
-  
-  @override
-  Future<Room?> getRoomById(String id) => _local.getRoomById(id);
-  
-  @override
-  Future<Room> createRoom({required String name}) => _local.createRoom(name: name);
-  
-  @override
-  Future<void> updateRoom(Room room) => _local.updateRoom(room);
-  
-  @override
-  Future<void> deleteRoom(String id) => _local.deleteRoom(id);
-}
+
 
 /// Remote rooms adapter
 class RemoteRoomsAdapter implements IRoomsRepository {
@@ -55,14 +36,8 @@ class RemoteRoomsAdapter implements IRoomsRepository {
 }
 
 /// Rooms repository provider - switches between local and remote
-final roomsRepositoryProvider = Provider<IRoomsRepository>((ref) {
-  if (GrpcClientConfig.isServer) {
-    print('✓ [RoomsRepository] Using LOCAL database (Admin mode)');
-    return LocalRoomsAdapter(RoomsRepository(AppDatabase.instance));
-  } else {
-    print('✓ [RoomsRepository] Using REMOTE API (Client mode)');
-    return RemoteRoomsAdapter(RemoteRoomsRepository());
-  }
+final roomsRepositoryProvider = Provider<RemoteRoomsRepository>((ref) {
+  return RemoteRoomsRepository(ref.read(grpcClientProvider));
 });
 
 /// Rooms list provider

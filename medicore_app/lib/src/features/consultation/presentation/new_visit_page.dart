@@ -14,7 +14,7 @@ import 'validate_payment_dialog.dart';
 import 'prescription_optique_dialog.dart';
 import 'prescription_lentilles_dialog.dart';
 import '../../ordonnance/presentation/ordonnance_page.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// New Visit Page - For creating new visits or editing existing ones
 class NewVisitPage extends ConsumerStatefulWidget {

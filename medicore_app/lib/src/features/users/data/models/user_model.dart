@@ -1,4 +1,4 @@
-import '../../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 /// User model
 class User {
   final String id;

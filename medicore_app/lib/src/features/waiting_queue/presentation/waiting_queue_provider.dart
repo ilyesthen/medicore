@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_waiting_queue_repository.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 /// Abstract interface for waiting queue operations
-abstract class IWaitingQueueRepository {
+abstract class IRemoteWaitingQueueRepository {
   Future<int> addToQueue({
     required int patientCode,
     required String patientFirstName,
@@ -46,8 +46,8 @@ abstract class IWaitingQueueRepository {
 }
 
 /// Local waiting queue adapter
-class LocalWaitingQueueAdapter implements IWaitingQueueRepository {
-  final WaitingQueueRepository _local;
+class LocalWaitingQueueAdapter implements IRemoteWaitingQueueRepository {
+  final RemoteWaitingQueueRepository _local;
   LocalWaitingQueueAdapter(this._local);
   
   @override
@@ -152,8 +152,8 @@ class LocalWaitingQueueAdapter implements IWaitingQueueRepository {
 }
 
 /// Remote waiting queue adapter
-class RemoteWaitingQueueAdapter implements IWaitingQueueRepository {
-  final RemoteWaitingQueueRepository _remote;
+class RemoteWaitingQueueAdapter implements IRemoteWaitingQueueRepository {
+  final RemoteRemoteWaitingQueueRepository _remote;
   RemoteWaitingQueueAdapter(this._remote);
   
   @override
@@ -257,18 +257,18 @@ class RemoteWaitingQueueAdapter implements IWaitingQueueRepository {
 }
 
 // Singleton instances to prevent multiple SSE registrations
-RemoteWaitingQueueRepository? _remoteWaitingQueueRepo;
-WaitingQueueRepository? _localWaitingQueueRepo;
+RemoteRemoteWaitingQueueRepository? _remoteWaitingQueueRepo;
+RemoteWaitingQueueRepository? _localWaitingQueueRepo;
 
 /// Waiting queue repository provider - switches between local and remote
-final waitingQueueRepositoryProvider = Provider<IWaitingQueueRepository>((ref) {
+final waitingQueueRepositoryProvider = Provider<IRemoteWaitingQueueRepository>((ref) {
   if (GrpcClientConfig.isServer) {
-    print('✓ [WaitingQueueRepository] Using LOCAL database (Admin mode)');
-    _localWaitingQueueRepo ??= WaitingQueueRepository(AppDatabase.instance);
+    print('✓ [RemoteWaitingQueueRepository] Using LOCAL database (Admin mode)');
+    _localWaitingQueueRepo ??= RemoteWaitingQueueRepository(AppDatabase.instance);
     return LocalWaitingQueueAdapter(_localWaitingQueueRepo!);
   } else {
-    print('✓ [WaitingQueueRepository] Using REMOTE API (Client mode)');
-    _remoteWaitingQueueRepo ??= RemoteWaitingQueueRepository();
+    print('✓ [RemoteWaitingQueueRepository] Using REMOTE API (Client mode)');
+    _remoteWaitingQueueRepo ??= RemoteRemoteWaitingQueueRepository();
     return RemoteWaitingQueueAdapter(_remoteWaitingQueueRepo!);
   }
 });

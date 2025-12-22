@@ -4,13 +4,13 @@ import '../data/models/template_model.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/api/remote_users_repository.dart';
-import '../../../core/generated/medicore.pb.dart';
+import '../core/types/proto_types.dart';
 
 export '../data/users_repository.dart';
 
 /// Abstract interface for user operations
 /// Allows switching between local (admin) and remote (client) implementations
-abstract class IUsersRepository {
+abstract class IRemoteUsersRepository {
   Future<List<User>> getAllUsers();
   Future<User?> getUserById(String id);
   Future<User?> getUserByName(String name);
@@ -25,9 +25,9 @@ abstract class IUsersRepository {
   Future<void> deleteUser(String id);
 }
 
-/// Local repository adapter - wraps UsersRepository to implement IUsersRepository
-class LocalUsersAdapter implements IUsersRepository {
-  final UsersRepository _local;
+/// Local repository adapter - wraps RemoteUsersRepository to implement IRemoteUsersRepository
+class LocalUsersAdapter implements IRemoteUsersRepository {
+  final RemoteUsersRepository _local;
   LocalUsersAdapter(this._local);
   
   @override
@@ -61,9 +61,9 @@ class LocalUsersAdapter implements IUsersRepository {
   Future<void> deleteUser(String id) => _local.deleteUser(id);
 }
 
-/// Remote repository adapter - wraps RemoteUsersRepository to implement IUsersRepository
-class RemoteUsersAdapter implements IUsersRepository {
-  final RemoteUsersRepository _remote;
+/// Remote repository adapter - wraps RemoteRemoteUsersRepository to implement IRemoteUsersRepository
+class RemoteUsersAdapter implements IRemoteUsersRepository {
+  final RemoteRemoteUsersRepository _remote;
   RemoteUsersAdapter(this._remote);
   
   @override
@@ -100,20 +100,20 @@ class RemoteUsersAdapter implements IUsersRepository {
 /// Users repository provider - Switches between local and remote based on mode
 /// ADMIN mode: Uses local SQLite database
 /// CLIENT mode: Uses REST API to communicate with admin server
-final usersRepositoryProvider = Provider<IUsersRepository>((ref) {
+final usersRepositoryProvider = Provider<IRemoteUsersRepository>((ref) {
   if (GrpcClientConfig.isServer) {
     // ADMIN MODE: Use local database
-    print('✓ [UsersRepository] Using LOCAL database (Admin mode)');
-    return LocalUsersAdapter(UsersRepository());
+    print('✓ [RemoteUsersRepository] Using LOCAL database (Admin mode)');
+    return LocalUsersAdapter(RemoteUsersRepository());
   } else {
     // CLIENT MODE: Use remote REST API
-    print('✓ [UsersRepository] Using REMOTE API (Client mode)');
+    print('✓ [RemoteUsersRepository] Using REMOTE API (Client mode)');
     
     // Initialize client with server host if not already done
     final serverHost = GrpcClientConfig.serverHost;
     MediCoreClient.instance.initialize(host: serverHost);
     
-    return RemoteUsersAdapter(RemoteUsersRepository());
+    return RemoteUsersAdapter(RemoteRemoteUsersRepository());
   }
 });
 
@@ -124,7 +124,7 @@ final usersListProvider = StateNotifierProvider<UsersNotifier, List<User>>((ref)
 
 /// Users notifier
 class UsersNotifier extends StateNotifier<List<User>> {
-  final IUsersRepository _repository;
+  final IRemoteUsersRepository _repository;
   
   UsersNotifier(this._repository) : super([]) {
     _init();
@@ -179,12 +179,12 @@ class UsersNotifier extends StateNotifier<List<User>> {
 /// Templates are only used for admin functions, so they always use local database
 final templatesListProvider = StateNotifierProvider<TemplatesNotifier, List<UserTemplate>>((ref) {
   // Templates only work in admin mode - always use local repository
-  return TemplatesNotifier(UsersRepository());
+  return TemplatesNotifier(RemoteUsersRepository());
 });
 
 /// Templates notifier
 class TemplatesNotifier extends StateNotifier<List<UserTemplate>> {
-  final UsersRepository _repository;
+  final RemoteUsersRepository _repository;
   
   TemplatesNotifier(this._repository) : super([]) {
     _init();
