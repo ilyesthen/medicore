@@ -299,9 +299,9 @@ class _DilatationPatientRow extends ConsumerWidget {
     return age?.toString() ?? '-';
   }
 
-  String _formatTimer(DateTime sentAt) {
+  String _formatTimer(String sentAt) {
     final now = DateTime.now();
-    final difference = now.difference(sentAt);
+    final difference = now.difference(DateTime.tryParse(sentAt) ?? DateTime.now());
     
     final hours = difference.inHours;
     final minutes = difference.inMinutes % 60;
@@ -313,10 +313,10 @@ class _DilatationPatientRow extends ConsumerWidget {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  Color _getTimerColor(DateTime sentAt) {
-    final minutes = DateTime.now().difference(sentAt).inMinutes;
-    if (minutes >= 30) return MediCoreColors.criticalRed;
-    if (minutes >= 15) return Colors.orange;
+  Color _getTimerColor(String sentAt) {
+    final minutesSince = DateTime.now().difference(DateTime.tryParse(sentAt) ?? DateTime.now()).inMinutes;
+    if (minutesSince >= 30) return MediCoreColors.criticalRed;
+    if (minutesSince >= 15) return Colors.orange;
     return MediCoreColors.healthyGreen;
   }
 

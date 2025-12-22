@@ -1005,8 +1005,8 @@ class _RoomBox extends ConsumerWidget {
       context: context,
       builder: (context) => SendPatientDialog(
         patient: selectedPatient!,
-        roomId: roomId!,
-        senderId: senderId,
+        room: Room(id: int.parse(roomId!), stringId: roomId!, name: roomName, type: 'consultation'),
+        currentUserId: senderId,
         currentUserName: currentUserName,
       ),
     );

@@ -68,7 +68,7 @@ class _WaitingQueueDialogState extends ConsumerState<WaitingQueueDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final waitingPatientsAsync = ref.watch(waitingPatientsProvider(widget.room.id));
+    final waitingPatientsAsync = ref.watch(waitingPatientsProvider(widget.room.id.toString()));
     final filters = ref.watch(waitingQueueFilterProvider);
     
     // Get filtered patients for keyboard navigation

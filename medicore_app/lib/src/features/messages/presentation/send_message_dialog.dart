@@ -128,7 +128,7 @@ class _SendMessageDialogState extends ConsumerState<SendMessageDialog> {
         content: _messageController.text.trim(),
         direction: direction,
         patientCode: widget.patientCode,
-        patientName: _selectedPatientName ?? '',
+        patientName: widget.patientName ?? '',
       );
 
       print('✅ MESSAGE SENT SUCCESSFULLY:');
@@ -435,16 +435,16 @@ class _RoomSelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final allRooms = ref.watch(roomsListProvider);
     final availableRooms = allRooms
-        .where((room) => availableRoomIds.contains(room.id))
+        .where((room) => availableRoomIds.contains(room.id.toString()))
         .toList();
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: availableRooms.map((room) {
-        final isSelected = selectedRoomId == room.id;
+        final isSelected = selectedRoomId == room.id.toString();
         return InkWell(
-          onTap: () => onRoomSelected(room.id, room),
+          onTap: () => onRoomSelected(room.id.toString(), room),
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 16,

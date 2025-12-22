@@ -53,30 +53,16 @@ class AgeCalculatorService {
   /// Update all patient ages based on their creation dates
   /// Should be run on app startup or periodically
   Future<int> updateAllPatientAges() async {
-    final patients = await _db.select(_db.patients).get();
-    int updatedCount = 0;
-
-    for (final patient in patients) {
-      // Skip patients with dateOfBirth - they don't need stored age updates
-      if (patient.dateOfBirth != null) continue;
-      
-      // Skip patients without stored age
-      if (patient.age == null) continue;
-      
-      // For patients with only stored age, we DON'T update the stored age
-      // The stored age is the "age at creation" - it's a reference value
-      // Current age is calculated dynamically in the UI
-    }
-
-    return updatedCount;
+    // AppDatabase not available - this would need to be implemented with repository
+    return 0;
   }
 
   /// Get patient with updated age (without saving to database)
   Patient getPatientWithUpdatedAge(Patient patient) {
     final currentAge = calculateCurrentAge(
-      dateOfBirth: patient.dateOfBirth,
+      dateOfBirth: patient.dateOfBirth != null ? DateTime.tryParse(patient.dateOfBirth!) : null,
       storedAge: patient.age,
-      createdAt: patient.createdAt,
+      createdAt: patient.createdAt != null ? DateTime.tryParse(patient.createdAt!) : null,
     );
     
     return Patient(
@@ -88,8 +74,8 @@ class AgeCalculatorService {
       age: currentAge,
       dateOfBirth: patient.dateOfBirth,
       address: patient.address,
-      phone: patient.phoneNumber,
-      otherInfo: patient.otherInfo,
+      phone: patient.phone,
+      notes: patient.notes,
       updatedAt: patient.updatedAt,
       needsSync: patient.needsSync,
     );
@@ -102,33 +88,18 @@ extension PatientAgeExtension on Patient {
   /// - If dateOfBirth is set: calculate from dateOfBirth
   /// - If only age is set: calculate based on createdAt + stored age
   int? get currentAge => AgeCalculatorService.calculateCurrentAge(
-    dateOfBirth: dateOfBirth,
+    dateOfBirth: dateOfBirth != null ? DateTime.tryParse(dateOfBirth!) : null,
     storedAge: age,
-    createdAt: createdAt,
+    createdAt: createdAt != null ? DateTime.tryParse(createdAt!) : null,
   );
 }
 
 /// Extension on WaitingPatient to easily get current calculated age
 extension WaitingPatientAgeExtension on WaitingPatient {
   /// Get the current age calculated dynamically
-  /// - If patientBirthDate is set: calculate from patientBirthDate
-  /// - If only patientAge is set: calculate based on patientCreatedAt + stored age
   int? get currentAge {
-    // If we have a birth date, calculate from it
-    if (patientBirthDate != null) {
-      return AgeCalculatorService.calculateAgeFromDate(patientBirthDate!);
-    }
-    
-    // If we have stored age and creation date, calculate dynamically
-    if (patientAge != null && patientCreatedAt != null) {
-      return AgeCalculatorService.calculateCurrentAge(
-        dateOfBirth: null,
-        storedAge: patientAge,
-        createdAt: patientCreatedAt!,
-      );
-    }
-    
-    // Fallback to stored age (for legacy data without createdAt)
+    // GrpcWaitingPatient doesn't have patientBirthDate or patientCreatedAt
+    // Just return the stored age
     return patientAge;
   }
 }

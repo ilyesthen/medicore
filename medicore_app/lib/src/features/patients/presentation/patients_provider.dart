@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/grpc_client.dart';
+import '../../../core/api/medicore_client.dart';
 import '../../../core/api/remote_patients_repository.dart';
 import '../../../core/types/proto_types.dart';
 
@@ -110,8 +111,7 @@ RemotePatientsRepository? _remotePatientsRepo;
 
 /// Patients repository provider - switches between local and remote
 final patientsRepositoryProvider = Provider<IPatientsRepository>((ref) {
-  final grpcClient = ref.read(grpcClientProvider);
-  final remoteRepo = RemotePatientsRepository(grpcClient);
+  final remoteRepo = RemotePatientsRepository(MediCoreClient.instance);
   return RemotePatientsAdapter(remoteRepo);
 });
 

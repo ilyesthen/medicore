@@ -68,7 +68,7 @@ class _UrgencesDialogState extends ConsumerState<UrgencesDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final urgentPatientsAsync = ref.watch(urgentPatientsProvider(widget.room.id));
+    final urgentPatientsAsync = ref.watch(urgentPatientsProvider(widget.room.id.toString()));
     final filters = ref.watch(urgentQueueFilterProvider);
     
     // Get filtered patients for keyboard navigation

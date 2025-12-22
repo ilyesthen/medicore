@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/grpc_client.dart';
+import '../../../core/api/medicore_client.dart';
 import '../../../core/api/remote_rooms_repository.dart';
 import '../../../core/types/proto_types.dart';
 
@@ -37,8 +38,7 @@ class RemoteRoomsAdapter implements IRoomsRepository {
 
 /// Rooms repository provider - switches between local and remote
 final roomsRepositoryProvider = Provider<IRoomsRepository>((ref) {
-  final grpcClient = ref.read(grpcClientProvider);
-  final remoteRepo = RemoteRoomsRepository(grpcClient);
+  final remoteRepo = RemoteRoomsRepository(MediCoreClient.instance);
   return RemoteRoomsAdapter(remoteRepo);
 });
 

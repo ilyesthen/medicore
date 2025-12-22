@@ -252,7 +252,7 @@ class RoomManagementScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               try {
-                await ref.read(roomsListProvider.notifier).deleteRoom(room.id);
+                await ref.read(roomsListProvider.notifier).deleteRoom(room.id.toString());
                 if (context.mounted) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
