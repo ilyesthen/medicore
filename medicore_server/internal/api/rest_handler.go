@@ -263,7 +263,7 @@ func (h *RESTHandler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	id := req["id"]
 	row := h.db.QueryRow(`
 		SELECT id, name, role, password_hash, percentage, is_template_user 
-		FROM users WHERE id = ? AND deleted_at IS NULL
+		FROM users WHERE id = $1 AND deleted_at IS NULL
 	`, id)
 
 	var userId, name, role, passwordHash string
@@ -299,7 +299,7 @@ func (h *RESTHandler) GetUserByUsername(w http.ResponseWriter, r *http.Request) 
 	username := req["username"].(string)
 	row := h.db.QueryRow(`
 		SELECT id, name, role, password_hash, percentage, is_template_user 
-		FROM users WHERE name = ? AND deleted_at IS NULL
+		FROM users WHERE name = $1 AND deleted_at IS NULL
 	`, username)
 
 	var userId, name, role, passwordHash string
@@ -350,7 +350,7 @@ func (h *RESTHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.Exec(`
 		INSERT INTO users (id, name, role, password_hash, percentage, is_template_user, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 	`, userId, name, req["role"], req["password_hash"], req["percentage"], false)
 
 	if err != nil {
@@ -388,8 +388,8 @@ func (h *RESTHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := h.db.Exec(`
-		UPDATE users SET name = ?, role = ?, password_hash = ?, percentage = ?, updated_at = datetime('now')
-		WHERE id = ?
+		UPDATE users SET name = $1, role = $2, password_hash = $3, percentage = $4, updated_at = NOW()
+		WHERE id = $5
 	`, name, req["role"], req["password_hash"], req["percentage"], userId)
 
 	if err != nil {
@@ -418,7 +418,7 @@ func (h *RESTHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		userId = fmt.Sprintf("%.0f", id)
 	}
 
-	_, err := h.db.Exec(`UPDATE users SET deleted_at = datetime('now') WHERE id = ?`, userId)
+	_, err := h.db.Exec(`UPDATE users SET deleted_at = NOW() WHERE id = $1`, userId)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -545,7 +545,7 @@ func (h *RESTHandler) GetUserTemplateById(w http.ResponseWriter, r *http.Request
 	}
 
 	id := req["id"].(string)
-	row := h.db.QueryRow(`SELECT id, role, password_hash, percentage, created_at FROM templates WHERE id = ? AND deleted_at IS NULL`, id)
+	row := h.db.QueryRow(`SELECT id, role, password_hash, percentage, created_at FROM templates WHERE id = $1 AND deleted_at IS NULL`, id)
 
 	var role, passwordHash, createdAt string
 	var percentage float64
@@ -577,7 +577,7 @@ func (h *RESTHandler) CreateUserTemplate(w http.ResponseWriter, r *http.Request)
 
 	_, err := h.db.Exec(`
 		INSERT INTO templates (id, role, password_hash, percentage, created_at, updated_at, needs_sync)
-		VALUES (?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+		VALUES ($1, $2, $3, $4, NOW(), NOW(), 1)
 	`, id, role, passwordHash, percentage)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -599,7 +599,7 @@ func (h *RESTHandler) UpdateUserTemplate(w http.ResponseWriter, r *http.Request)
 	passwordHash := req["password_hash"].(string)
 	percentage := req["percentage"].(float64)
 
-	_, err := h.db.Exec(`UPDATE templates SET role = ?, password_hash = ?, percentage = ?, updated_at = datetime('now') WHERE id = ?`,
+	_, err := h.db.Exec(`UPDATE templates SET role = $1, password_hash = $2, percentage = $3, updated_at = NOW() WHERE id = $4`,
 		role, passwordHash, percentage, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -617,7 +617,7 @@ func (h *RESTHandler) DeleteUserTemplate(w http.ResponseWriter, r *http.Request)
 	}
 
 	id := req["id"].(string)
-	_, err := h.db.Exec(`UPDATE templates SET deleted_at = datetime('now') WHERE id = ?`, id)
+	_, err := h.db.Exec(`UPDATE templates SET deleted_at = NOW() WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -637,7 +637,7 @@ func (h *RESTHandler) CreateUserFromTemplate(w http.ResponseWriter, r *http.Requ
 	userName := req["user_name"].(string)
 
 	// Get template
-	row := h.db.QueryRow(`SELECT role, password_hash, percentage FROM templates WHERE id = ? AND deleted_at IS NULL`, templateId)
+	row := h.db.QueryRow(`SELECT role, password_hash, percentage FROM templates WHERE id = $1 AND deleted_at IS NULL`, templateId)
 	var role, passwordHash string
 	var percentage float64
 	if err := row.Scan(&role, &passwordHash, &percentage); err != nil {
@@ -649,7 +649,7 @@ func (h *RESTHandler) CreateUserFromTemplate(w http.ResponseWriter, r *http.Requ
 	userId := req["user_id"].(string)
 	_, err := h.db.Exec(`
 		INSERT INTO users (id, name, role, password_hash, percentage, is_template_user, created_at, updated_at, needs_sync)
-		VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), 1)
+		VALUES ($1, $2, $3, $4, $5, 1, NOW(), NOW(), 1)
 	`, userId, userName, role, passwordHash, percentage)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -699,7 +699,7 @@ func (h *RESTHandler) GetRoomById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := req["id"]
-	row := h.db.QueryRow(`SELECT id, name FROM rooms WHERE id = ?`, id)
+	row := h.db.QueryRow(`SELECT id, name FROM rooms WHERE id = $1`, id)
 
 	var roomId, name string
 	if err := row.Scan(&roomId, &name); err != nil {
@@ -719,7 +719,7 @@ func (h *RESTHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.db.Exec(`
 		INSERT INTO rooms (id, name, created_at, updated_at)
-		VALUES (?, ?, datetime('now'), datetime('now'))
+		VALUES ($1, $2, NOW(), NOW())
 	`, req["id"], req["name"])
 
 	if err != nil {
@@ -739,7 +739,7 @@ func (h *RESTHandler) UpdateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.db.Exec(`UPDATE rooms SET name = ?, updated_at = datetime('now') WHERE id = ?`, req["name"], req["id"])
+	_, err := h.db.Exec(`UPDATE rooms SET name = $1, updated_at = NOW() WHERE id = $2`, req["name"], req["id"])
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -755,7 +755,7 @@ func (h *RESTHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.db.Exec(`DELETE FROM rooms WHERE id = ?`, req["id"])
+	_, err := h.db.Exec(`DELETE FROM rooms WHERE id = $1`, req["id"])
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -826,7 +826,7 @@ func (h *RESTHandler) GetPatientByCode(w http.ResponseWriter, r *http.Request) {
 	code := int(req["patient_code"].(float64))
 	row := h.db.QueryRow(`
 		SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, other_info
-		FROM patients WHERE code = ?
+		FROM patients WHERE code = $1
 	`, code)
 
 	var patientCode int
@@ -882,7 +882,7 @@ func (h *RESTHandler) SearchPatients(w http.ResponseWriter, r *http.Request) {
 		// Exact code match
 		rows, err = h.db.Query(`
 			SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number
-			FROM patients WHERE code = ?
+			FROM patients WHERE code = $1
 			ORDER BY code ASC
 		`, queryStr)
 	} else if strings.Contains(queryLower, " ") {
@@ -893,8 +893,8 @@ func (h *RESTHandler) SearchPatients(w http.ResponseWriter, r *http.Request) {
 		rows, err = h.db.Query(`
 			SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number
 			FROM patients 
-			WHERE (LOWER(first_name) LIKE ? AND LOWER(last_name) LIKE ?)
-			   OR (LOWER(first_name) LIKE ? AND LOWER(last_name) LIKE ?)
+			WHERE (LOWER(first_name) LIKE $1 AND LOWER(last_name) LIKE $2)
+			   OR (LOWER(first_name) LIKE $1 AND LOWER(last_name) LIKE $2)
 			ORDER BY code ASC LIMIT 100
 		`, part1, part2, part2, part1)
 	} else {
@@ -903,7 +903,7 @@ func (h *RESTHandler) SearchPatients(w http.ResponseWriter, r *http.Request) {
 		rows, err = h.db.Query(`
 			SELECT code, barcode, first_name, last_name, age, date_of_birth, address, phone_number
 			FROM patients 
-			WHERE LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ?
+			WHERE LOWER(first_name) LIKE $1 OR LOWER(last_name) LIKE $2
 			ORDER BY code ASC LIMIT 100
 		`, queryPattern, queryPattern)
 	}
@@ -980,7 +980,7 @@ func (h *RESTHandler) CreatePatient(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Save this as the new highest ever
-		h.db.Exec(`INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('highest_patient_code', ?)`, code)
+		h.db.Exec(`INSERT INTO app_metadata (key, value_int) VALUES ('highest_patient_code', $1) ON CONFLICT (key) DO UPDATE SET value_int = $1`, code)
 	}
 
 	// Auto-generate barcode if not provided
@@ -999,7 +999,7 @@ func (h *RESTHandler) CreatePatient(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.Exec(`
 		INSERT INTO patients (code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
 	`, code, barcode, req["first_name"], req["last_name"], req["age"], dateOfBirth, req["address"], req["phone"])
 
 	if err != nil {
@@ -1032,8 +1032,8 @@ func (h *RESTHandler) UpdatePatient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := h.db.Exec(`
-		UPDATE patients SET first_name = ?, last_name = ?, age = ?, date_of_birth = ?, address = ?, phone_number = ?, updated_at = datetime('now')
-		WHERE code = ?
+		UPDATE patients SET first_name = $1, last_name = $2, age = $3, date_of_birth = $4, address = $5, phone_number = $6, updated_at = NOW()
+		WHERE code = $1
 	`, req["first_name"], req["last_name"], req["age"], dateOfBirth, req["address"], req["phone"], code)
 
 	if err != nil {
@@ -1057,14 +1057,14 @@ func (h *RESTHandler) DeletePatient(w http.ResponseWriter, r *http.Request) {
 	code := int(req["patient_code"].(float64))
 
 	// Delete ALL related data first (cascade delete)
-	h.db.Exec(`DELETE FROM visits WHERE patient_code = ?`, code)
-	h.db.Exec(`DELETE FROM payments WHERE patient_code = ?`, code)
-	h.db.Exec(`DELETE FROM ordonnances WHERE patient_code = ?`, code)
-	h.db.Exec(`DELETE FROM messages WHERE patient_code = ?`, code)
-	h.db.Exec(`DELETE FROM waiting_patients WHERE patient_code = ?`, code)
+	h.db.Exec(`DELETE FROM visits WHERE patient_code = $1`, code)
+	h.db.Exec(`DELETE FROM payments WHERE patient_code = $1`, code)
+	h.db.Exec(`DELETE FROM ordonnances WHERE patient_code = $1`, code)
+	h.db.Exec(`DELETE FROM messages WHERE patient_code = $1`, code)
+	h.db.Exec(`DELETE FROM waiting_patients WHERE patient_code = $1`, code)
 
 	// Finally delete the patient
-	_, err := h.db.Exec(`DELETE FROM patients WHERE code = ?`, code)
+	_, err := h.db.Exec(`DELETE FROM patients WHERE code = $1`, code)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1090,7 +1090,7 @@ func (h *RESTHandler) GetMessagesByRoom(w http.ResponseWriter, r *http.Request) 
 	roomId := req["room_id"].(string)
 	rows, err := h.db.Query(`
 		SELECT id, room_id, sender_id, sender_name, sender_role, content, direction, is_read, sent_at, patient_code, patient_name
-		FROM messages WHERE room_id = ? ORDER BY sent_at DESC
+		FROM messages WHERE room_id = $1 ORDER BY sent_at DESC
 	`, roomId)
 
 	if err != nil {
@@ -1143,7 +1143,7 @@ func (h *RESTHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.db.Exec(`
 		INSERT INTO messages (room_id, sender_id, sender_name, sender_role, content, direction, is_read, sent_at, patient_code, patient_name)
-		VALUES (?, ?, ?, ?, ?, ?, 0, datetime('now'), ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, 0, NOW(), $7, $8)
 	`, req["room_id"], req["sender_id"], req["sender_name"], req["sender_role"], req["content"], req["direction"], req["patient_code"], req["patient_name"])
 
 	if err != nil {
@@ -1176,7 +1176,7 @@ func (h *RESTHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`DELETE FROM messages WHERE id = ?`, id)
+	_, err := h.db.Exec(`DELETE FROM messages WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1196,10 +1196,10 @@ func (h *RESTHandler) MarkMessageAsRead(w http.ResponseWriter, r *http.Request) 
 
 	// Get room_id before deleting for SSE broadcast
 	var roomID string
-	h.db.QueryRow(`SELECT room_id FROM messages WHERE id = ?`, id).Scan(&roomID)
+	h.db.QueryRow(`SELECT room_id FROM messages WHERE id = $1`, id).Scan(&roomID)
 
 	// Delete message when marked as read (no history kept - matches Flutter behavior)
-	_, err := h.db.Exec(`DELETE FROM messages WHERE id = ?`, id)
+	_, err := h.db.Exec(`DELETE FROM messages WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1222,7 +1222,7 @@ func (h *RESTHandler) MarkAllMessagesAsRead(w http.ResponseWriter, r *http.Reque
 	direction := req["direction"].(string)
 
 	// Delete all messages when marked as read (no history kept - matches Flutter behavior)
-	_, err := h.db.Exec(`DELETE FROM messages WHERE room_id = ? AND direction = ?`, roomId, direction)
+	_, err := h.db.Exec(`DELETE FROM messages WHERE room_id = $1 AND direction = $2`, roomId, direction)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1288,7 +1288,7 @@ func (h *RESTHandler) CreateMessageTemplate(w http.ResponseWriter, r *http.Reque
 
 	result, err := h.db.Exec(`
 		INSERT INTO message_templates (content, display_order, created_at, created_by)
-		VALUES (?, ?, datetime('now'), ?)
+		VALUES ($1, $2, NOW(), $3)
 	`, content, maxOrder+1, createdBy)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -1309,7 +1309,7 @@ func (h *RESTHandler) UpdateMessageTemplate(w http.ResponseWriter, r *http.Reque
 	id := int(req["id"].(float64))
 	content := req["content"].(string)
 
-	_, err := h.db.Exec(`UPDATE message_templates SET content = ? WHERE id = ?`, content, id)
+	_, err := h.db.Exec(`UPDATE message_templates SET content = $1 WHERE id = $2`, content, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1326,7 +1326,7 @@ func (h *RESTHandler) GetMessageTemplateById(w http.ResponseWriter, r *http.Requ
 	}
 
 	id := int(req["id"].(float64))
-	row := h.db.QueryRow(`SELECT id, content, display_order, created_at, created_by FROM message_templates WHERE id = ?`, id)
+	row := h.db.QueryRow(`SELECT id, content, display_order, created_at, created_by FROM message_templates WHERE id = $1`, id)
 
 	var templateId, displayOrder int
 	var content, createdAt string
@@ -1356,7 +1356,7 @@ func (h *RESTHandler) DeleteMessageTemplate(w http.ResponseWriter, r *http.Reque
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`DELETE FROM message_templates WHERE id = ?`, id)
+	_, err := h.db.Exec(`DELETE FROM message_templates WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1385,7 +1385,7 @@ func (h *RESTHandler) ReorderMessageTemplates(w http.ResponseWriter, r *http.Req
 
 	for i, idRaw := range idsRaw {
 		id := int(idRaw.(float64))
-		_, err := h.db.Exec(`UPDATE message_templates SET display_order = ? WHERE id = ?`, i+1, id)
+		_, err := h.db.Exec(`UPDATE message_templates SET display_order = $1 WHERE id = $2`, i+1, id)
 		if err != nil {
 			respondError(w, 500, err.Error())
 			return
@@ -1408,7 +1408,7 @@ func (h *RESTHandler) GetWaitingPatientsByRoom(w http.ResponseWriter, r *http.Re
 	rows, err := h.db.Query(`
 		SELECT id, patient_code, patient_first_name, patient_last_name, patient_age, is_urgent, is_dilatation, 
 			   dilatation_type, room_id, room_name, motif, sent_by_user_id, sent_by_user_name, sent_at, is_checked, is_active, is_notified
-		FROM waiting_patients WHERE room_id = ? AND is_active = 1 ORDER BY sent_at ASC
+		FROM waiting_patients WHERE room_id = $1 AND is_active = 1 ORDER BY sent_at ASC
 	`, roomId)
 
 	if err != nil {
@@ -1470,7 +1470,7 @@ func (h *RESTHandler) GetWaitingPatientById(w http.ResponseWriter, r *http.Reque
 	row := h.db.QueryRow(`
 		SELECT id, patient_code, patient_first_name, patient_last_name, patient_age, is_urgent, is_dilatation, 
 			   dilatation_type, room_id, room_name, motif, sent_by_user_id, sent_by_user_name, sent_at, is_checked, is_active, is_notified
-		FROM waiting_patients WHERE id = ?
+		FROM waiting_patients WHERE id = $1
 	`, id)
 
 	var patientId, patientCode int
@@ -1523,7 +1523,7 @@ func (h *RESTHandler) AddWaitingPatient(w http.ResponseWriter, r *http.Request) 
 	result, err := h.db.Exec(`
 		INSERT INTO waiting_patients (patient_code, patient_first_name, patient_last_name, patient_age, is_urgent, is_dilatation,
 			dilatation_type, room_id, room_name, motif, sent_by_user_id, sent_by_user_name, sent_at, is_checked, is_active, is_notified)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 0, 1, 0)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 0, 1, 0)
 	`, patientCode, req["patient_first_name"], req["patient_last_name"], req["patient_age"], req["is_urgent"], req["is_dilatation"],
 		req["dilatation_type"], req["room_id"], req["room_name"], req["motif"], req["sent_by_user_id"], req["sent_by_user_name"])
 
@@ -1568,13 +1568,13 @@ func (h *RESTHandler) UpdateWaitingPatient(w http.ResponseWriter, r *http.Reques
 
 	// Get room_id for SSE broadcast
 	var roomID string
-	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE id = ?`, id).Scan(&roomID)
+	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE id = $1`, id).Scan(&roomID)
 
 	// Check if this is a toggle request (is_checked sent without explicit value to set)
 	// If is_checked is true from Flutter toggleChecked, we toggle the current value
 	if isChecked, ok := req["is_checked"].(bool); ok && isChecked {
 		// Toggle: set is_checked = NOT is_checked
-		_, err := h.db.Exec(`UPDATE waiting_patients SET is_checked = NOT is_checked WHERE id = ?`, id)
+		_, err := h.db.Exec(`UPDATE waiting_patients SET is_checked = NOT is_checked WHERE id = $1`, id)
 		if err != nil {
 			respondError(w, 500, err.Error())
 			return
@@ -1582,7 +1582,7 @@ func (h *RESTHandler) UpdateWaitingPatient(w http.ResponseWriter, r *http.Reques
 	} else {
 		// Direct update with provided values
 		_, err := h.db.Exec(`
-			UPDATE waiting_patients SET is_checked = ?, is_active = ? WHERE id = ?
+			UPDATE waiting_patients SET is_checked = $1, is_active = $2 WHERE id = $3
 		`, req["is_checked"], req["is_active"], id)
 		if err != nil {
 			respondError(w, 500, err.Error())
@@ -1607,9 +1607,9 @@ func (h *RESTHandler) RemoveWaitingPatient(w http.ResponseWriter, r *http.Reques
 
 	// Get room_id for SSE broadcast
 	var roomID string
-	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE id = ?`, id).Scan(&roomID)
+	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE id = $1`, id).Scan(&roomID)
 
-	_, err := h.db.Exec(`UPDATE waiting_patients SET is_active = 0 WHERE id = ?`, id)
+	_, err := h.db.Exec(`UPDATE waiting_patients SET is_active = 0 WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1632,9 +1632,9 @@ func (h *RESTHandler) RemoveWaitingPatientByCode(w http.ResponseWriter, r *http.
 
 	// Get room_id for SSE broadcast before removing
 	var roomID string
-	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE patient_code = ? AND is_active = 1`, patientCode).Scan(&roomID)
+	h.db.QueryRow(`SELECT room_id FROM waiting_patients WHERE patient_code = $1 AND is_active = 1`, patientCode).Scan(&roomID)
 
-	_, err := h.db.Exec(`UPDATE waiting_patients SET is_active = 0 WHERE patient_code = ? AND is_active = 1`, patientCode)
+	_, err := h.db.Exec(`UPDATE waiting_patients SET is_active = 0 WHERE patient_code = $1 AND is_active = 1`, patientCode)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1655,7 +1655,7 @@ func (h *RESTHandler) MarkDilatationsAsNotified(w http.ResponseWriter, r *http.R
 
 	roomIds := req["room_ids"].([]interface{})
 	for _, roomId := range roomIds {
-		_, err := h.db.Exec(`UPDATE waiting_patients SET is_notified = 1 WHERE room_id = ? AND is_dilatation = 1 AND is_active = 1`, roomId.(string))
+		_, err := h.db.Exec(`UPDATE waiting_patients SET is_notified = 1 WHERE room_id = $1 AND is_dilatation = 1 AND is_active = 1`, roomId.(string))
 		if err != nil {
 			respondError(w, 500, err.Error())
 			return
@@ -1705,7 +1705,7 @@ func (h *RESTHandler) GetMedicalActById(w http.ResponseWriter, r *http.Request) 
 	}
 
 	id := int(req["id"].(float64))
-	row := h.db.QueryRow(`SELECT id, name, fee_amount, display_order FROM medical_acts WHERE id = ?`, id)
+	row := h.db.QueryRow(`SELECT id, name, fee_amount, display_order FROM medical_acts WHERE id = $1`, id)
 
 	var actId, feeAmount, displayOrder int
 	var name string
@@ -1739,7 +1739,7 @@ func (h *RESTHandler) CreateMedicalAct(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.db.Exec(`
 		INSERT INTO medical_acts (name, fee_amount, display_order, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, 1, datetime('now'), datetime('now'))
+		VALUES ($1, $2, $3, 1, NOW(), NOW())
 	`, name, feeAmount, maxOrder+1)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -1761,7 +1761,7 @@ func (h *RESTHandler) UpdateMedicalAct(w http.ResponseWriter, r *http.Request) {
 	name := req["name"].(string)
 	feeAmount := int(req["fee_amount"].(float64))
 
-	_, err := h.db.Exec(`UPDATE medical_acts SET name = ?, fee_amount = ?, updated_at = datetime('now') WHERE id = ?`,
+	_, err := h.db.Exec(`UPDATE medical_acts SET name = $1, fee_amount = $2, updated_at = NOW() WHERE id = $3`,
 		name, feeAmount, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -1779,7 +1779,7 @@ func (h *RESTHandler) DeleteMedicalAct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`UPDATE medical_acts SET is_active = 0, updated_at = datetime('now') WHERE id = ?`, id)
+	_, err := h.db.Exec(`UPDATE medical_acts SET is_active = 0, updated_at = NOW() WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -1798,7 +1798,7 @@ func (h *RESTHandler) ReorderMedicalActs(w http.ResponseWriter, r *http.Request)
 	ids := req["ids"].([]interface{})
 	for i, idVal := range ids {
 		id := int(idVal.(float64))
-		h.db.Exec(`UPDATE medical_acts SET display_order = ?, updated_at = datetime('now') WHERE id = ?`, i+1, id)
+		h.db.Exec(`UPDATE medical_acts SET display_order = $1, updated_at = NOW() WHERE id = $2`, i+1, id)
 	}
 	BroadcastMedicalActEvent(EventMedicalActReorder, nil)
 	respondJSON(w, map[string]interface{}{})
@@ -1827,7 +1827,7 @@ func (h *RESTHandler) GetVisitsForPatient(w http.ResponseWriter, r *http.Request
 			   od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
 			   og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
 			   addition, dip, created_at
-		FROM visits WHERE patient_code = ? AND (is_active = 1 OR is_active IS NULL) ORDER BY visit_date DESC
+		FROM visits WHERE patient_code = $1 AND (is_active = 1 OR is_active IS NULL) ORDER BY visit_date DESC
 	`, patientCode)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -1928,7 +1928,7 @@ func (h *RESTHandler) GetVisitById(w http.ResponseWriter, r *http.Request) {
 			   od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
 			   og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
 			   addition, dip, created_at
-		FROM visits WHERE id = ?
+		FROM visits WHERE id = $1
 	`, id)
 
 	var visitId, patientCode, visitSequence int
@@ -2032,7 +2032,7 @@ func (h *RESTHandler) CreateVisit(w http.ResponseWriter, r *http.Request) {
 			od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
 			og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
 			addition, dip, created_at, updated_at, is_active
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, NOW(), NOW(), 1)
 	`, patientCode, visitSequence, req["visit_date"], req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"],
 		req["od_sv"], req["od_av"], req["od_sphere"], req["od_cylinder"], req["od_axis"], req["od_vl"], req["od_k1"], req["od_k2"], req["od_r1"], req["od_r2"], req["od_r0"], req["od_pachy"], req["od_toc"], req["od_notes"], req["od_gonio"], req["od_to"], req["od_laf"], req["od_fo"],
 		req["og_sv"], req["og_av"], req["og_sphere"], req["og_cylinder"], req["og_axis"], req["og_vl"], req["og_k1"], req["og_k2"], req["og_r1"], req["og_r2"], req["og_r0"], req["og_pachy"], req["og_toc"], req["og_notes"], req["og_gonio"], req["og_to"], req["og_laf"], req["og_fo"],
@@ -2055,11 +2055,11 @@ func (h *RESTHandler) UpdateVisit(w http.ResponseWriter, r *http.Request) {
 	id := int(req["id"].(float64))
 	_, err := h.db.Exec(`
 		UPDATE visits SET 
-			doctor_name = ?, motif = ?, diagnosis = ?, conduct = ?,
-			od_sv = ?, od_av = ?, od_sphere = ?, od_cylinder = ?, od_axis = ?, od_vl = ?, od_k1 = ?, od_k2 = ?, od_r1 = ?, od_r2 = ?, od_r0 = ?, od_pachy = ?, od_toc = ?, od_notes = ?, od_gonio = ?, od_to = ?, od_laf = ?, od_fo = ?,
-			og_sv = ?, og_av = ?, og_sphere = ?, og_cylinder = ?, og_axis = ?, og_vl = ?, og_k1 = ?, og_k2 = ?, og_r1 = ?, og_r2 = ?, og_r0 = ?, og_pachy = ?, og_toc = ?, og_notes = ?, og_gonio = ?, og_to = ?, og_laf = ?, og_fo = ?,
-			addition = ?, dip = ?, updated_at = datetime('now')
-		WHERE id = ?`,
+			doctor_name = $1, motif = $2, diagnosis = $3, conduct = $4,
+			od_sv = $5, od_av = $6, od_sphere = $7, od_cylinder = $8, od_axis = $9, od_vl = $10, od_k1 = $11, od_k2 = $12, od_r1 = $13, od_r2 = $14, od_r0 = $15, od_pachy = $16, od_toc = $17, od_notes = $18, od_gonio = $19, od_to = $20, od_laf = $21, od_fo = $22,
+			og_sv = $23, og_av = $24, og_sphere = $25, og_cylinder = $26, og_axis = $27, og_vl = $28, og_k1 = $29, og_k2 = $30, og_r1 = $31, og_r2 = $32, og_r0 = $33, og_pachy = $34, og_toc = $35, og_notes = $36, og_gonio = $37, og_to = $38, og_laf = $39, og_fo = $40,
+			addition = $41, dip = $42, updated_at = NOW()
+		WHERE id = $43`,
 		req["doctor_name"], req["motif"], req["diagnosis"], req["conduct"],
 		req["od_sv"], req["od_av"], req["od_sphere"], req["od_cylinder"], req["od_axis"], req["od_vl"], req["od_k1"], req["od_k2"], req["od_r1"], req["od_r2"], req["od_r0"], req["od_pachy"], req["od_toc"], req["od_notes"], req["od_gonio"], req["od_to"], req["od_laf"], req["od_fo"],
 		req["og_sv"], req["og_av"], req["og_sphere"], req["og_cylinder"], req["og_axis"], req["og_vl"], req["og_k1"], req["og_k2"], req["og_r1"], req["og_r2"], req["og_r0"], req["og_pachy"], req["og_toc"], req["og_notes"], req["og_gonio"], req["og_to"], req["og_laf"], req["og_fo"],
@@ -2083,7 +2083,7 @@ func (h *RESTHandler) DeleteVisit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`UPDATE visits SET is_active = 0, updated_at = datetime('now') WHERE id = ?`, id)
+	_, err := h.db.Exec(`UPDATE visits SET is_active = 0, updated_at = NOW() WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2109,7 +2109,7 @@ func (h *RESTHandler) GetOrdonnancesForPatient(w http.ResponseWriter, r *http.Re
 	rows, err := h.db.Query(`
 		SELECT id, patient_code, sequence, document_date, doctor_name, report_title, referred_by,
 			   type1, content1, type2, content2, type3, content3
-		FROM ordonnances WHERE patient_code = ? ORDER BY document_date DESC, id DESC
+		FROM ordonnances WHERE patient_code = $1 ORDER BY document_date DESC, id DESC
 	`, patientCode)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -2178,7 +2178,7 @@ func (h *RESTHandler) CreateOrdonnance(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.db.Exec(`
 		INSERT INTO ordonnances (patient_code, sequence, document_date, doctor_name, report_title, type1, content1)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`, req["patient_code"], req["sequence"], req["document_date"], req["doctor_name"], req["report_title"], req["type1"], req["content1"])
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -2200,7 +2200,7 @@ func (h *RESTHandler) UpdateOrdonnance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`UPDATE ordonnances SET content1 = ?, type1 = ? WHERE id = ?`, req["content1"], req["type1"], id)
+	_, err := h.db.Exec(`UPDATE ordonnances SET content1 = $1, type1 = $2 WHERE id = $3`, req["content1"], req["type1"], id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2220,7 +2220,7 @@ func (h *RESTHandler) DeleteOrdonnance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`DELETE FROM ordonnances WHERE id = ?`, id)
+	_, err := h.db.Exec(`DELETE FROM ordonnances WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2247,7 +2247,7 @@ func (h *RESTHandler) GetPaymentsForPatient(w http.ResponseWriter, r *http.Reque
 	rows, err := h.db.Query(`
 		SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name,
 			   patient_code, patient_first_name, patient_last_name, payment_time, COALESCE(is_active, 1) as is_active
-		FROM payments WHERE patient_code = ? AND (is_active = 1 OR is_active IS NULL) ORDER BY payment_time DESC
+		FROM payments WHERE patient_code = $1 AND (is_active = 1 OR is_active IS NULL) ORDER BY payment_time DESC
 	`, patientCode)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -2316,11 +2316,11 @@ func (h *RESTHandler) GetPaymentsByUserAndDate(w http.ResponseWriter, r *http.Re
 		SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name,
 			   patient_code, patient_first_name, patient_last_name, payment_time, COALESCE(is_active, 1) as is_active
 		FROM payments 
-		WHERE user_name = ? 
+		WHERE user_name = $1 
 		  AND (is_active = 1 OR is_active IS NULL)
 		  AND (
-		    date(payment_time) = ?
-		    OR date(payment_time / 1000, 'unixepoch', 'localtime') = ?
+		    date(payment_time) = $1
+		    OR date(payment_time / 1000, 'unixepoch', 'localtime') = $1
 		  )
 		ORDER BY payment_time ASC
 	`, userName, dateStr, dateStr)
@@ -2411,7 +2411,7 @@ func (h *RESTHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.db.Exec(`
 		INSERT INTO payments (medical_act_id, medical_act_name, amount, user_id, user_name, patient_code, patient_first_name, patient_last_name, payment_time, created_at, updated_at, needs_sync, is_active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1, 1)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), 1, 1)
 	`, medicalActId, medicalActName, amount, userId, userName, patientCode, patientFirstName, patientLastName, paymentTime)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -2470,7 +2470,7 @@ func (h *RESTHandler) UpdatePayment(w http.ResponseWriter, r *http.Request) {
 		paymentTime = v
 	}
 
-	_, err := h.db.Exec(`UPDATE payments SET medical_act_id = ?, medical_act_name = ?, amount = ?, patient_code = ?, patient_first_name = ?, patient_last_name = ?, payment_time = ?, updated_at = datetime('now') WHERE id = ?`,
+	_, err := h.db.Exec(`UPDATE payments SET medical_act_id = $1, medical_act_name = $2, amount = $3, patient_code = $4, patient_first_name = $5, patient_last_name = $6, payment_time = $7, updated_at = NOW() WHERE id = $8`,
 		medicalActId, medicalActName, amount, patientCode, patientFirstName, patientLastName, paymentTime, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -2491,7 +2491,7 @@ func (h *RESTHandler) DeletePayment(w http.ResponseWriter, r *http.Request) {
 	}
 	id := int(req["id"].(float64))
 	// Soft delete to preserve accounting integrity
-	_, err := h.db.Exec(`UPDATE payments SET is_active = 0, updated_at = datetime('now') WHERE id = ?`, id)
+	_, err := h.db.Exec(`UPDATE payments SET is_active = 0, updated_at = NOW() WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2549,7 +2549,7 @@ func (h *RESTHandler) SearchMedications(w http.ResponseWriter, r *http.Request) 
 	}
 
 	query := "%" + req["query"].(string) + "%"
-	rows, err := h.db.Query(`SELECT id, original_id, code, prescription, usage_count, nature FROM medications WHERE code LIKE ? ORDER BY usage_count DESC LIMIT 50`, query)
+	rows, err := h.db.Query(`SELECT id, original_id, code, prescription, usage_count, nature FROM medications WHERE code LIKE $1 ORDER BY usage_count DESC LIMIT 50`, query)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2594,7 +2594,7 @@ func (h *RESTHandler) GetPaymentById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := int(req["id"].(float64))
-	row := h.db.QueryRow(`SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name, patient_code, patient_first_name, patient_last_name, payment_time FROM payments WHERE id = ? AND is_active = 1`, id)
+	row := h.db.QueryRow(`SELECT id, medical_act_id, medical_act_name, amount, user_id, user_name, patient_code, patient_first_name, patient_last_name, payment_time FROM payments WHERE id = $1 AND is_active = 1`, id)
 
 	var paymentId, medicalActId, amount, patientCode int
 	var medicalActName, userId, userName, patientFirstName, patientLastName, paymentTime string
@@ -2627,7 +2627,7 @@ func (h *RESTHandler) GetAllPaymentsByUser(w http.ResponseWriter, r *http.Reques
 
 	userName := req["user_name"].(string)
 	// Include old payments that might have NULL or missing is_active (not explicitly deleted)
-	rows, err := h.db.Query(`SELECT id, medical_act_id, medical_act_name, amount, patient_code, patient_first_name, patient_last_name, payment_time FROM payments WHERE user_name = ? AND (is_active = 1 OR is_active IS NULL) ORDER BY payment_time DESC`, userName)
+	rows, err := h.db.Query(`SELECT id, medical_act_id, medical_act_name, amount, patient_code, patient_first_name, patient_last_name, payment_time FROM payments WHERE user_name = $1 AND (is_active = 1 OR is_active IS NULL) ORDER BY payment_time DESC`, userName)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2665,7 +2665,7 @@ func (h *RESTHandler) DeletePaymentsByPatientAndDate(w http.ResponseWriter, r *h
 	patientCode := int(req["patient_code"].(float64))
 	dateStr := req["date"].(string)
 
-	result, err := h.db.Exec(`UPDATE payments SET is_active = 0, updated_at = datetime('now') WHERE patient_code = ? AND (date(payment_time) = ? OR date(payment_time / 1000, 'unixepoch', 'localtime') = ?)`, patientCode, dateStr, dateStr)
+	result, err := h.db.Exec(`UPDATE payments SET is_active = 0, updated_at = NOW() WHERE patient_code = $1 AND (date(payment_time) = $2 OR date(payment_time / 1000, 'unixepoch', 'localtime') = $3)`, patientCode, dateStr, dateStr)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2685,7 +2685,7 @@ func (h *RESTHandler) CountPaymentsByPatientAndDate(w http.ResponseWriter, r *ht
 	dateStr := req["date"].(string)
 
 	var count int
-	h.db.QueryRow(`SELECT COUNT(*) FROM payments WHERE patient_code = ? AND (date(payment_time) = ? OR date(payment_time / 1000, 'unixepoch', 'localtime') = ?) AND is_active = 1`, patientCode, dateStr, dateStr).Scan(&count)
+	h.db.QueryRow(`SELECT COUNT(*) FROM payments WHERE patient_code = $1 AND (date(payment_time) = $2 OR date(payment_time / 1000, 'unixepoch', 'localtime') = $3) AND is_active = 1`, patientCode, dateStr, dateStr).Scan(&count)
 	respondJSON(w, map[string]interface{}{"count": count})
 }
 
@@ -2705,7 +2705,7 @@ func (h *RESTHandler) GetMedicationById(w http.ResponseWriter, r *http.Request) 
 	}
 
 	id := int(req["id"].(float64))
-	row := h.db.QueryRow(`SELECT id, original_id, code, prescription, usage_count, nature FROM medications WHERE id = ?`, id)
+	row := h.db.QueryRow(`SELECT id, original_id, code, prescription, usage_count, nature FROM medications WHERE id = $1`, id)
 
 	var medId int
 	var originalId sql.NullInt64
@@ -2748,7 +2748,7 @@ func (h *RESTHandler) IncrementMedicationUsage(w http.ResponseWriter, r *http.Re
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`UPDATE medications SET usage_count = usage_count + 1, updated_at = datetime('now') WHERE id = ?`, id)
+	_, err := h.db.Exec(`UPDATE medications SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2766,7 +2766,7 @@ func (h *RESTHandler) SetMedicationUsageCount(w http.ResponseWriter, r *http.Req
 
 	id := int(req["id"].(float64))
 	count := int(req["count"].(float64))
-	_, err := h.db.Exec(`UPDATE medications SET usage_count = ?, updated_at = datetime('now') WHERE id = ?`, count, id)
+	_, err := h.db.Exec(`UPDATE medications SET usage_count = $1, updated_at = NOW() WHERE id = $2`, count, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2788,7 +2788,7 @@ func (h *RESTHandler) AddMedication(w http.ResponseWriter, r *http.Request) {
 		prescription = p
 	}
 
-	result, err := h.db.Exec(`INSERT INTO medications (code, prescription, usage_count, nature, created_at, updated_at) VALUES (?, ?, 0, 'O', datetime('now'), datetime('now'))`, code, prescription)
+	result, err := h.db.Exec(`INSERT INTO medications (code, prescription, usage_count, nature, created_at, updated_at) VALUES ($1, $2, 0, 'O', NOW(), NOW())`, code, prescription)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2813,7 +2813,7 @@ func (h *RESTHandler) UpdateMedication(w http.ResponseWriter, r *http.Request) {
 		prescription = p
 	}
 
-	_, err := h.db.Exec(`UPDATE medications SET code = ?, prescription = ?, updated_at = datetime('now') WHERE id = ?`, code, prescription, id)
+	_, err := h.db.Exec(`UPDATE medications SET code = $1, prescription = $2, updated_at = NOW() WHERE id = $3`, code, prescription, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2831,7 +2831,7 @@ func (h *RESTHandler) DeleteMedication(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`DELETE FROM medications WHERE id = ?`, id)
+	_, err := h.db.Exec(`DELETE FROM medications WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -2888,7 +2888,7 @@ func (h *RESTHandler) InsertVisits(w http.ResponseWriter, r *http.Request) {
 				od_sv, od_av, od_sphere, od_cylinder, od_axis, od_vl, od_k1, od_k2, od_r1, od_r2, od_r0, od_pachy, od_toc, od_notes, od_gonio, od_to, od_laf, od_fo,
 				og_sv, og_av, og_sphere, og_cylinder, og_axis, og_vl, og_k1, og_k2, og_r1, og_r2, og_r0, og_pachy, og_toc, og_notes, og_gonio, og_to, og_laf, og_fo,
 				addition, dip, is_active, created_at, updated_at, needs_sync
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), 1)
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, 1, NOW(), NOW(), 1)
 		`,
 			getInt("patient_code"), getInt("visit_sequence"), visit["visit_date"], visit["doctor_name"], visit["motif"], visit["diagnosis"], visit["conduct"],
 			visit["od_sv"], visit["od_av"], visit["od_sphere"], visit["od_cylinder"], visit["od_axis"], visit["od_vl"], visit["od_k1"], visit["od_k2"], visit["od_r1"], visit["od_r2"], visit["od_r0"], visit["od_pachy"], visit["od_toc"], visit["od_notes"], visit["od_gonio"], visit["od_to"], visit["od_laf"], visit["od_fo"],
@@ -2913,7 +2913,7 @@ func (h *RESTHandler) GetMessageById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := int(req["id"].(float64))
-	row := h.db.QueryRow(`SELECT id, room_id, sender_id, sender_name, sender_role, content, direction, is_read, sent_at, patient_code, patient_name FROM messages WHERE id = ?`, id)
+	row := h.db.QueryRow(`SELECT id, room_id, sender_id, sender_name, sender_role, content, direction, is_read, sent_at, patient_code, patient_name FROM messages WHERE id = $1`, id)
 
 	var msgId int
 	var roomId, senderId, senderName, senderRole, content, direction, sentAt string
@@ -2980,7 +2980,7 @@ func (h *RESTHandler) ImportPatient(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.Exec(`
 		INSERT INTO patients (code, barcode, first_name, last_name, age, date_of_birth, address, phone_number, other_info, created_at, updated_at, needs_sync)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), 1)
 		ON CONFLICT(code) DO UPDATE SET
 			first_name = excluded.first_name,
 			last_name = excluded.last_name,
@@ -2989,7 +2989,7 @@ func (h *RESTHandler) ImportPatient(w http.ResponseWriter, r *http.Request) {
 			address = excluded.address,
 			phone_number = excluded.phone_number,
 			other_info = excluded.other_info,
-			updated_at = datetime('now')
+			updated_at = NOW()
 	`, code, "", firstName, lastName, age, dateOfBirth, address, phone, otherInfo)
 
 	if err != nil {
@@ -3015,7 +3015,7 @@ func (h *RESTHandler) GetNurseRoomPreferences(w http.ResponseWriter, r *http.Req
 	// Ensure table exists
 	h.db.Exec(`CREATE TABLE IF NOT EXISTS nurse_preferences (nurse_id TEXT, box_index INTEGER, room_id TEXT, PRIMARY KEY(nurse_id, box_index))`)
 
-	rows, err := h.db.Query(`SELECT box_index, room_id FROM nurse_preferences WHERE nurse_id = ? ORDER BY box_index`, nurseId)
+	rows, err := h.db.Query(`SELECT box_index, room_id FROM nurse_preferences WHERE nurse_id = $1 ORDER BY box_index`, nurseId)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -3048,11 +3048,11 @@ func (h *RESTHandler) SaveNurseRoomPreferences(w http.ResponseWriter, r *http.Re
 	h.db.Exec(`CREATE TABLE IF NOT EXISTS nurse_preferences (nurse_id TEXT, box_index INTEGER, room_id TEXT, PRIMARY KEY(nurse_id, box_index))`)
 
 	// Clear existing and insert new
-	h.db.Exec(`DELETE FROM nurse_preferences WHERE nurse_id = ?`, nurseId)
+	h.db.Exec(`DELETE FROM nurse_preferences WHERE nurse_id = $1`, nurseId)
 
 	for i, room := range rooms {
 		if room != nil {
-			h.db.Exec(`INSERT INTO nurse_preferences (nurse_id, box_index, room_id) VALUES (?, ?, ?)`, nurseId, i, room.(string))
+			h.db.Exec(`INSERT INTO nurse_preferences (nurse_id, box_index, room_id) VALUES ($1, $2, $3)`, nurseId, i, room.(string))
 		}
 	}
 	BroadcastNursePrefsEvent(EventNursePrefsUpdated, map[string]interface{}{"nurse_id": nurseId})
@@ -3067,7 +3067,7 @@ func (h *RESTHandler) ClearNurseRoomPreferences(w http.ResponseWriter, r *http.R
 	}
 
 	nurseId := req["nurse_id"].(string)
-	h.db.Exec(`DELETE FROM nurse_preferences WHERE nurse_id = ?`, nurseId)
+	h.db.Exec(`DELETE FROM nurse_preferences WHERE nurse_id = $1`, nurseId)
 	BroadcastNursePrefsEvent(EventNursePrefsUpdated, map[string]interface{}{"nurse_id": nurseId})
 	respondJSON(w, map[string]interface{}{})
 }
@@ -3104,8 +3104,8 @@ func (h *RESTHandler) MarkNurseActive(w http.ResponseWriter, r *http.Request) {
 	nurseId := req["nurse_id"].(string)
 
 	// Ensure table exists
-	h.db.Exec(`CREATE TABLE IF NOT EXISTS active_nurses (nurse_id TEXT PRIMARY KEY, active_since TEXT)`)
-	h.db.Exec(`INSERT OR REPLACE INTO active_nurses (nurse_id, active_since) VALUES (?, datetime('now'))`, nurseId)
+	// Note: active_nurses table should be in schema, not created here
+	h.db.Exec(`INSERT INTO nurse_preferences (user_id, is_active, updated_at) VALUES ($1, TRUE, NOW()) ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE, updated_at = NOW()`, nurseId)
 	BroadcastNursePrefsEvent(EventNurseActive, map[string]interface{}{"nurse_id": nurseId})
 	respondJSON(w, map[string]interface{}{})
 }
@@ -3118,7 +3118,7 @@ func (h *RESTHandler) MarkNurseInactive(w http.ResponseWriter, r *http.Request) 
 	}
 
 	nurseId := req["nurse_id"].(string)
-	h.db.Exec(`DELETE FROM active_nurses WHERE nurse_id = ?`, nurseId)
+	h.db.Exec(`DELETE FROM active_nurses WHERE nurse_id = $1`, nurseId)
 	BroadcastNursePrefsEvent(EventNurseInactive, map[string]interface{}{"nurse_id": nurseId})
 	respondJSON(w, map[string]interface{}{})
 }
@@ -3158,7 +3158,7 @@ func (h *RESTHandler) IncrementTemplateCRUsage(w http.ResponseWriter, r *http.Re
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`UPDATE templates_cr SET usage_count = usage_count + 1 WHERE id = ?`, id)
+	_, err := h.db.Exec(`UPDATE templates_cr SET usage_count = usage_count + 1 WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -3184,7 +3184,7 @@ func (h *RESTHandler) GetAppointmentsForDate(w http.ResponseWriter, r *http.Requ
 		SELECT id, appointment_date, first_name, last_name, age, date_of_birth, 
 		       phone_number, address, notes, existing_patient_code, was_added, created_at, created_by
 		FROM appointments 
-		WHERE appointment_date BETWEEN ? AND ?
+		WHERE appointment_date BETWEEN $1 AND $2
 		ORDER BY last_name
 	`, startOfDay, endOfDay)
 	if err != nil {
@@ -3353,7 +3353,7 @@ func (h *RESTHandler) CreateAppointment(w http.ResponseWriter, r *http.Request) 
 	result, err := h.db.Exec(`
 		INSERT INTO appointments (appointment_date, first_name, last_name, age, date_of_birth, 
 		                          phone_number, address, notes, existing_patient_code, created_by, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`, appointmentDate, firstName, lastName, age, dateOfBirth, phoneNumber, address, notes, existingPatientCode, createdBy, time.Now())
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -3374,7 +3374,7 @@ func (h *RESTHandler) UpdateAppointmentDate(w http.ResponseWriter, r *http.Reque
 	id := int(req["id"].(float64))
 	newDate, _ := time.Parse(time.RFC3339, req["new_date"].(string))
 
-	_, err := h.db.Exec(`UPDATE appointments SET appointment_date = ? WHERE id = ?`, newDate, id)
+	_, err := h.db.Exec(`UPDATE appointments SET appointment_date = $1 WHERE id = $2`, newDate, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -3390,7 +3390,7 @@ func (h *RESTHandler) MarkAppointmentAsAdded(w http.ResponseWriter, r *http.Requ
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`UPDATE appointments SET was_added = 1 WHERE id = ?`, id)
+	_, err := h.db.Exec(`UPDATE appointments SET was_added = 1 WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -3406,7 +3406,7 @@ func (h *RESTHandler) DeleteAppointment(w http.ResponseWriter, r *http.Request) 
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`DELETE FROM appointments WHERE id = ?`, id)
+	_, err := h.db.Exec(`DELETE FROM appointments WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -3417,7 +3417,7 @@ func (h *RESTHandler) DeleteAppointment(w http.ResponseWriter, r *http.Request) 
 func (h *RESTHandler) CleanupPastAppointments(w http.ResponseWriter, r *http.Request) {
 	startOfToday := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Local)
 
-	result, err := h.db.Exec(`DELETE FROM appointments WHERE appointment_date < ? AND was_added = 0`, startOfToday)
+	result, err := h.db.Exec(`DELETE FROM appointments WHERE appointment_date < $1 AND was_added = 0`, startOfToday)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return
@@ -3446,7 +3446,7 @@ func (h *RESTHandler) GetSurgeryPlansForDate(w http.ResponseWriter, r *http.Requ
 		       payment_status, amount_remaining, surgery_status, patient_came, notes,
 		       created_at, created_by, updated_at, needs_sync
 		FROM surgery_plans 
-		WHERE surgery_date BETWEEN ? AND ?
+		WHERE surgery_date BETWEEN $1 AND $2
 		ORDER BY surgery_hour
 	`, startOfDay, endOfDay)
 	if err != nil {
@@ -3642,7 +3642,7 @@ func (h *RESTHandler) CreateSurgeryPlan(w http.ResponseWriter, r *http.Request) 
 		INSERT INTO surgery_plans (surgery_date, surgery_hour, patient_code, patient_first_name, patient_last_name,
 		                          patient_age, patient_phone, surgery_type, eye_to_operate, implant_power, tarif,
 		                          payment_status, surgery_status, notes, created_by, created_at, updated_at, needs_sync)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'scheduled', ?, ?, ?, ?, 1)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', 'scheduled', $12, $13, $14, $15, 1)
 	`, surgeryDate, surgeryHour, patientCode, patientFirstName, patientLastName,
 		patientAge, patientPhone, surgeryType, eyeToOperate, implantPower, tarif,
 		notes, createdBy, now, now)
@@ -3668,39 +3668,39 @@ func (h *RESTHandler) UpdateSurgeryPlan(w http.ResponseWriter, r *http.Request) 
 	args := []interface{}{}
 
 	if v, ok := req["surgery_hour"]; ok && v != nil {
-		updates = append(updates, "surgery_hour = ?")
+		updates = append(updates, "surgery_hour = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["surgery_type"]; ok && v != nil {
-		updates = append(updates, "surgery_type = ?")
+		updates = append(updates, "surgery_type = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["eye_to_operate"]; ok && v != nil {
-		updates = append(updates, "eye_to_operate = ?")
+		updates = append(updates, "eye_to_operate = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["implant_power"]; ok && v != nil {
-		updates = append(updates, "implant_power = ?")
+		updates = append(updates, "implant_power = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["tarif"]; ok && v != nil {
-		updates = append(updates, "tarif = ?")
+		updates = append(updates, "tarif = $1")
 		args = append(args, int(v.(float64)))
 	}
 	if v, ok := req["payment_status"]; ok && v != nil {
-		updates = append(updates, "payment_status = ?")
+		updates = append(updates, "payment_status = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["amount_remaining"]; ok && v != nil {
-		updates = append(updates, "amount_remaining = ?")
+		updates = append(updates, "amount_remaining = $1")
 		args = append(args, int(v.(float64)))
 	}
 	if v, ok := req["surgery_status"]; ok && v != nil {
-		updates = append(updates, "surgery_status = ?")
+		updates = append(updates, "surgery_status = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["patient_came"]; ok && v != nil {
-		updates = append(updates, "patient_came = ?")
+		updates = append(updates, "patient_came = $1")
 		if v.(bool) {
 			args = append(args, 1)
 		} else {
@@ -3708,7 +3708,7 @@ func (h *RESTHandler) UpdateSurgeryPlan(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if v, ok := req["notes"]; ok && v != nil {
-		updates = append(updates, "notes = ?")
+		updates = append(updates, "notes = $1")
 		args = append(args, v.(string))
 	}
 
@@ -3717,11 +3717,11 @@ func (h *RESTHandler) UpdateSurgeryPlan(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	updates = append(updates, "updated_at = ?", "needs_sync = 1")
+	updates = append(updates, "updated_at = $1", "needs_sync = 1")
 	args = append(args, time.Now())
 	args = append(args, id)
 
-	query := "UPDATE surgery_plans SET " + joinStrings(updates, ", ") + " WHERE id = ?"
+	query := "UPDATE surgery_plans SET " + joinStrings(updates, ", ") + " WHERE id = $1"
 	_, err := h.db.Exec(query, args...)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -3741,35 +3741,35 @@ func (h *RESTHandler) RescheduleSurgery(w http.ResponseWriter, r *http.Request) 
 	newDate, _ := time.Parse(time.RFC3339, req["surgery_date"].(string))
 
 	// Build dynamic update query
-	updates := []string{"surgery_date = ?"}
+	updates := []string{"surgery_date = $1"}
 	args := []interface{}{newDate}
 
 	if v, ok := req["surgery_hour"]; ok && v != nil {
-		updates = append(updates, "surgery_hour = ?")
+		updates = append(updates, "surgery_hour = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["surgery_type"]; ok && v != nil {
-		updates = append(updates, "surgery_type = ?")
+		updates = append(updates, "surgery_type = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["eye_to_operate"]; ok && v != nil {
-		updates = append(updates, "eye_to_operate = ?")
+		updates = append(updates, "eye_to_operate = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["implant_power"]; ok && v != nil {
-		updates = append(updates, "implant_power = ?")
+		updates = append(updates, "implant_power = $1")
 		args = append(args, v.(string))
 	}
 	if v, ok := req["tarif"]; ok && v != nil {
-		updates = append(updates, "tarif = ?")
+		updates = append(updates, "tarif = $1")
 		args = append(args, int(v.(float64)))
 	}
 
-	updates = append(updates, "updated_at = ?", "needs_sync = 1")
+	updates = append(updates, "updated_at = $1", "needs_sync = 1")
 	args = append(args, time.Now())
 	args = append(args, id)
 
-	query := "UPDATE surgery_plans SET " + joinStrings(updates, ", ") + " WHERE id = ?"
+	query := "UPDATE surgery_plans SET " + joinStrings(updates, ", ") + " WHERE id = $1"
 	_, err := h.db.Exec(query, args...)
 	if err != nil {
 		respondError(w, 500, err.Error())
@@ -3786,7 +3786,7 @@ func (h *RESTHandler) DeleteSurgeryPlan(w http.ResponseWriter, r *http.Request) 
 	}
 
 	id := int(req["id"].(float64))
-	_, err := h.db.Exec(`DELETE FROM surgery_plans WHERE id = ?`, id)
+	_, err := h.db.Exec(`DELETE FROM surgery_plans WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, 500, err.Error())
 		return

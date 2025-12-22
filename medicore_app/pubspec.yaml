@@ -1,7 +1,7 @@
 name: medicore_app
-description: Thaziri Medical Management Application
+description: Thaziri Medical Management Application - Professional Client-Server Architecture
 publish_to: 'none'
-version: 4.0.5+6
+version: 5.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -9,13 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
-  # Local Database
-  drift: ^2.14.0
-  sqlite3_flutter_libs: ^0.5.0
-  sqlite3: ^2.0.0  # For standalone scripts
-  path_provider: ^2.1.0
-  path: ^1.8.3
   
   # Backend Communication
   grpc: ^3.2.0
@@ -60,10 +53,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  
-  # Database Code Generation
-  drift_dev: ^2.14.0
-  build_runner: ^2.4.0
 
 flutter:
   uses-material-design: true

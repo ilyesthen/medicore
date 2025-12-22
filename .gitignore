@@ -94,3 +94,4 @@ coverage/
 backups/
 *.db.backup*
 import_*.py
+medicore_database_COMPLETE.sql

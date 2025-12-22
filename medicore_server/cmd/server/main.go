@@ -1,17 +1,13 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
-	"runtime"
-
-	_ "github.com/mattn/go-sqlite3"
 
 	"medicore/internal/api"
+	"medicore/internal/database"
 )
 
 const (
@@ -29,31 +25,13 @@ func main() {
 	log.Println("🚀 MediCore REST API Server Starting...")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-	// Find the SQLite database
-	dbPath := findDatabase()
-	if dbPath == "" {
-		log.Fatal("❌ Could not find medicore.db. Make sure the admin has imported a database.")
-	}
-
-	log.Printf("📊 Database: %s", dbPath)
-
-	// Connect to SQLite with read-write mode for proper functionality
-	db, err := sql.Open("sqlite3", dbPath+"?cache=shared&_journal_mode=WAL")
+	// Connect to PostgreSQL database
+	dbConfig := database.DefaultConfig()
+	db, err := database.NewPostgresConnection(dbConfig)
 	if err != nil {
-		log.Fatalf("❌ Failed to open database: %v", err)
+		log.Fatalf("❌ Failed to connect to PostgreSQL: %v", err)
 	}
 	defer db.Close()
-
-	// Configure connection pool for LAN access
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-
-	// Test connection
-	if err := db.Ping(); err != nil {
-		log.Fatalf("❌ Database ping failed: %v", err)
-	}
-
-	log.Println("✅ Database connected successfully")
 
 	// Get local IP for display
 	localIP := getLocalIP()
@@ -137,55 +115,4 @@ func getHostname() string {
 		return "Unknown"
 	}
 	return hostname
-}
-
-// findDatabase locates the medicore.db file
-// It checks common locations where the Flutter app stores the database
-func findDatabase() string {
-	// Try environment variable first
-	if dbPath := os.Getenv("MEDICORE_DB_PATH"); dbPath != "" {
-		if _, err := os.Stat(dbPath); err == nil {
-			return dbPath
-		}
-	}
-
-	var searchPaths []string
-
-	if runtime.GOOS == "windows" {
-		// Windows: Check AppData\Roaming\com.example\medicore_app (Flutter's path)
-		appData := os.Getenv("APPDATA")
-		if appData != "" {
-			// Primary: Flutter uses com.example\medicore_app
-			searchPaths = append(searchPaths, filepath.Join(appData, "com.example", "medicore_app", "medicore.db"))
-			// Fallback: direct medicore_app folder
-			searchPaths = append(searchPaths, filepath.Join(appData, "medicore_app", "medicore.db"))
-		}
-		// Also check Local AppData
-		localAppData := os.Getenv("LOCALAPPDATA")
-		if localAppData != "" {
-			searchPaths = append(searchPaths, filepath.Join(localAppData, "com.example", "medicore_app", "medicore.db"))
-			searchPaths = append(searchPaths, filepath.Join(localAppData, "medicore_app", "medicore.db"))
-		}
-	} else if runtime.GOOS == "darwin" {
-		// macOS: Check ~/Library/Application Support/medicore_app
-		home := os.Getenv("HOME")
-		if home != "" {
-			searchPaths = append(searchPaths, filepath.Join(home, "Library", "Application Support", "medicore_app", "medicore.db"))
-		}
-	} else {
-		// Linux: Check ~/.local/share/medicore_app
-		home := os.Getenv("HOME")
-		if home != "" {
-			searchPaths = append(searchPaths, filepath.Join(home, ".local", "share", "medicore_app", "medicore.db"))
-		}
-	}
-
-	// Search all paths
-	for _, path := range searchPaths {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-
-	return ""
 }

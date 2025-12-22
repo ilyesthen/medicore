@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: medicore-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: medicore
+      POSTGRES_PASSWORD: medicore
+      POSTGRES_DB: medicore_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/schema_postgresql.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - medicore-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medicore -d medicore_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MediCore Server
+  medicore-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medicore-server
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: medicore
+      DB_PASSWORD: medicore
+      DB_NAME: medicore_db
+      DB_SSLMODE: disable
+    ports:
+      - "50051:50051"  # TCP test port
+      - "50052:50052"  # REST API + SSE
+    volumes:
+      - medicore-storage:/app/storage
+      - medicore-backups:/app/backups
+      - medicore-logs:/app/logs
+    networks:
+      - medicore-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:50052/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # pgAdmin (Optional - for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: medicore-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@medicore.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - medicore-network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres-data:
+    driver: local
+  medicore-storage:
+    driver: local
+  medicore-backups:
+    driver: local
+  medicore-logs:
+    driver: local
+  pgadmin-data:
+    driver: local
+
+networks:
+  medicore-network:
+    driver: bridge

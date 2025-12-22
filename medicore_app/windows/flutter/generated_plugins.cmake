@@ -7,7 +7,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   bitsdojo_window_windows
   printing
   screen_retriever
-  sqlite3_flutter_libs
   window_manager
 )
 

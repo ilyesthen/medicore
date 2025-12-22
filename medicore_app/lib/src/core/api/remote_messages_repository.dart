@@ -2,7 +2,6 @@ import 'dart:async';
 import '../generated/medicore.pb.dart';
 import 'medicore_client.dart';
 import 'realtime_sync_service.dart';
-import '../database/app_database.dart' show Message;
 
 /// Remote Messages Repository - Uses REST API to communicate with admin server
 /// Used in CLIENT mode only - now with SSE-powered instant updates!

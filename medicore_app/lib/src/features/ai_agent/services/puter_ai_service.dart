@@ -7,8 +7,8 @@ import 'package:http/http.dart' as http;
 /// - Max Output Tokens = 2048
 /// - Thinking Budget = 1024 (via system instructions)
 class PuterAIService {
-  // Google Gemini API - User must configure their own key
-  static String _apiKey = '';
+  // Google Gemini API
+  static String _apiKey = 'AIzaSyA2noqqKI5Sx-8JhO_nbX8ks5n0kb0x8fw';
   static const String _model = 'gemini-2.5-flash';
   
   // Patient context for current session (context caching)
@@ -150,21 +150,6 @@ You: TO: 14→18 mmHg (+4 en 8 mois). Tendance à surveiller.''';
     List<Map<String, String>>? conversationHistory,
     bool includePatientContext = true,
   }) async {
-    // Check if API key is configured
-    if (_apiKey.isEmpty) {
-      return '''## ⚠️ Clé API Requise
-
-Vous devez configurer votre clé API Google Gemini pour utiliser l'assistant IA.
-
-### Comment obtenir une clé API gratuite:
-1. Visitez: https://makersuite.google.com/app/apikey
-2. Connectez-vous avec votre compte Google
-3. Créez une nouvelle clé API
-4. Cliquez sur l'icône 🔑 dans le coin supérieur droit pour configurer votre clé
-
-**Note**: Votre clé API est stockée localement et en toute sécurité sur cet appareil uniquement.''';
-    }
-    
     try {
       final url = 'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey';
       

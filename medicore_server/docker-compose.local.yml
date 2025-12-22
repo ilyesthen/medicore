@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: medicore_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: medicore
+      POSTGRES_PASSWORD: medicore_secure_2025
+      POSTGRES_DB: medicore_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - /Applications/eye/medicore_data/postgres:/var/lib/postgresql/data
+      - /Applications/eye/medicore_backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medicore -d medicore_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - medicore_network
+
+  medicore_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medicore_server
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: medicore
+      DB_PASSWORD: medicore_secure_2025
+      DB_NAME: medicore_db
+      DB_SSLMODE: disable
+      SERVER_PORT: 50052
+      STORAGE_PATH: /app/storage
+      BACKUP_PATH: /app/backups
+    ports:
+      - "50052:50052"
+      - "50051:50051"
+    volumes:
+      - /Applications/eye/medicore_data/storage:/app/storage
+      - /Applications/eye/medicore_backups:/app/backups
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:50052/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - medicore_network
+
+networks:
+  medicore_network:
+    driver: bridge
