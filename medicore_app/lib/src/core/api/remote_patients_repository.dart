@@ -196,7 +196,7 @@ class RemotePatientsRepository {
     String? otherInfo,
   }) async {
     // Update cache IMMEDIATELY (before network call)
-    Patient? oldPatient;
+    pb.GrpcPatient? oldPatient;
     final idx = _cachedPatients.indexWhere((p) => p.code == code);
     if (idx >= 0) {
       oldPatient = _cachedPatients[idx];
@@ -220,7 +220,7 @@ class RemotePatientsRepository {
     
     // Network call in background
     try {
-      final patient = GrpcPatient(
+      final patient = pb.GrpcPatient(
         code: code,
         firstName: firstName,
         lastName: lastName,
@@ -245,7 +245,7 @@ class RemotePatientsRepository {
   /// Delete patient - INSTANT (optimistic delete)
   Future<void> deletePatient(int code) async {
     // Remove from cache IMMEDIATELY (before network call)
-    Patient? deletedPatient;
+    pb.GrpcPatient? deletedPatient;
     final idx = _cachedPatients.indexWhere((p) => p.code == code);
     if (idx >= 0) {
       deletedPatient = _cachedPatients.removeAt(idx);
@@ -277,13 +277,14 @@ class RemotePatientsRepository {
   }
 
   /// Convert GrpcPatient to local Patient model
-  Patient _grpcPatientToLocal(GrpcPatient grpc) {
+  pb.GrpcPatient _grpcToLocal(pb.GrpcPatient grpc) {
     // Parse createdAt from server, fallback to now if not available
     DateTime createdAt = DateTime.now();
     if (grpc.createdAt != null && grpc.createdAt!.isNotEmpty) {
       createdAt = DateTime.tryParse(grpc.createdAt!) ?? DateTime.now();
     }
     
+    return pb.GrpcPatient(
     return Patient(
       code: grpc.code,
       barcode: grpc.barcode ?? '',
