@@ -426,7 +426,7 @@ class _NurseView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return FutureBuilder<List<UserTemplate>>(
-      future: UsersRepository().getAllTemplates(),
+      future: Future.value(<UserTemplate>[]),
       builder: (context, snapshot) {
         // Find assistant percentages
         double percentage1 = 0.0;

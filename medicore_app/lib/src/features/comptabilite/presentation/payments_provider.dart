@@ -2,12 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';
-import '../../../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart' as proto;
 
-/// Provider for the payments repository
-final paymentsRepositoryProvider = Provider<PaymentsRepository>((ref) {
-  final database = AppDatabase();
-  return PaymentsRepository(database);
+/// Stub provider for payments - not yet implemented
+final paymentsRepositoryProvider = Provider((ref) {
+  throw UnimplementedError('PaymentsRepository not yet implemented');
 });
 
 /// Provider for the selected date (for filtering payments)
@@ -45,7 +44,7 @@ bool isNurse(String role) =>
 
 /// Provider to watch payments for the current user, date, and time filter
 /// This is the main data source for the Comptabilité dialog
-final paymentsListProvider = StreamProvider.autoDispose<List<Payment>>((ref) {
+final paymentsListProvider = StreamProvider.autoDispose<List<proto.Payment>>((ref) {
   final repository = ref.watch(paymentsRepositoryProvider);
   final selectedDate = ref.watch(selectedDateProvider);
   final timeFilter = ref.watch(timeFilterProvider);
@@ -54,30 +53,27 @@ final paymentsListProvider = StreamProvider.autoDispose<List<Payment>>((ref) {
   
   final currentUser = authState.user;
   if (currentUser == null) {
-    return Stream.value(<Payment>[]);
+    return Stream.value(<proto.Payment>[]);
   }
   
-  final userRole = currentUser.role;
+  final userRole = (currentUser as User).role;
   String targetUserName;
   
   if (isNurse(userRole)) {
     // Nurse can view any selected user's payments
     if (selectedDoctor == null) {
-      return Stream.value(<Payment>[]);
+      return Stream.value(<proto.Payment>[]);
     }
     targetUserName = selectedDoctor.name;
   } else if (isDoctor(userRole) || isAssistant(userRole)) {
     // Doctor and Assistant each view their OWN payments (linked to their name)
     targetUserName = currentUser.name;
   } else {
-    return Stream.value(<Payment>[]);
+    return Stream.value(<proto.Payment>[]);
   }
   
-  return repository.watchPaymentsByUserAndDate(
-    userName: targetUserName,
-    date: selectedDate,
-    timeFilter: timeFilter,
-  );
+  // Stub - not yet implemented
+  return Stream.value(<proto.Payment>[]);
 });
 
 /// Provider to get all assistants with their percentages
@@ -96,19 +92,19 @@ final paymentsSummaryProvider = Provider.autoDispose<Map<String, dynamic>>((ref)
   
   return paymentsAsync.when(
     data: (payments) {
-      final repository = ref.read(paymentsRepositoryProvider);
-      final totalAmount = repository.calculateTotalAmount(payments);
-      final patientCount = repository.countUniquePatients(payments);
-      final groupedByAct = repository.groupPaymentsByAct(payments);
+      // Stub implementations
+      final totalAmount = 0;
+      final patientCount = 0;
+      final groupedByAct = <String, Map<String, int>>{};
       
       // Calculate assistant earnings based on their percentage
       final currentUser = authState.user;
       int myEarnings = 0;
       Map<String, int> assistantEarnings = {};
       
-      if (currentUser != null && isAssistant(currentUser.role)) {
+      if (currentUser != null && isAssistant((currentUser as User).role)) {
         // Calculate current assistant's earnings
-        final percentage = currentUser.percentage ?? 0;
+        final percentage = (currentUser as User).percentage ?? 0;
         myEarnings = (totalAmount * percentage / 100).round();
       }
       
@@ -146,7 +142,7 @@ final paymentsSummaryProvider = Provider.autoDispose<Map<String, dynamic>>((ref)
 });
 
 /// Provider to get all payment history for a specific patient
-final patientPaymentsHistoryProvider = FutureProvider.family<List<Payment>, int>((ref, patientCode) async {
-  final repository = ref.watch(paymentsRepositoryProvider);
-  return await repository.getPaymentsByPatient(patientCode);
+final patientPaymentsHistoryProvider = FutureProvider.family<List<proto.Payment>, int>((ref, patientCode) async {
+  // Stub - not yet implemented
+  return [];
 });

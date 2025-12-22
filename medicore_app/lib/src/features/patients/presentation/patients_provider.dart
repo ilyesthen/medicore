@@ -105,13 +105,14 @@ class RemotePatientsAdapter implements IPatientsRepository {
   Future<int> getPatientCount() => _remote.getPatientCount();
 }
 
-// Singleton instances to prevent multiple SSE registrations
+// Singleton instance to prevent multiple SSE registrations
 RemotePatientsRepository? _remotePatientsRepo;
-PatientsRepository? _localPatientsRepo;
 
 /// Patients repository provider - switches between local and remote
-final patientsRepositoryProvider = Provider<RemotePatientsRepository>((ref) {
-  return RemotePatientsRepository(ref.read(grpcClientProvider));
+final patientsRepositoryProvider = Provider<IPatientsRepository>((ref) {
+  final grpcClient = ref.read(grpcClientProvider);
+  final remoteRepo = RemotePatientsRepository(grpcClient);
+  return RemotePatientsAdapter(remoteRepo);
 });
 
 /// All patients stream provider with instant refresh support

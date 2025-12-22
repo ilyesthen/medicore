@@ -1,5 +1,5 @@
-import '../../../../core/types/proto_types.dart';
-/// User model
+import '../../../../core/types/proto_types.dart' as proto;
+/// User model (local database)
 class User {
   final String id;
   final String name;

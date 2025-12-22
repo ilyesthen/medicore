@@ -82,14 +82,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final requiresRoom = result.user!.role == 'Médecin' || 
                              AppConstants.assistantRoles.contains(result.user!.role);
         
-        // Mark nurse as active for room exclusivity
+        // Mark nurse as active for room exclusivity (not yet implemented)
         if (result.user!.role == 'Infirmière' || result.user!.role == 'Infirmier') {
-          try {
-            final prefsRepo = NursePreferencesRepository();
-            await prefsRepo.markNurseActive(result.user!.id);
-          } catch (e) {
-            print('⚠️ Failed to mark nurse active: $e');
-          }
+          // TODO: Implement nurse preferences when ready
+          print('✓ Nurse ${result.user!.id} logged in');
         }
         
         // Check for saved room selection (persisted across sessions)
@@ -184,10 +180,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (state.user != null) {
       _ref.read(roomPresenceProvider.notifier).removeUserFromAllRooms(state.user!.name);
       
-      // Mark nurse as inactive for room exclusivity
+      // Mark nurse as inactive for room exclusivity (not yet implemented)
       if (state.user!.role == 'Infirmière' || state.user!.role == 'Infirmier') {
-        final prefsRepo = NursePreferencesRepository();
-        await prefsRepo.markNurseInactive(state.user!.id);
+        // TODO: Implement nurse preferences when ready
+        print('✓ Nurse ${state.user!.id} logged out');
       }
     }
     

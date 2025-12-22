@@ -166,15 +166,11 @@ final messagesRepositoryProvider = Provider<IRemoteMessagesRepository>((ref) {
   }
 });
 
-/// Message templates repository provider
-final messageTemplatesRepositoryProvider = Provider<RemoteMessageTemplatesRepository>((ref) {
-  return RemoteMessageTemplatesRepository();
-});
-
+/// Message templates repository provider (stub - templates not yet implemented)
 /// All message templates stream provider
 final messageTemplatesListProvider = StreamProvider<List<MessageTemplate>>((ref) {
-  final repository = ref.watch(messageTemplatesRepositoryProvider);
-  return repository.watchAllTemplates();
+  // Return empty stream for now - templates feature not yet implemented  
+  return Stream.value([]);
 });
 
 /// Audio player for notifications

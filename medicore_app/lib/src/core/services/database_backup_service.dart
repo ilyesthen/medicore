@@ -41,11 +41,9 @@ class DatabaseBackupService {
   /// Create a backup now
   Future<bool> createBackup() async {
     try {
-      final dbFile = await DatabasePath.getDbFile();
-      if (!await dbFile.exists()) {
-        print('⚠️ No database to backup');
-        return false;
-      }
+      // TODO: Implement backup for gRPC-based system
+      print('⚠️ Backup not implemented for gRPC');
+      return false;
       
       // Get backup directory
       final backupDir = await _getBackupDirectory();
@@ -142,8 +140,8 @@ class DatabaseBackupService {
         await AppDatabase.instance.close();
       }
       
-      // Replace current database with backup
-      final success = await DatabasePath.importDatabase(backupFile.path);
+      // TODO: Implement restore for gRPC-based system
+      final success = false;
       
       if (success) {
         print('✅ Database restored from backup');

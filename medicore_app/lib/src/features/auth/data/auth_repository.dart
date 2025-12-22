@@ -1,12 +1,12 @@
 import '../../users/data/models/user_model.dart';
 import '../../users/presentation/users_provider.dart';
-import '../../../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart' as proto;
 
 /// Authentication Repository
 /// Handles login/logout with user system
 /// Works with both local (admin) and remote (client) repositories
 class AuthRepository {
-  final IUsersRepository _usersRepository;
+  final IRemoteUsersRepository _usersRepository;
   
   User? _currentUser;
   

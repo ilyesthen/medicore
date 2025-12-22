@@ -1,5 +1,11 @@
 import 'package:grpc/grpc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// gRPC client provider
+final grpcClientProvider = Provider<ClientChannel>((ref) {
+  return GrpcClientConfig.getChannel();
+});
 
 /// gRPC Client Configuration
 /// Connects to Go backend server for syncing data

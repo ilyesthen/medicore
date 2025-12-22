@@ -27,10 +27,10 @@ class _ImportPatientsDialogState extends ConsumerState<ImportPatientsDialog> {
     });
 
     try {
-      final repository = PatientsRepository();
-      final importService = XmlImportService(repository);
+      // TODO: Re-implement with gRPC
+      throw UnimplementedError('Patient import not yet implemented with gRPC');
       
-      final result = await importService.importFromXml('/Applications/eye/patients.xml');
+      // final result = await importService.importFromXml('/Applications/eye/patients.xml');
       
       setState(() {
         _isImporting = false;

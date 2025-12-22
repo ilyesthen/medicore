@@ -8,6 +8,7 @@ import '../../../core/theme/medicore_typography.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/services/prescription_print_service.dart';
+import '../../../core/providers/app_providers.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../messages/presentation/send_message_dialog.dart';
 import '../../messages/presentation/receive_messages_dialog.dart';

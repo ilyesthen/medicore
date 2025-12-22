@@ -27,6 +27,15 @@ class SendPatientDialog extends ConsumerStatefulWidget {
 class _SendPatientDialogState extends ConsumerState<SendPatientDialog> {
   String? _selectedMotif;
   bool _isSending = false;
+  
+  static const _motifs = [
+    'Consultation',
+    'Urgence',
+    'Contrôle',
+    'Lunettes',
+    'Lentilles',
+    'Autre',
+  ];
 
   Future<void> _sendPatient() async {
     if (_selectedMotif == null) {
@@ -181,9 +190,9 @@ class _SendPatientDialogState extends ConsumerState<SendPatientDialog> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: ListView.builder(
-                      itemCount: WaitingQueueRepository.motifs.length,
+                      itemCount: _motifs.length,
                       itemBuilder: (context, index) {
-                        final motif = WaitingQueueRepository.motifs[index];
+                        final motif = _motifs[index];
                         final isSelected = _selectedMotif == motif;
                         return InkWell(
                           onTap: () => setState(() => _selectedMotif = motif),

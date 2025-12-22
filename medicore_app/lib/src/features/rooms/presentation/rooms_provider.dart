@@ -36,8 +36,10 @@ class RemoteRoomsAdapter implements IRoomsRepository {
 }
 
 /// Rooms repository provider - switches between local and remote
-final roomsRepositoryProvider = Provider<RemoteRoomsRepository>((ref) {
-  return RemoteRoomsRepository(ref.read(grpcClientProvider));
+final roomsRepositoryProvider = Provider<IRoomsRepository>((ref) {
+  final grpcClient = ref.read(grpcClientProvider);
+  final remoteRepo = RemoteRoomsRepository(grpcClient);
+  return RemoteRoomsAdapter(remoteRepo);
 });
 
 /// Rooms list provider

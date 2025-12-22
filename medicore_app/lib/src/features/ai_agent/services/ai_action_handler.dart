@@ -4,9 +4,7 @@ import '../../../core/types/proto_types.dart';
 /// AI Action Handler - Middleware between AI output and Repositories
 /// Parses AI JSON actions and executes them against the database
 class AIActionHandler {
-  final OrdonnancesRepository _ordonnancesRepo;
-  final WaitingQueueRepository _waitingQueueRepo;
-  final MessagesRepository _messagesRepo;
+  // Stub - repositories not yet implemented with gRPC
   
   // Current context (auto-injected by app, not by AI)
   int? currentPatientCode;
@@ -17,13 +15,7 @@ class AIActionHandler {
   String? currentUserName;
   String? currentUserRole;
   
-  AIActionHandler({
-    OrdonnancesRepository? ordonnancesRepo,
-    WaitingQueueRepository? waitingQueueRepo,
-    MessagesRepository? messagesRepo,
-  })  : _ordonnancesRepo = ordonnancesRepo ?? OrdonnancesRepository(),
-        _waitingQueueRepo = waitingQueueRepo ?? WaitingQueueRepository(),
-        _messagesRepo = messagesRepo ?? MessagesRepository();
+  AIActionHandler();
   
   /// Set current context (called by UI when patient is selected)
   void setContext({

@@ -215,8 +215,8 @@ class _WaitingQueueDialogState extends ConsumerState<WaitingQueueDialog> {
 
   Future<void> _openPatientFile(BuildContext context, WaitingPatient waitingPatient) async {
     // Get the full patient data
-    final patientsRepo = PatientsRepository(AppDatabase());
-    final patient = await patientsRepo.getPatientByCode(waitingPatient.patientCode);
+    // TODO: Implement with gRPC
+    Patient? patient;
 
     if (patient != null) {
       // Remove from queue

@@ -6,9 +6,7 @@ import '../../../core/types/proto_types.dart';
 /// Collects ALL patient data: demographics, visits, documents
 /// Sorts chronologically (oldest → newest) for treatment progression understanding
 class PatientContextService {
-  final PatientsRepository _patientsRepo;
-  final VisitsRepository _visitsRepo;
-  final OrdonnancesRepository _ordonnancesRepo;
+  // Stub - repositories not yet implemented with gRPC
   
   // Cache for follow-up questions (context caching)
   static int? _cachedPatientCode;
@@ -16,13 +14,7 @@ class PatientContextService {
   static DateTime? _cacheTime;
   static const _cacheDuration = Duration(minutes: 30);
   
-  PatientContextService({
-    PatientsRepository? patientsRepo,
-    VisitsRepository? visitsRepo,
-    OrdonnancesRepository? ordonnancesRepo,
-  })  : _patientsRepo = patientsRepo ?? PatientsRepository(),
-        _visitsRepo = visitsRepo ?? VisitsRepository(AppDatabase()),
-        _ordonnancesRepo = ordonnancesRepo ?? OrdonnancesRepository();
+  PatientContextService();
   
   /// Check if we have valid cached context for this patient
   bool hasCachedContext(int patientCode) {

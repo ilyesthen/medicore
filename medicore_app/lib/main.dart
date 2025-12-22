@@ -169,49 +169,51 @@ class AppRouter extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
+    final state = ref.watch(authStateProvider);
 
-    return authState.when(
-      data: (state) {
-        if (state.user == null) {
-          // Not logged in - show login screen
-          return const LoginScreenFrench();
-        } else if (state.selectedRoom == null &&
-            (state.user!.role.toLowerCase() == 'médecin' ||
-                state.user!.role.toLowerCase() == 'secrétaire' ||
-                state.user!.role.toLowerCase() == 'assistant(e)')) {
-          // Logged in but no room selected (for roles that need rooms)
-          return const RoomSelectionWrapper();
-        } else {
-          // Fully authenticated - show dashboard
-          return const AdminDashboard();
-        }
-      },
-      loading: () => const Scaffold(
+    if (state.isLoading) {
+      return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
         ),
-      ),
-      error: (error, stack) => Scaffold(
+      );
+    }
+
+    if (state.errorMessage != null) {
+      return Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              Text('Error: $error'),
+              Text('Error: ${state.errorMessage}'),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  ref.invalidate(authProvider);
+                  ref.read(authStateProvider.notifier).logout();
                 },
                 child: const Text('Retry'),
               ),
             ],
           ),
         ),
-      ),
-    );
+      );
+    }
+
+    if (state.user == null) {
+      // Not logged in - show login screen
+      return const LoginScreenFrench();
+    } else if (state.selectedRoom == null &&
+        (state.user!.role.toLowerCase() == 'médecin' ||
+            state.user!.role.toLowerCase() == 'secrétaire' ||
+            state.user!.role.toLowerCase() == 'assistant(e)')) {
+      // Logged in but no room selected (for roles that need rooms)
+      return const RoomSelectionWrapper();
+    } else {
+      // Fully authenticated - show dashboard
+      return const AdminDashboard();
+    }
   }
 }
 
