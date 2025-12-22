@@ -7,7 +7,7 @@ import '../../auth/presentation/auth_provider.dart';
 import '../../rooms/presentation/rooms_provider.dart';
 import '../services/notification_service.dart';
 import 'messages_provider.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Receive messages dialog - different UI for nurses vs doctors
 class ReceiveMessagesDialog extends ConsumerStatefulWidget {

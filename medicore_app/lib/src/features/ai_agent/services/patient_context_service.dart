@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:intl/intl.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Service to build comprehensive patient context for AI analysis
 /// Collects ALL patient data: demographics, visits, documents

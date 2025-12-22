@@ -10,7 +10,7 @@ import '../data/models/user_model.dart';
 import '../data/models/template_model.dart';
 import 'user_form_dialog.dart';
 import 'template_form_dialog.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// User and template management screen - both in one view
 class UserManagementScreen extends ConsumerWidget {

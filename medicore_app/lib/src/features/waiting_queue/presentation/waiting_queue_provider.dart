@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_waiting_queue_repository.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Abstract interface for waiting queue operations
 abstract class IRemoteWaitingQueueRepository {
@@ -153,7 +153,7 @@ class LocalWaitingQueueAdapter implements IRemoteWaitingQueueRepository {
 
 /// Remote waiting queue adapter
 class RemoteWaitingQueueAdapter implements IRemoteWaitingQueueRepository {
-  final RemoteRemoteWaitingQueueRepository _remote;
+  final RemoteWaitingQueueRepository _remote;
   RemoteWaitingQueueAdapter(this._remote);
   
   @override
@@ -257,7 +257,7 @@ class RemoteWaitingQueueAdapter implements IRemoteWaitingQueueRepository {
 }
 
 // Singleton instances to prevent multiple SSE registrations
-RemoteRemoteWaitingQueueRepository? _remoteWaitingQueueRepo;
+RemoteWaitingQueueRepository? _remoteWaitingQueueRepo;
 RemoteWaitingQueueRepository? _localWaitingQueueRepo;
 
 /// Waiting queue repository provider - switches between local and remote
@@ -268,7 +268,7 @@ final waitingQueueRepositoryProvider = Provider<IRemoteWaitingQueueRepository>((
     return LocalWaitingQueueAdapter(_localWaitingQueueRepo!);
   } else {
     print('✓ [RemoteWaitingQueueRepository] Using REMOTE API (Client mode)');
-    _remoteWaitingQueueRepo ??= RemoteRemoteWaitingQueueRepository();
+    _remoteWaitingQueueRepo ??= RemoteWaitingQueueRepository();
     return RemoteWaitingQueueAdapter(_remoteWaitingQueueRepo!);
   }
 });

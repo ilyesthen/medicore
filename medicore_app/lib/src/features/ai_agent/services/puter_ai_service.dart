@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// AI Service using Google Gemini API
 /// Configured as Expert Ophthalmologist Assistant with:

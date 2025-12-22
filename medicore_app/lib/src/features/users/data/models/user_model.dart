@@ -1,4 +1,4 @@
-import '../core/types/proto_types.dart';
+import '../../../../core/types/proto_types.dart';
 /// User model
 class User {
   final String id;

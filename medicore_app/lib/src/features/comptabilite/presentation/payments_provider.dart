@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Provider for the payments repository
 final paymentsRepositoryProvider = Provider<PaymentsRepository>((ref) {

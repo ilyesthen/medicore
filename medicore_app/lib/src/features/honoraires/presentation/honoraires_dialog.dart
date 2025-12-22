@@ -6,7 +6,7 @@ import '../../auth/presentation/auth_provider.dart';
 import '../../users/data/models/template_model.dart';
 import 'medical_acts_provider.dart';
 import 'medical_act_form_dialog.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Honoraires (Fees) dialog with role-based views
 class HonorairesDialog extends ConsumerStatefulWidget {

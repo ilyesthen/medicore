@@ -7,7 +7,7 @@ import '../../../core/ui/cockpit_button.dart';
 import '../../../core/constants/app_constants.dart';
 import 'users_provider.dart';
 import '../data/models/user_model.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Dialog for creating or editing a user
 class UserFormDialog extends ConsumerStatefulWidget {

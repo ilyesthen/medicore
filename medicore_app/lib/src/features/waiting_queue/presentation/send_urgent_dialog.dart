@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import 'waiting_queue_provider.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Dialog for sending a patient to urgences - with room selection
 class SendUrgentDialog extends ConsumerStatefulWidget {

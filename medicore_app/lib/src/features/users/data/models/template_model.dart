@@ -1,5 +1,5 @@
 import 'user_model.dart';
-import '../core/types/proto_types.dart';
+import '../../../../core/types/proto_types.dart';
 
 /// Template model - used for quick user creation
 /// Template = Role + Password + Percentage (no name)

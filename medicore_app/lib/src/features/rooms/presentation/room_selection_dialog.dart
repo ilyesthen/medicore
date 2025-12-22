@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import 'rooms_provider.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Dialog for selecting a room on login
 class RoomSelectionDialog extends ConsumerStatefulWidget {

@@ -6,7 +6,7 @@ import '../../users/data/models/user_model.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../rooms/presentation/room_presence_provider.dart';
 import '../../rooms/presentation/rooms_provider.dart' show roomsRepositoryProvider;
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Auth repository provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_messages_repository.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Abstract interface for message operations
 abstract class IRemoteMessagesRepository {
@@ -90,7 +90,7 @@ class LocalMessagesAdapter implements IRemoteMessagesRepository {
 
 /// Remote messages adapter
 class RemoteMessagesAdapter implements IRemoteMessagesRepository {
-  final RemoteRemoteMessagesRepository _remote;
+  final RemoteMessagesRepository _remote;
   RemoteMessagesAdapter(this._remote);
   
   @override
@@ -150,7 +150,7 @@ class RemoteMessagesAdapter implements IRemoteMessagesRepository {
 }
 
 // Singleton instances to prevent multiple SSE registrations
-RemoteRemoteMessagesRepository? _remoteMessagesRepo;
+RemoteMessagesRepository? _remoteMessagesRepo;
 RemoteMessagesRepository? _localMessagesRepo;
 
 /// Messages repository provider - switches between local and remote
@@ -161,7 +161,7 @@ final messagesRepositoryProvider = Provider<IRemoteMessagesRepository>((ref) {
     return LocalMessagesAdapter(_localMessagesRepo!);
   } else {
     print('✓ [RemoteMessagesRepository] Using REMOTE API (Client mode)');
-    _remoteMessagesRepo ??= RemoteRemoteMessagesRepository();
+    _remoteMessagesRepo ??= RemoteMessagesRepository();
     return RemoteMessagesAdapter(_remoteMessagesRepo!);
   }
 });

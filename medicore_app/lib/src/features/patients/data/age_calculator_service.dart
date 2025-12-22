@@ -1,4 +1,4 @@
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Service to calculate and update patient ages based on creation date
 class AgeCalculatorService {

@@ -14,7 +14,7 @@ import '../../messages/presentation/receive_messages_dialog.dart';
 import '../../comptabilite/presentation/comptabilite_dialog.dart';
 import '../../consultation/presentation/prescription_optique_dialog.dart';
 import '../../consultation/presentation/prescription_lentilles_dialog.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Ordonnance Page - 3 tabs with different document types
 class OrdonnancePage extends ConsumerStatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_rooms_repository.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Abstract interface for room operations
 abstract class IRoomsRepository {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_patients_repository.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Global refresh trigger for instant CRUD updates
 final _patientsRefreshController = StreamController<void>.broadcast();

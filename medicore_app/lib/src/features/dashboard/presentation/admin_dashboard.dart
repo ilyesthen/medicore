@@ -13,7 +13,7 @@ import '../../users/presentation/user_management_screen.dart';
 import '../../rooms/presentation/room_management_screen.dart';
 import '../../admin/presentation/import_patients_dialog.dart';
 import '../../ai_agent/presentation/ai_agent_screen.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Admin dashboard with user, template, and room management
 class AdminDashboard extends ConsumerStatefulWidget {

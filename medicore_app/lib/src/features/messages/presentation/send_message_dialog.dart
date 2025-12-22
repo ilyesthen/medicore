@@ -6,7 +6,7 @@ import '../../../core/theme/medicore_typography.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../rooms/presentation/rooms_provider.dart';
 import 'messages_provider.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Send message dialog with templates sidebar
 class SendMessageDialog extends ConsumerStatefulWidget {

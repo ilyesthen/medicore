@@ -11,7 +11,7 @@ import '../services/puter_ai_service.dart';
 import '../services/patient_context_service.dart';
 import '../services/ai_action_handler.dart';
 import '../services/ai_safety_validator.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Message model for chat
 class ChatMessage {

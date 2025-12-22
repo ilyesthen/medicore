@@ -4,7 +4,7 @@ import '../data/models/template_model.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/api/remote_users_repository.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 export '../data/users_repository.dart';
 
@@ -61,9 +61,9 @@ class LocalUsersAdapter implements IRemoteUsersRepository {
   Future<void> deleteUser(String id) => _local.deleteUser(id);
 }
 
-/// Remote repository adapter - wraps RemoteRemoteUsersRepository to implement IRemoteUsersRepository
+/// Remote repository adapter - wraps RemoteUsersRepository to implement IRemoteUsersRepository
 class RemoteUsersAdapter implements IRemoteUsersRepository {
-  final RemoteRemoteUsersRepository _remote;
+  final RemoteUsersRepository _remote;
   RemoteUsersAdapter(this._remote);
   
   @override
@@ -113,7 +113,7 @@ final usersRepositoryProvider = Provider<IRemoteUsersRepository>((ref) {
     final serverHost = GrpcClientConfig.serverHost;
     MediCoreClient.instance.initialize(host: serverHost);
     
-    return RemoteUsersAdapter(RemoteRemoteUsersRepository());
+    return RemoteUsersAdapter(RemoteUsersRepository());
   }
 });
 

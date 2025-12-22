@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'grpc_client.dart';
-import '../core/types/proto_types.dart';
+import '../../core/types/proto_types.dart';
 
 /// Event types from the server (must match Go server sse_handler.go)
 enum SSEEventType {

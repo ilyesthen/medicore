@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:xml/xml.dart' as xml;
 import 'package:intl/intl.dart';
 import 'payments_repository.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Service for importing payments from XML file
 /// Handles the migration from the legacy WINDEV system

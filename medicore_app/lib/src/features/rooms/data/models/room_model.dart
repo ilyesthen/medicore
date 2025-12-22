@@ -1,5 +1,5 @@
 import 'package:uuid/uuid.dart';
-import '../core/types/proto_types.dart';
+import '../../../../core/types/proto_types.dart';
 
 /// Room model - Medical/operational room in the facility
 class Room {

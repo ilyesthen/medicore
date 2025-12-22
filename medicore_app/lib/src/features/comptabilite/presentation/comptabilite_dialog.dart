@@ -6,7 +6,7 @@ import '../../../core/theme/medicore_typography.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../users/data/models/user_model.dart';
 import 'payments_provider.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Comptabilité (Accounting) dialog for all roles
 /// - Doctor: Views their own payments

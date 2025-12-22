@@ -6,7 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
-import '../core/types/proto_types.dart';
+import '../../core/types/proto_types.dart';
 
 /// Enterprise-grade prescription PDF service with background template, patient info, and barcode
 class PrescriptionPrintService {

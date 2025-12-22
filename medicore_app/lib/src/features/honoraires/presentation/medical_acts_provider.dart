@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/types/proto_types.dart';
+import '../../../core/types/proto_types.dart';
 
 /// Medical acts repository provider
 final medicalActsRepositoryProvider = Provider<MedicalActsRepository>((ref) {
