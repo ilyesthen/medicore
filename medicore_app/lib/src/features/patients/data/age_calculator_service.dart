@@ -59,10 +59,12 @@ class AgeCalculatorService {
 
   /// Get patient with updated age (without saving to database)
   Patient getPatientWithUpdatedAge(Patient patient) {
+    final dateOfBirth = patient.dateOfBirth != null ? DateTime.tryParse(patient.dateOfBirth!) : null;
+    final createdAt = patient.createdAt != null ? DateTime.tryParse(patient.createdAt!) : null;
     final currentAge = calculateCurrentAge(
-      dateOfBirth: patient.dateOfBirth != null ? DateTime.tryParse(patient.dateOfBirth!) : null,
+      dateOfBirth: dateOfBirth,
       storedAge: patient.age,
-      createdAt: patient.createdAt != null ? DateTime.tryParse(patient.createdAt!) : null,
+      createdAt: createdAt,
     );
     
     return Patient(
@@ -76,8 +78,6 @@ class AgeCalculatorService {
       address: patient.address,
       phone: patient.phone,
       notes: patient.notes,
-      updatedAt: patient.updatedAt,
-      needsSync: patient.needsSync,
     );
   }
 }
@@ -87,11 +87,15 @@ extension PatientAgeExtension on Patient {
   /// Get the current age calculated dynamically
   /// - If dateOfBirth is set: calculate from dateOfBirth
   /// - If only age is set: calculate based on createdAt + stored age
-  int? get currentAge => AgeCalculatorService.calculateCurrentAge(
-    dateOfBirth: dateOfBirth != null ? DateTime.tryParse(dateOfBirth!) : null,
-    storedAge: age,
-    createdAt: createdAt != null ? DateTime.tryParse(createdAt!) : null,
-  );
+  int? get currentAge {
+    final dob = dateOfBirth != null ? DateTime.tryParse(dateOfBirth!) : null;
+    final created = createdAt != null ? DateTime.tryParse(createdAt!) : null;
+    return AgeCalculatorService.calculateCurrentAge(
+      dateOfBirth: dob,
+      storedAge: age,
+      createdAt: created,
+    );
+  }
 }
 
 /// Extension on WaitingPatient to easily get current calculated age

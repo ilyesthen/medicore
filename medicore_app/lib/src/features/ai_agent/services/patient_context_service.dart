@@ -63,19 +63,20 @@ class PatientContextService {
     // final documents = await _ordonnancesRepo.getDocumentsForPatient(patientCode);
     
     // Build the comprehensive context
-    final context = _buildContextText(patient, visits, documents);
+    // final context = _buildContextText(patient, visits, documents);
+    final context = 'Patient context not available in gRPC mode';
     
     // Cache it
-    _cachedPatientCode = patientCode;
-    _cachedContext = context;
-    _cacheTime = DateTime.now();
+    // _cachedPatientCode = patientCode;
+    // _cachedContext = context;
+    // _cacheTime = DateTime.now();
     
     return PatientContextResult(
       success: true,
       context: context,
       patientCode: patientCode,
-      visitCount: visits.length,
-      documentCount: documents.length,
+      visitCount: 0,
+      documentCount: 0,
       fromCache: false,
     );
   }
@@ -86,7 +87,9 @@ class PatientContextService {
     
     // Build structured JSON object
     final patientData = <String, dynamic>{
-      'code': patient.code,
+      'patient_code': patient.code,
+      'barcode': patient.barcode ?? '',
+      'created_at': patient.createdAt ?? '',
       'age': patient.age,
       'dateNaissance': patient.dateOfBirth != null ? dateFormat.format(patient.dateOfBirth!) : null,
       'notes': patient.notes,
@@ -134,57 +137,57 @@ class PatientContextService {
     };
     
     // Add optional fields only if they have values
-    if (_hasValue(visit.motif)) json['motif'] = visit.motif;
-    if (_hasValue(visit.diagnosis)) json['diagnostic'] = visit.diagnosis;
-    if (_hasValue(visit.conduct)) json['conduite'] = visit.conduct;
+    if (visit.motif?.isNotEmpty ?? false) json['motif'] = visit.motif;
+    if (visit.diagnosis?.isNotEmpty ?? false) json['diagnostic'] = visit.diagnosis;
+    if (visit.conduct?.isNotEmpty ?? false) json['conduite'] = visit.conduct;
     
     // Right Eye (OD) - explicit object with clear field names
     final od = <String, dynamic>{};
-    if (_hasValue(visit.odSv)) od['SV'] = visit.odSv;
-    if (_hasValue(visit.odAv)) od['AV'] = visit.odAv;
-    if (_hasValue(visit.odSphere)) od['sphere'] = visit.odSphere;
-    if (_hasValue(visit.odCylinder)) od['cylindre'] = visit.odCylinder;
-    if (_hasValue(visit.odAxis)) od['axe_degres'] = visit.odAxis; // EXPLICIT: degrees
-    if (_hasValue(visit.odVl)) od['VL'] = visit.odVl;
-    if (_hasValue(visit.odK1)) od['K1'] = visit.odK1;
-    if (_hasValue(visit.odK2)) od['K2'] = visit.odK2;
-    if (_hasValue(visit.odR1)) od['R1'] = visit.odR1;
-    if (_hasValue(visit.odR2)) od['R2'] = visit.odR2;
-    if (_hasValue(visit.odR0)) od['R0'] = visit.odR0;
-    if (_hasValue(visit.odPachy)) od['pachymetrie'] = visit.odPachy;
-    if (_hasValue(visit.odToc)) od['TOC'] = visit.odToc;
-    if (_hasValue(visit.odTo)) od['TO_mmHg'] = visit.odTo; // EXPLICIT: mmHg
-    if (_hasValue(visit.odGonio)) od['gonio'] = visit.odGonio;
-    if (_hasValue(visit.odLaf)) od['LAF'] = visit.odLaf;
-    if (_hasValue(visit.odFo)) od['FO'] = visit.odFo;
-    if (_hasValue(visit.odNotes)) od['notes'] = visit.odNotes;
+    if (visit.odSv?.isNotEmpty ?? false) od['SV'] = visit.odSv;
+    if (visit.odAv?.isNotEmpty ?? false) od['AV'] = visit.odAv;
+    if (visit.odSphere?.isNotEmpty ?? false) od['sphere'] = visit.odSphere;
+    if (visit.odCylinder?.isNotEmpty ?? false) od['cylindre'] = visit.odCylinder;
+    if (visit.odAxis?.isNotEmpty ?? false) od['axe_degres'] = visit.odAxis; // EXPLICIT: degrees
+    if (visit.odVl?.isNotEmpty ?? false) od['VL'] = visit.odVl;
+    if (visit.odK1?.isNotEmpty ?? false) od['K1'] = visit.odK1;
+    if (visit.odK2?.isNotEmpty ?? false) od['K2'] = visit.odK2;
+    if (visit.odR1?.isNotEmpty ?? false) od['R1'] = visit.odR1;
+    if (visit.odR2?.isNotEmpty ?? false) od['R2'] = visit.odR2;
+    if (visit.odR0?.isNotEmpty ?? false) od['R0'] = visit.odR0;
+    if (visit.odPachy?.isNotEmpty ?? false) od['pachymetrie'] = visit.odPachy;
+    if (visit.odToc?.isNotEmpty ?? false) od['TOC'] = visit.odToc;
+    if (visit.odTo?.isNotEmpty ?? false) od['TO_mmHg'] = visit.odTo; // EXPLICIT: mmHg
+    if (visit.odGonio?.isNotEmpty ?? false) od['gonio'] = visit.odGonio;
+    if (visit.odLaf?.isNotEmpty ?? false) od['LAF'] = visit.odLaf;
+    if (visit.odFo?.isNotEmpty ?? false) od['FO'] = visit.odFo;
+    if (visit.odNotes?.isNotEmpty ?? false) od['notes'] = visit.odNotes;
     if (od.isNotEmpty) json['OD'] = od;
     
     // Left Eye (OG) - explicit object with clear field names
     final og = <String, dynamic>{};
-    if (_hasValue(visit.ogSv)) og['SV'] = visit.ogSv;
-    if (_hasValue(visit.ogAv)) og['AV'] = visit.ogAv;
-    if (_hasValue(visit.ogSphere)) og['sphere'] = visit.ogSphere;
-    if (_hasValue(visit.ogCylinder)) og['cylindre'] = visit.ogCylinder;
-    if (_hasValue(visit.ogAxis)) og['axe_degres'] = visit.ogAxis; // EXPLICIT: degrees
-    if (_hasValue(visit.ogVl)) og['VL'] = visit.ogVl;
-    if (_hasValue(visit.ogK1)) og['K1'] = visit.ogK1;
-    if (_hasValue(visit.ogK2)) og['K2'] = visit.ogK2;
-    if (_hasValue(visit.ogR1)) og['R1'] = visit.ogR1;
-    if (_hasValue(visit.ogR2)) og['R2'] = visit.ogR2;
-    if (_hasValue(visit.ogR0)) og['R0'] = visit.ogR0;
-    if (_hasValue(visit.ogPachy)) og['pachymetrie'] = visit.ogPachy;
-    if (_hasValue(visit.ogToc)) og['TOC'] = visit.ogToc;
-    if (_hasValue(visit.ogTo)) og['TO_mmHg'] = visit.ogTo; // EXPLICIT: mmHg
-    if (_hasValue(visit.ogGonio)) og['gonio'] = visit.ogGonio;
-    if (_hasValue(visit.ogLaf)) og['LAF'] = visit.ogLaf;
-    if (_hasValue(visit.ogFo)) og['FO'] = visit.ogFo;
-    if (_hasValue(visit.ogNotes)) og['notes'] = visit.ogNotes;
+    if (visit.ogSv?.isNotEmpty ?? false) og['SV'] = visit.ogSv;
+    if (visit.ogAv?.isNotEmpty ?? false) og['AV'] = visit.ogAv;
+    if (visit.ogSphere?.isNotEmpty ?? false) og['sphere'] = visit.ogSphere;
+    if (visit.ogCylinder?.isNotEmpty ?? false) og['cylindre'] = visit.ogCylinder;
+    if (visit.ogAxis?.isNotEmpty ?? false) og['axe_degres'] = visit.ogAxis; // EXPLICIT: degrees
+    if (visit.ogVl?.isNotEmpty ?? false) og['VL'] = visit.ogVl;
+    if (visit.ogK1?.isNotEmpty ?? false) og['K1'] = visit.ogK1;
+    if (visit.ogK2?.isNotEmpty ?? false) og['K2'] = visit.ogK2;
+    if (visit.ogR1?.isNotEmpty ?? false) og['R1'] = visit.ogR1;
+    if (visit.ogR2?.isNotEmpty ?? false) og['R2'] = visit.ogR2;
+    if (visit.ogR0?.isNotEmpty ?? false) og['R0'] = visit.ogR0;
+    if (visit.ogPachy?.isNotEmpty ?? false) og['pachymetrie'] = visit.ogPachy;
+    if (visit.ogToc?.isNotEmpty ?? false) og['TOC'] = visit.ogToc;
+    if (visit.ogTo?.isNotEmpty ?? false) og['TO_mmHg'] = visit.ogTo; // EXPLICIT: mmHg
+    if (visit.ogGonio?.isNotEmpty ?? false) og['gonio'] = visit.ogGonio;
+    if (visit.ogLaf?.isNotEmpty ?? false) og['LAF'] = visit.ogLaf;
+    if (visit.ogFo?.isNotEmpty ?? false) og['FO'] = visit.ogFo;
+    if (visit.ogNotes?.isNotEmpty ?? false) og['notes'] = visit.ogNotes;
     if (og.isNotEmpty) json['OG'] = og;
     
     // Shared fields
-    if (_hasValue(visit.addition)) json['addition'] = visit.addition;
-    if (_hasValue(visit.dip)) json['DIP'] = visit.dip;
+    if (visit.addition?.isNotEmpty ?? false) json['addition'] = visit.addition;
+    if (visit.dip?.isNotEmpty ?? false) json['DIP'] = visit.dip;
     
     return json;
   }
@@ -196,13 +199,13 @@ class PatientContextService {
       'type': doc.type,
     };
     
-    if (doc.doctorName != null && doc.doctorName!.isNotEmpty) {
+    if (doc.doctorName?.isNotEmpty ?? false) {
       json['medecin'] = doc.doctorName;
     }
-    if (doc.reportTitle != null && doc.reportTitle!.isNotEmpty) {
+    if (doc.reportTitle?.isNotEmpty ?? false) {
       json['titre'] = doc.reportTitle;
     }
-    if (doc.referredBy != null && doc.referredBy!.isNotEmpty) {
+    if (doc.referredBy?.isNotEmpty ?? false) {
       json['adressePar'] = doc.referredBy;
     }
     if (doc.content.isNotEmpty) {

@@ -65,9 +65,19 @@ final surgeryPlansRepositoryProvider = Provider((ref) {
   throw UnimplementedError('SurgeryPlansRepository not yet implemented');
 });
 
-/// Medical acts repository provider (stub - not yet implemented)
-final medicalActsRepositoryProvider = Provider((ref) {
-  throw UnimplementedError('MedicalActsRepository not yet implemented');
+/// Visits repository provider (stub - not yet implemented)
+final visitsRepositoryProvider = Provider((ref) {
+  throw UnimplementedError('VisitsRepository not yet implemented');
+});
+
+/// Patient visits provider (stub - not yet implemented)
+StreamProvider.family<List<dynamic>, int> patientVisitsProvider = StreamProvider.family((ref, patientCode) {
+  return Stream.value([]);
+});
+
+/// Patient visit count provider (stub - not yet implemented)
+StreamProvider.family<int, int> patientVisitCountProvider = StreamProvider.family((ref, patientCode) {
+  return Stream.value(0);
 });
 
 /// Database path class (stub)

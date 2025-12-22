@@ -521,7 +521,7 @@ class _TemplateItem extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                template.content,
+                template.content ?? '',
                 style: MediCoreTypography.body.copyWith(
                   fontSize: 13,
                 ),

@@ -125,7 +125,7 @@ class HistoricPaymentsDialog extends ConsumerWidget {
             // Footer with total
             paymentsAsync.when(
               data: (payments) {
-                final total = payments.fold<int>(0, (sum, p) => sum + (p.amount ?? 0));
+                final total = payments.fold<num>(0, (sum, p) => sum + (p.amount ?? 0)).toInt();
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(

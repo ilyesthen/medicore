@@ -217,8 +217,8 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
     final patientsRepo = ref.read(patientsRepositoryProvider);
     try {
       await patientsRepo.createPatient(
-        firstName: apt.firstName,
-        lastName: apt.lastName,
+        firstName: apt.firstName ?? '',
+        lastName: apt.lastName ?? '',
         age: apt.age,
         dateOfBirth: apt.dateOfBirth,
         phoneNumber: apt.phone,
@@ -656,13 +656,13 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
               
               return Container(
                 height: 48,
-                color: apt.wasAdded 
+                color: (apt.wasAdded ?? false) 
                     ? Colors.green.withOpacity(0.1)
                     : isEven ? Colors.white : Colors.grey.shade50,
                 child: Row(
                   children: [
-                    _DataCell(apt.lastName, flex: 2, bold: true),
-                    _DataCell(apt.firstName, flex: 2),
+                    _DataCell(apt.lastName ?? '', flex: 2, bold: true),
+                    _DataCell(apt.firstName ?? '', flex: 2),
                     _DataCell(apt.age?.toString() ?? '-', flex: 1),
                     _DataCell(apt.phone ?? '-', flex: 2),
                     _DataCell(apt.notes ?? '-', flex: 2),
@@ -671,7 +671,7 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (!apt.wasAdded) ...[
+                          if (!(apt.wasAdded ?? false)) ...[
                             _ActionButton(
                               icon: Icons.person_add,
                               label: isExisting ? 'EXISTANT' : 'AJOUTER',

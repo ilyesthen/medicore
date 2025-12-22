@@ -56,12 +56,12 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
   
   // Track saved visit ID to prevent duplicate saves
   int? _savedVisitId;
-  DateTime? _savedVisitDate;
+  Object? _savedVisitDate;
   
   bool get isEditMode => widget.existingVisit != null || _savedVisitId != null;
   
   /// Get the visit ID to use for updates (either from widget or from first save)
-  int? get _currentVisitId => widget.existingVisit?.id ?? _savedVisitId;
+  Object? get _currentVisitId => widget.existingVisit?.id ?? _savedVisitId;
 
   Future<void> _showPrescriptionOptique() async {
     await _showPaymentReminderIfNeeded();
@@ -270,6 +270,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
     try {
       final authState = ref.read(authStateProvider);
       final now = DateTime.now();
+      
       final odState = _odPanelKey.currentState;
       final ogState = _ogPanelKey.currentState;
       
@@ -441,8 +442,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
                 const SizedBox(width: 16),
                 Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${patient.lastName} ${patient.firstName}'.toUpperCase(), style: MediCoreTypography.sectionHeader.copyWith(color: Colors.white, fontSize: 16, letterSpacing: 0.5)),
-                  const SizedBox(height: 2),
-                  Text('Patient N° ${patient.code}', style: MediCoreTypography.body.copyWith(color: Colors.white.withOpacity(0.6), fontSize: 11)),
+                  Text('Code: ${patient.code} | Âge: ${patient.currentAge ?? patient.age ?? '-'} ans | Date de naissance: ${patient.dateOfBirth ?? '-'}', style: MediCoreTypography.body.copyWith(color: Colors.white.withOpacity(0.6), fontSize: 11)),
                 ]),
                 const SizedBox(width: 32),
                 if (patient.currentAge != null) ...[_InfoChip(icon: Icons.cake_outlined, label: '${patient.currentAge} ans'), const SizedBox(width: 16)],
@@ -514,7 +514,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
               const SizedBox(width: 8),
               _CompactButton(icon: Icons.blur_circular, label: 'LENTILLES', onPressed: _showPrescriptionLentilles),
               const SizedBox(width: 8),
-              _CompactButton(icon: Icons.description_outlined, label: 'ORDO', onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrdonnancePage(patient: widget.patient)))),
+              _CompactButton(icon: Icons.description_outlined, label: 'ORDO', onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrdonnancePage(patient: widget.patient, roomId: authState.selectedRoom?.id.toString(), senderId: authState.user?.id, senderName: authState.user?.name)))),
               const SizedBox(width: 16),
               Container(width: 1, height: 32, color: MediCoreColors.steelOutline),
               const SizedBox(width: 16),

@@ -37,7 +37,7 @@ class AppointmentsRepository {
     throw UnimplementedError('Appointments not implemented in gRPC mode');
   }
   
-  Future<void> cleanupPastAppointments() async {
+  Future<int> cleanupPastAppointments() async {
     throw UnimplementedError('Appointments not implemented in gRPC mode');
   }
 }

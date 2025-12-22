@@ -135,13 +135,10 @@ class XmlImportService {
               ?.innerText
               .trim();
 
-          // Import patient
-          await _repository.importPatient(
-            code: code,
-            barcode: barcode,
-            createdAt: createdAt,
-            firstName: firstName,
-            lastName: lastName,
+          // Import patient (use createPatient - code/barcode/createdAt are ignored in gRPC mode)
+          await _repository.createPatient(
+            firstName: firstName ?? '',
+            lastName: lastName ?? '',
             age: age,
             dateOfBirth: dateOfBirth,
             address: address?.isEmpty ?? true ? null : address,
