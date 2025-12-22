@@ -547,32 +547,32 @@ class _RoleBasedPaymentsTable extends StatelessWidget {
                           child: Row(
                             children: [
                               _TableCell(
-                                DateFormat('HH:mm').format(payment.paymentTime),
+                                DateFormat('HH:mm').format(payment.paymentTime ?? DateTime.now()),
                                 flex: 1,
                               ),
                               _TableCell(
-                                payment.patientLastName,
+                                payment.patientLastName ?? '',
                                 flex: 2,
                                 isClickable: true,
                               ),
                               _TableCell(
-                                payment.patientFirstName,
+                                payment.patientFirstName ?? '',
                                 flex: 2,
                                 isClickable: true,
                               ),
                               _TableCell(
-                                payment.medicalActName,
+                                payment.medicalActName ?? '',
                                 flex: 3,
                               ),
                               _TableCell(
-                                _formatCurrency(payment.amount),
+                                _formatCurrency((payment.amount ?? 0).round()),
                                 flex: 2,
                                 isAmount: true,
                               ),
                               // Assistant: show their earnings for this payment
                               if (isAssistant)
                                 _TableCell(
-                                  _formatCurrency((payment.amount * (currentUser?.percentage ?? 0) / 100).round()),
+                                  _formatCurrency(((payment.amount ?? 0) * (currentUser?.percentage ?? 0) / 100).round()),
                                   flex: 2,
                                   isAmount: true,
                                   isHighlight: true,
@@ -580,7 +580,7 @@ class _RoleBasedPaymentsTable extends StatelessWidget {
                               // Nurse: show each assistant's earnings for this payment
                               if (isNurse)
                                 ...assistants.map((a) => _TableCell(
-                                  _formatCurrency((payment.amount * (a.percentage ?? 0) / 100).round()),
+                                  _formatCurrency(((payment.amount ?? 0) * (a.percentage ?? 0) / 100).round()),
                                   flex: 2,
                                   isAmount: true,
                                 )),
@@ -625,7 +625,7 @@ class _RoleBasedPaymentsTable extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${summary['patientCount']}',
+                        '${summary['patientCount'] ?? 0}',
                         style: MediCoreTypography.sectionHeader.copyWith(
                           fontSize: 13,
                           color: MediCoreColors.professionalBlue,
@@ -643,7 +643,7 @@ class _RoleBasedPaymentsTable extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _formatCurrency(summary['totalAmount'] as int),
+                  _formatCurrency(summary['totalAmount'] ?? 0),
                   style: MediCoreTypography.sectionHeader.copyWith(
                     fontSize: 16,
                     color: MediCoreColors.healthyGreen,
@@ -661,7 +661,7 @@ class _RoleBasedPaymentsTable extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    _formatCurrency(summary['myEarnings'] as int? ?? 0),
+                    _formatCurrency(summary['myEarnings'] ?? 0),
                     style: MediCoreTypography.sectionHeader.copyWith(
                       fontSize: 16,
                       color: MediCoreColors.professionalBlue,
@@ -696,7 +696,7 @@ class _SummaryTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final groupedByAct = summary['groupedByAct'] as Map<String, Map<String, int>>;
+    final groupedByAct = summary['groupedByAct'] as Map<String, Map<String, int>>?;
     
     return Container(
       decoration: BoxDecoration(
@@ -783,7 +783,7 @@ class _SummaryTable extends StatelessWidget {
 
           // Table body
           Expanded(
-            child: groupedByAct.isEmpty
+            child: groupedByAct?.isEmpty ?? true
                 ? const Center(
                     child: Text(
                       'Aucune donnée',
@@ -794,12 +794,12 @@ class _SummaryTable extends StatelessWidget {
                     ),
                   )
                 : ListView.builder(
-                    itemCount: groupedByAct.length,
+                    itemCount: groupedByAct?.length ?? 0,
                     itemBuilder: (context, index) {
-                      final entry = groupedByAct.entries.elementAt(index);
-                      final actName = entry.key;
-                      final count = entry.value['count'] ?? 0;
-                      final totalAmount = entry.value['totalAmount'] ?? 0;
+                      final entry = groupedByAct?.entries.elementAt(index);
+                      final actName = entry?.key ?? '';
+                      final count = entry?.value['count'] ?? 0;
+                      final totalAmount = entry?.value['totalAmount'] ?? 0;
                       final isEven = index % 2 == 0;
 
                       return Container(

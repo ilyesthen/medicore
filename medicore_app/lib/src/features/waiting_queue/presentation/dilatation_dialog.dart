@@ -192,7 +192,7 @@ class _DilatationDialogState extends ConsumerState<DilatationDialog> {
                           Icon(Icons.check_circle, size: 64, color: MediCoreColors.healthyGreen),
                           const SizedBox(height: 16),
                           Text(
-                            DateTime.tryParse(patient.sentAt) ?? DateTime.now(),.isEmpty 
+                            patients.isEmpty 
                                 ? 'Aucune dilatation en cours'
                                 : 'Aucun résultat pour les filtres',
                             style: TextStyle(

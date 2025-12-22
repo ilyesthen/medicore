@@ -330,7 +330,7 @@ class _UrgentPatientRow extends ConsumerWidget {
             width: 80,
             child: Center(
               child: Text(
-                Text(DateFormat('HH:mm').format(DateTime.tryParse(patient.sentAt)?.toLocal() ?? DateTime.now()),
+                DateFormat('HH:mm').format(DateTime.tryParse(patient.sentAt)?.toLocal() ?? DateTime.now()),
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: MediCoreColors.criticalRed),
               ),
             ),

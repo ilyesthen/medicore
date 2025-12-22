@@ -845,7 +845,7 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
   void _showPatientDialog(BuildContext context, Patient? patient) {
     showDialog(
       context: context,
-      builder: (context) => PatientFormDialog(patient: patient, roomId: patient?.roomId.toString()),
+      builder: (context) => PatientFormDialog(patient: patient),
     ).then((result) {
       if (result == true) {
         ref.read(selectedPatientProvider.notifier).state = null;
@@ -1012,19 +1012,23 @@ class _RoomBox extends ConsumerWidget {
     );
   }
 
-  void _showWaitingQueueDialog(BuildContext context) {
+  void _showWaitingQueueDialog(BuildContext context, WidgetRef ref) {
     if (roomId == null) return;
+    // Create a minimal Room object for the dialog
+    final room = Room(id: int.parse(roomId!), name: roomName, stringId: roomId!, type: 'consultation');
     showDialog(
       context: context,
-      builder: (context) => WaitingQueueDialog(roomId: roomId!, isDoctor: false),
+      builder: (context) => WaitingQueueDialog(room: room, isDoctor: false),
     );
   }
 
-  void _showUrgencesDialog(BuildContext context) {
+  void _showUrgencesDialog(BuildContext context, WidgetRef ref) {
     if (roomId == null) return;
+    // Create a minimal Room object for the dialog
+    final room = Room(id: int.parse(roomId!), name: roomName, stringId: roomId!, type: 'consultation');
     showDialog(
       context: context,
-      builder: (context) => UrgencesDialog(roomId: roomId!, isDoctor: false),
+      builder: (context) => UrgencesDialog(room: room, isDoctor: false),
     );
   }
 
@@ -1042,7 +1046,7 @@ class _RoomBox extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => DilatationDialog(
-        roomId: roomId!,
+        roomId: [roomId!],
         isDoctor: false,
       ),
     );
@@ -1050,18 +1054,18 @@ class _RoomBox extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final waitingCountAsync = room != null 
-        ? ref.watch(waitingCountProvider(room!.id))
+    final waitingCountAsync = roomId != null 
+        ? ref.watch(waitingCountProvider(roomId!))
         : const AsyncValue<int>.data(0);
     final waitingCount = waitingCountAsync.valueOrNull ?? 0;
 
-    final urgentCountAsync = room != null 
-        ? ref.watch(urgentCountProvider(room!.id))
+    final urgentCountAsync = roomId != null 
+        ? ref.watch(urgentCountProvider(roomId!))
         : const AsyncValue<int>.data(0);
     final urgentCount = urgentCountAsync.valueOrNull ?? 0;
 
-    final dilatationCountAsync = room != null 
-        ? ref.watch(dilatationCountProvider(room!.id))
+    final dilatationCountAsync = roomId != null 
+        ? ref.watch(dilatationCountProvider(roomId!))
         : const AsyncValue<int>.data(0);
     final roomDilatationCount = dilatationCountAsync.valueOrNull ?? 0;
 
@@ -1189,7 +1193,7 @@ class _RoomBox extends ConsumerWidget {
                   label: 'En attente consultation',
                   count: waitingCount,
                   color: const Color(0xFFF57C00), // Orange
-                  onTap: isActive ? () => _showWaitingQueueDialog(context) : null,
+                  onTap: isActive ? () => _showWaitingQueueDialog(context, ref) : null,
                 ),
                 _StatBox(
                   icon: '💊',
@@ -1204,7 +1208,7 @@ class _RoomBox extends ConsumerWidget {
                   count: urgentCount,
                   color: MediCoreColors.criticalRed,
                   isLast: true,
-                  onTap: isActive ? () => _showUrgencesDialog(context) : null,
+                  onTap: isActive ? () => _showUrgencesDialog(context, ref) : null,
                 ),
               ],
             ),

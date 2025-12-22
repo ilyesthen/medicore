@@ -560,7 +560,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                                     showDialog(
                                       context: context,
                                       builder: (context) => DilatationDialog(
-                                        roomId: roomId,
+                                        roomIds: [roomId],
                                         singleRoomId: roomId,
                                         isDoctor: true,
                                       ),
