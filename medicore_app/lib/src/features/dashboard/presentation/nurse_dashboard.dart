@@ -120,7 +120,7 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
       // Auto-assign first 3 rooms as fallback
       final defaultIds = List.generate(
         3,
-        (index) => index < allRooms.length ? allRooms[index].id : null,
+        (index) => index < allRooms.length ? allRooms[index].id.toString() : null,
       );
       print('✅ NURSE: Auto-assigned rooms (no saved prefs): $defaultIds');
       _selectedRoomIds = defaultIds;

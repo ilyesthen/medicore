@@ -109,7 +109,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
                 
                 // Add user to room presence
                 _ref.read(roomPresenceProvider.notifier).addUserToRoom(
-                  savedRoom.id,
+                  savedRoom.id.toString(),
                   result.user!.name,
                 );
               }
@@ -146,7 +146,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // Remove user from previous room if any
     if (state.selectedRoom != null && state.user != null) {
       _ref.read(roomPresenceProvider.notifier).removeUserFromRoom(
-        state.selectedRoom!.id,
+        state.selectedRoom!.id.toString(),
         state.user!.name,
       );
     }
@@ -154,7 +154,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // Add user to new room
     if (state.user != null) {
       _ref.read(roomPresenceProvider.notifier).addUserToRoom(
-        room.id,
+        room.id.toString(),
         state.user!.name,
       );
       

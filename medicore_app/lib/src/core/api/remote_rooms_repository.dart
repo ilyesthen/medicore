@@ -9,7 +9,7 @@ class RemoteRoomsRepository {
   final MediCoreClient _client;
   
   // Cache for performance
-  List<Room> _cachedRooms = [];
+  List<pb.GrpcRoom> _cachedRooms = [];
   DateTime? _lastFetch;
   
   // SSE callback for real-time updates
@@ -39,7 +39,7 @@ class RemoteRoomsRepository {
   }
 
   /// Get all rooms
-  Future<List<Room>> getAllRooms() async {
+  Future<List<pb.GrpcRoom>> getAllRooms() async {
     // Use cache if fresh (less than 30 seconds old)
     if (_cachedRooms.isNotEmpty && _lastFetch != null) {
       final age = DateTime.now().difference(_lastFetch!);
@@ -50,7 +50,7 @@ class RemoteRoomsRepository {
     
     try {
       final response = await _client.getAllRooms();
-      _cachedRooms = response.rooms.map(_grpcRoomToLocal).toList();
+      _cachedRooms = response.rooms;
       _lastFetch = DateTime.now();
       return _cachedRooms;
     } catch (e) {
@@ -60,9 +60,9 @@ class RemoteRoomsRepository {
   }
 
   /// Get room by ID
-  Future<Room?> getRoomById(String id) async {
+  Future<pb.GrpcRoom?> getRoomById(String id) async {
     // Try cache first
-    final cached = _cachedRooms.where((r) => r.id == id).firstOrNull;
+    final cached = _cachedRooms.where((r) => r.id.toString() == id).firstOrNull;
     if (cached != null) return cached;
     
     try {
@@ -71,11 +71,11 @@ class RemoteRoomsRepository {
       if (intId == null) {
         // Search in cache by name or return null
         await getAllRooms();
-        return _cachedRooms.where((r) => r.id == id).firstOrNull;
+        return _cachedRooms.where((r) => r.id.toString() == id).firstOrNull;
       }
       
       final grpcRoom = await _client.getRoomById(intId);
-      return grpcRoom != null ? _grpcRoomToLocal(grpcRoom) : null;
+      return grpcRoom;
     } catch (e) {
       print('❌ [RemoteRooms] getRoomById failed: $e');
       return null;
@@ -83,17 +83,16 @@ class RemoteRoomsRepository {
   }
 
   /// Create a new room
-  Future<Room> createRoom({required String name}) async {
+  Future<pb.GrpcRoom> createRoom({required String name}) async {
     try {
-      final request = CreateRoomRequest(name: name, type: 'consultation');
+      final request = pb.CreateRoomRequest(name: name, type: 'consultation');
       final id = await _client.createRoom(request);
       
-      final room = Room(
-        id: id.toString(),
+      final room = pb.GrpcRoom(
+        id: id,
+        stringId: id.toString(),
         name: name,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        needsSync: false,
+        type: 'consultation',
       );
       
       // Update cache
@@ -107,12 +106,13 @@ class RemoteRoomsRepository {
   }
 
   /// Update an existing room
-  Future<void> updateRoom(Room room) async {
+  Future<void> updateRoom(pb.GrpcRoom room) async {
     try {
-      final grpcRoom = GrpcRoom(
-        id: int.tryParse(room.id) ?? 0,
+      final grpcRoom = pb.GrpcRoom(
+        id: room.id,
+        stringId: room.stringId,
         name: room.name,
-        type: 'consultation',
+        type: room.type,
       );
       await _client.updateRoom(grpcRoom);
       
@@ -134,7 +134,7 @@ class RemoteRoomsRepository {
       await _client.deleteRoom(intId);
       
       // Update cache
-      _cachedRooms.removeWhere((r) => r.id == id);
+      _cachedRooms.removeWhere((r) => r.id.toString() == id);
     } catch (e) {
       print('❌ [RemoteRooms] deleteRoom failed: $e');
       rethrow;
@@ -148,19 +148,4 @@ class RemoteRoomsRepository {
     _lastFetch = null;
   }
 
-  /// Convert GrpcRoom to local Room model
-  Room _grpcRoomToLocal(GrpcRoom grpc) {
-    // Use stringId for proper ID handling (local DB uses strings)
-    final roomId = grpc.stringId.isNotEmpty 
-        ? grpc.stringId 
-        : grpc.id.toString();
-    
-    return Room(
-      id: roomId,
-      name: grpc.name,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      needsSync: false,
-    );
-  }
 }

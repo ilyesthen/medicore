@@ -48,9 +48,9 @@ class _PatientFormDialogState extends ConsumerState<PatientFormDialog> {
       _lastNameController.text = widget.patient!.lastName;
       _ageController.text = widget.patient!.age?.toString() ?? '';
       _addressController.text = widget.patient!.address ?? '';
-      _phoneController.text = widget.patient!.phoneNumber ?? '';
-      _otherInfoController.text = widget.patient!.otherInfo ?? '';
-      _dateOfBirth = widget.patient!.dateOfBirth;
+      _phoneController.text = widget.patient!.phone ?? '';
+      _otherInfoController.text = widget.patient!.notes ?? '';
+      _dateOfBirth = widget.patient!.dateOfBirth != null ? DateTime.tryParse(widget.patient!.dateOfBirth!) : null;
       _useAgeInput = widget.patient!.dateOfBirth == null;
     }
   }

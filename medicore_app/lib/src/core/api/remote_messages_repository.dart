@@ -9,7 +9,7 @@ class RemoteMessagesRepository {
   final MediCoreClient _client;
   
   // Active streams for real-time updates
-  final Map<String, StreamController<List<Message>>> _roomStreams = {};
+  final Map<String, StreamController<List<pb.GrpcMessage>>> _roomStreams = {};
   final Map<String, Timer> _roomTimers = {};
   
   // SSE callback for instant refresh
@@ -51,13 +51,12 @@ class RemoteMessagesRepository {
 
   Future<void> _fetchNurseMessages(String key, List<String> roomIds) async {
     try {
-      final allMessages = <Message>[];
+      final allMessages = <pb.GrpcMessage>[];
       for (final roomId in roomIds) {
         final response = await _client.getMessagesByRoom(roomId);
         allMessages.addAll(
           response.messages
             .where((m) => m.direction == 'to_nurse' && !m.isRead)
-            .map(_grpcMessageToLocal)
         );
       }
       _roomStreams[key]?.add(allMessages);
@@ -71,7 +70,6 @@ class RemoteMessagesRepository {
       final response = await _client.getMessagesByRoom(roomId);
       final unread = response.messages
         .where((m) => m.direction == 'to_doctor' && !m.isRead)
-        .map(_grpcMessageToLocal)
         .toList();
       _roomStreams[key]?.add(unread);
     } catch (e) {
@@ -82,14 +80,14 @@ class RemoteMessagesRepository {
   Future<void> _fetchAllMessages(String key, String roomId) async {
     try {
       final response = await _client.getMessagesByRoom(roomId);
-      _roomStreams[key]?.add(response.messages.map(_grpcMessageToLocal).toList());
+      _roomStreams[key]?.add(response.messages);
     } catch (e) {
       print('❌ [RemoteMessages] refresh failed: $e');
     }
   }
 
   /// Send a message
-  Future<Message> sendMessage({
+  Future<pb.GrpcMessage> sendMessage({
     required String roomId,
     required String senderId,
     required String senderName,
@@ -100,7 +98,7 @@ class RemoteMessagesRepository {
     String? patientName,
   }) async {
     try {
-      final request = CreateMessageRequest(
+      final request = pb.CreateMessageRequest(
         roomId: roomId,
         senderId: senderId,
         senderName: senderName,
@@ -113,7 +111,7 @@ class RemoteMessagesRepository {
       
       final id = await _client.createMessage(request);
       
-      return Message(
+      return pb.GrpcMessage(
         id: id,
         roomId: roomId,
         senderId: senderId,
@@ -122,8 +120,8 @@ class RemoteMessagesRepository {
         content: content,
         direction: direction,
         isRead: false,
-        sentAt: DateTime.now(),
-        readAt: null,
+        sentAt: DateTime.now().toIso8601String(),
+        readAt: '',
         patientCode: patientCode,
         patientName: patientName,
       );
@@ -134,22 +132,21 @@ class RemoteMessagesRepository {
   }
 
   /// Watch unread messages for a nurse (multiple rooms)
-  Stream<List<Message>> watchUnreadMessagesForNurse(List<String> roomIds) {
+  Stream<List<pb.GrpcMessage>> watchUnreadMessagesForNurse(List<String> roomIds) {
     final key = 'nurse_${roomIds.join('_')}';
     
     if (!_roomStreams.containsKey(key)) {
-      _roomStreams[key] = StreamController<List<Message>>.broadcast();
+      _roomStreams[key] = StreamController<List<pb.GrpcMessage>>.broadcast();
       
       // Fetch immediately, then poll every 2 seconds
       Future<void> fetchMessages() async {
         try {
-          final allMessages = <Message>[];
+          final allMessages = <pb.GrpcMessage>[];
           for (final roomId in roomIds) {
             final response = await _client.getMessagesByRoom(roomId);
             allMessages.addAll(
               response.messages
                 .where((m) => m.direction == 'to_nurse' && !m.isRead)
-                .map(_grpcMessageToLocal)
             );
           }
           _roomStreams[key]?.add(allMessages);
@@ -170,11 +167,11 @@ class RemoteMessagesRepository {
   }
 
   /// Watch unread messages for a doctor (single room)
-  Stream<List<Message>> watchUnreadMessagesForDoctor(String roomId) {
+  Stream<List<pb.GrpcMessage>> watchUnreadMessagesForDoctor(String roomId) {
     final key = 'doctor_$roomId';
     
     if (!_roomStreams.containsKey(key)) {
-      _roomStreams[key] = StreamController<List<Message>>.broadcast();
+      _roomStreams[key] = StreamController<List<pb.GrpcMessage>>.broadcast();
       
       // Fetch immediately, then poll every 2 seconds
       Future<void> fetchMessages() async {
@@ -182,7 +179,6 @@ class RemoteMessagesRepository {
           final response = await _client.getMessagesByRoom(roomId);
           final unread = response.messages
             .where((m) => m.direction == 'to_doctor' && !m.isRead)
-            .map(_grpcMessageToLocal)
             .toList();
           _roomStreams[key]?.add(unread);
         } catch (e) {
@@ -202,17 +198,17 @@ class RemoteMessagesRepository {
   }
 
   /// Watch all messages for a room
-  Stream<List<Message>> watchMessagesForRoom(String roomId) {
+  Stream<List<pb.GrpcMessage>> watchMessagesForRoom(String roomId) {
     final key = 'all_$roomId';
     
     if (!_roomStreams.containsKey(key)) {
-      _roomStreams[key] = StreamController<List<Message>>.broadcast();
+      _roomStreams[key] = StreamController<List<pb.GrpcMessage>>.broadcast();
       
       // Fetch immediately, then poll every 2 seconds
       Future<void> fetchMessages() async {
         try {
           final response = await _client.getMessagesByRoom(roomId);
-          _roomStreams[key]?.add(response.messages.map(_grpcMessageToLocal).toList());
+          _roomStreams[key]?.add(response.messages);
         } catch (e) {
           print('❌ [RemoteMessages] poll failed: $e');
           _roomStreams[key]?.add([]); // Emit empty on error
@@ -293,23 +289,6 @@ class RemoteMessagesRepository {
     await _client.deleteMessage(id);
   }
 
-  /// Convert GrpcMessage to local Message model
-  Message _grpcMessageToLocal(GrpcMessage grpc) {
-    return Message(
-      id: grpc.id,
-      roomId: grpc.roomId,
-      senderId: grpc.senderId,
-      senderName: grpc.senderName,
-      senderRole: grpc.senderRole,
-      content: grpc.content,
-      direction: grpc.direction,
-      isRead: grpc.isRead,
-      sentAt: DateTime.tryParse(grpc.sentAt) ?? DateTime.now(),
-      readAt: null,
-      patientCode: grpc.patientCode,
-      patientName: grpc.patientName,
-    );
-  }
 
   void dispose() {
     // Unregister SSE callback

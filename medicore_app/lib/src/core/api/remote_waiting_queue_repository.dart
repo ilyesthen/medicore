@@ -9,7 +9,7 @@ class RemoteWaitingQueueRepository {
   final MediCoreClient _client;
   
   // Active streams for real-time updates
-  final Map<String, StreamController<List<WaitingPatient>>> _roomStreams = {};
+  final Map<String, StreamController<List<pb.GrpcWaitingPatient>>> _roomStreams = {};
   final Map<String, Timer> _roomTimers = {};
   
   // SSE callback for instant refresh
@@ -189,7 +189,7 @@ class RemoteWaitingQueueRepository {
   }
 
   /// Watch waiting patients for a room (non-urgent, non-dilatation)
-  Stream<List<WaitingPatient>> watchWaitingPatientsForRoom(String roomId) {
+  Stream<List<pb.GrpcWaitingPatient>> watchWaitingPatientsForRoom(String roomId) {
     return _getOrCreateStream('waiting_$roomId', roomId, (patients) {
       return patients
         .where((p) => !p.isUrgent && !p.isDilatation && p.isActive)
@@ -198,35 +198,34 @@ class RemoteWaitingQueueRepository {
   }
 
   /// Watch urgent patients for a room
-  Stream<List<WaitingPatient>> watchUrgentPatientsForRoom(String roomId) {
+  Stream<List<pb.GrpcWaitingPatient>> watchUrgentPatientsForRoom(String roomId) {
     return _getOrCreateStream('urgent_$roomId', roomId, (patients) {
       return patients.where((p) => p.isUrgent && p.isActive).toList();
     });
   }
 
   /// Watch dilatation patients for a room
-  Stream<List<WaitingPatient>> watchDilatationPatientsForRoom(String roomId) {
+  Stream<List<pb.GrpcWaitingPatient>> watchDilatationPatientsForRoom(String roomId) {
     return _getOrCreateStream('dilatation_$roomId', roomId, (patients) {
       return patients.where((p) => p.isDilatation && p.isActive).toList();
     });
   }
 
   /// Watch dilatation patients for multiple rooms
-  Stream<List<WaitingPatient>> watchDilatationPatientsForRooms(List<String> roomIds) {
+  Stream<List<pb.GrpcWaitingPatient>> watchDilatationPatientsForRooms(List<String> roomIds) {
     final key = 'dilatation_multi_${roomIds.join('_')}';
     
     if (!_roomStreams.containsKey(key)) {
-      _roomStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+      _roomStreams[key] = StreamController<List<pb.GrpcWaitingPatient>>.broadcast();
       
       Future<void> fetchData() async {
         try {
-          final allPatients = <WaitingPatient>[];
+          final allPatients = <pb.GrpcWaitingPatient>[];
           for (final roomId in roomIds) {
             final response = await _client.getWaitingPatientsByRoom(roomId);
             allPatients.addAll(
               response.patients
                 .where((p) => p.isDilatation && p.isActive)
-                .map(_grpcWaitingPatientToLocal)
             );
           }
           _roomStreams[key]?.add(allPatients);
@@ -315,24 +314,24 @@ class RemoteWaitingQueueRepository {
   }
 
   /// Get waiting patient by ID
-  Future<WaitingPatient?> getById(int id) async {
+  Future<pb.GrpcWaitingPatient?> getById(int id) async {
     // Would need to search through rooms
     return null;
   }
 
-  Stream<List<WaitingPatient>> _getOrCreateStream(
+  Stream<List<pb.GrpcWaitingPatient>> _getOrCreateStream(
     String key,
     String roomId,
-    List<WaitingPatient> Function(List<WaitingPatient>) filter,
+    List<pb.GrpcWaitingPatient> Function(List<pb.GrpcWaitingPatient>) filter,
   ) {
     if (!_roomStreams.containsKey(key)) {
-      _roomStreams[key] = StreamController<List<WaitingPatient>>.broadcast();
+      _roomStreams[key] = StreamController<List<pb.GrpcWaitingPatient>>.broadcast();
       
       // Fetch function - reusable
       Future<void> fetchData() async {
         try {
           final response = await _client.getWaitingPatientsByRoom(roomId);
-          final filtered = filter(response.patients.map(_grpcWaitingPatientToLocal).toList());
+          final filtered = filter(response.patients);
           _roomStreams[key]?.add(filtered);
         } catch (e) {
           print('❌ [RemoteWaitingQueue] poll failed: $e');
@@ -348,30 +347,6 @@ class RemoteWaitingQueueRepository {
     }
     
     return _roomStreams[key]!.stream;
-  }
-
-  /// Convert GrpcWaitingPatient to local WaitingPatient model
-  WaitingPatient _grpcWaitingPatientToLocal(GrpcWaitingPatient grpc) {
-    return WaitingPatient(
-      id: grpc.id,
-      patientCode: grpc.patientCode,
-      patientFirstName: grpc.patientFirstName,
-      patientLastName: grpc.patientLastName,
-      patientBirthDate: null,
-      patientAge: grpc.patientAge,
-      isUrgent: grpc.isUrgent,
-      isDilatation: grpc.isDilatation,
-      dilatationType: grpc.dilatationType,
-      roomId: grpc.roomId,
-      roomName: grpc.roomName,
-      motif: grpc.motif,
-      sentByUserId: grpc.sentByUserId,
-      sentByUserName: grpc.sentByUserName,
-      sentAt: DateTime.tryParse(grpc.sentAt) ?? DateTime.now(),
-      isChecked: grpc.isChecked,
-      isActive: grpc.isActive,
-      isNotified: grpc.isNotified,
-    );
   }
 
   void dispose() {

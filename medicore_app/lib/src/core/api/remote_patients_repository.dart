@@ -9,8 +9,8 @@ class RemotePatientsRepository {
   final MediCoreClient _client;
   
   // Cache for reactive streams
-  final _patientsController = StreamController<List<Patient>>.broadcast();
-  List<Patient> _cachedPatients = [];
+  final _patientsController = StreamController<List<pb.GrpcPatient>>.broadcast();
+  List<pb.GrpcPatient> _cachedPatients = [];
   DateTime? _lastFetch;
   
   // SSE callback for instant refresh
@@ -24,7 +24,7 @@ class RemotePatientsRepository {
   }
 
   /// Watch all patients with INSTANT reactive updates
-  Stream<List<Patient>> watchAllPatients() async* {
+  Stream<List<pb.GrpcPatient>> watchAllPatients() async* {
     // Emit cached data immediately if available
     if (_cachedPatients.isNotEmpty) {
       yield _cachedPatients;
@@ -42,7 +42,7 @@ class RemotePatientsRepository {
   Future<void> _refreshPatients() async {
     try {
       final response = await _client.getAllPatients();
-      _cachedPatients = _applySmartOrdering(response.patients.map(_grpcPatientToLocal).toList());
+      _cachedPatients = _applySmartOrdering(response.patients.map(_grpcToLocal).toList());
       _lastFetch = DateTime.now();
       // Notify stream listeners
       _patientsController.add(_cachedPatients);
@@ -54,16 +54,17 @@ class RemotePatientsRepository {
   /// Apply smart ordering:
   /// 1. Today's patients at TOP (newest today first - so newly created is #1)
   /// 2. Then older patients sorted by code ASC (oldest first: 3, 4, 5...)
-  List<Patient> _applySmartOrdering(List<Patient> patients) {
+  List<pb.GrpcPatient> _applySmartOrdering(List<pb.GrpcPatient> patients) {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     
     // Split into today's patients and older patients
-    final todayPatients = <Patient>[];
-    final olderPatients = <Patient>[];
+    final todayPatients = <pb.GrpcPatient>[];
+    final olderPatients = <pb.GrpcPatient>[];
     
     for (final p in patients) {
-      if (p.createdAt.isAfter(todayStart) || p.createdAt.isAtSameMomentAs(todayStart)) {
+      final createdAt = p.createdAt != null ? DateTime.tryParse(p.createdAt!) : null;
+      if (createdAt != null && (createdAt.isAfter(todayStart) || createdAt.isAtSameMomentAs(todayStart))) {
         todayPatients.add(p);
       } else {
         olderPatients.add(p);
@@ -81,10 +82,10 @@ class RemotePatientsRepository {
   }
 
   /// Get patient by code
-  Future<Patient?> getPatientByCode(int code) async {
+  Future<pb.GrpcPatient?> getPatientByCode(int code) async {
     try {
       final grpcPatient = await _client.getPatientByCode(code);
-      return grpcPatient != null ? _grpcPatientToLocal(grpcPatient) : null;
+      return grpcPatient != null ? _grpcToLocal(grpcPatient) : null;
     } catch (e) {
       print('❌ [RemotePatients] getPatientByCode failed: $e');
       return null;
@@ -92,7 +93,7 @@ class RemotePatientsRepository {
   }
 
   /// Search patients
-  Stream<List<Patient>> searchPatients(String query) async* {
+  Stream<List<pb.GrpcPatient>> searchPatients(String query) async* {
     if (query.isEmpty) {
       yield* watchAllPatients();
       return;
@@ -100,7 +101,7 @@ class RemotePatientsRepository {
     
     try {
       final response = await _client.searchPatients(query);
-      yield response.patients.map(_grpcPatientToLocal).toList();
+      yield response.patients.map(_grpcToLocal).toList();
     } catch (e) {
       print('❌ [RemotePatients] search failed: $e');
       yield [];
@@ -108,7 +109,7 @@ class RemotePatientsRepository {
   }
 
   /// Create new patient - INSTANT UI update (optimistic)
-  Future<Patient> createPatient({
+  Future<pb.GrpcPatient> createPatient({
     required String firstName,
     required String lastName,
     int? age,
@@ -119,19 +120,17 @@ class RemotePatientsRepository {
   }) async {
     // Create temp patient with placeholder code for INSTANT UI
     final tempCode = DateTime.now().millisecondsSinceEpoch;
-    final tempPatient = Patient(
+    final tempPatient = pb.GrpcPatient(
       code: tempCode,
       barcode: '',
-      createdAt: DateTime.now(),
+      createdAt: DateTime.now().toIso8601String(),
       firstName: firstName,
       lastName: lastName,
       age: age,
-      dateOfBirth: dateOfBirth,
+      dateOfBirth: dateOfBirth?.toIso8601String(),
       address: address,
-      phoneNumber: phoneNumber,
-      otherInfo: otherInfo,
-      updatedAt: DateTime.now(),
-      needsSync: true,
+      phone: phoneNumber,
+      notes: otherInfo,
     );
     
     // Add to cache IMMEDIATELY (before network call)
@@ -140,7 +139,7 @@ class RemotePatientsRepository {
     _patientsController.add(_cachedPatients);
     
     try {
-      final request = CreatePatientRequest(
+      final request = pb.CreatePatientRequest(
         code: 0, // Server will assign
         firstName: firstName,
         lastName: lastName,
@@ -148,6 +147,7 @@ class RemotePatientsRepository {
         dateOfBirth: dateOfBirth?.toIso8601String(),
         address: address,
         phone: phoneNumber,
+        notes: otherInfo,
       );
       
       final realCode = await _client.createPatient(request);
@@ -155,19 +155,17 @@ class RemotePatientsRepository {
       // Update temp patient with real code
       final idx = _cachedPatients.indexWhere((p) => p.code == tempCode);
       if (idx >= 0) {
-        _cachedPatients[idx] = Patient(
+        _cachedPatients[idx] = pb.GrpcPatient(
           code: realCode,
           barcode: '',
-          createdAt: DateTime.now(),
+          createdAt: DateTime.now().toIso8601String(),
           firstName: firstName,
           lastName: lastName,
           age: age,
-          dateOfBirth: dateOfBirth,
+          dateOfBirth: dateOfBirth?.toIso8601String(),
           address: address,
-          phoneNumber: phoneNumber,
-          otherInfo: otherInfo,
-          updatedAt: DateTime.now(),
-          needsSync: false,
+          phone: phoneNumber,
+          notes: otherInfo,
         );
         _cachedPatients = _applySmartOrdering(_cachedPatients);
         _patientsController.add(_cachedPatients);
@@ -200,19 +198,17 @@ class RemotePatientsRepository {
     final idx = _cachedPatients.indexWhere((p) => p.code == code);
     if (idx >= 0) {
       oldPatient = _cachedPatients[idx];
-      _cachedPatients[idx] = Patient(
+      _cachedPatients[idx] = pb.GrpcPatient(
         code: code,
         barcode: oldPatient.barcode,
         createdAt: oldPatient.createdAt,
         firstName: firstName,
         lastName: lastName,
         age: age,
-        dateOfBirth: dateOfBirth,
+        dateOfBirth: dateOfBirth?.toIso8601String(),
         address: address,
-        phoneNumber: phoneNumber,
-        otherInfo: otherInfo,
-        updatedAt: DateTime.now(),
-        needsSync: true,
+        phone: phoneNumber,
+        notes: otherInfo,
       );
       _cachedPatients = _applySmartOrdering(_cachedPatients);
       _patientsController.add(_cachedPatients);
@@ -278,27 +274,8 @@ class RemotePatientsRepository {
 
   /// Convert GrpcPatient to local Patient model
   pb.GrpcPatient _grpcToLocal(pb.GrpcPatient grpc) {
-    // Parse createdAt from server, fallback to now if not available
-    DateTime createdAt = DateTime.now();
-    if (grpc.createdAt != null && grpc.createdAt!.isNotEmpty) {
-      createdAt = DateTime.tryParse(grpc.createdAt!) ?? DateTime.now();
-    }
-    
-    return pb.GrpcPatient(
-    return Patient(
-      code: grpc.code,
-      barcode: grpc.barcode ?? '',
-      createdAt: createdAt,
-      firstName: grpc.firstName,
-      lastName: grpc.lastName,
-      age: grpc.age,
-      dateOfBirth: grpc.dateOfBirth != null ? DateTime.tryParse(grpc.dateOfBirth!) : null,
-      address: grpc.address,
-      phoneNumber: grpc.phone,
-      otherInfo: grpc.notes,
-      updatedAt: DateTime.now(),
-      needsSync: false,
-    );
+    // Just return the grpc object as-is
+    return grpc;
   }
   
   void dispose() {
