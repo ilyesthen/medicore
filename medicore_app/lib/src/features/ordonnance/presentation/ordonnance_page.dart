@@ -385,7 +385,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       final prefix = _getBilanTypePrefix(_selectedBilanType);
       if (prefix != null) {
         meds = meds.where((m) => 
-          m.code.toLowerCase().startsWith(prefix.toLowerCase())
+          m.code?.toLowerCase().startsWith(prefix.toLowerCase()) ?? false
         ).toList();
       }
     }
@@ -393,7 +393,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     // Apply search query filter
     if (_searchQuery.isNotEmpty) {
       meds = meds.where((m) => 
-        m.code.toLowerCase().startsWith(_searchQuery.toLowerCase())
+        m.code?.toLowerCase().startsWith(_searchQuery.toLowerCase()) ?? false
       ).toList();
     }
     
@@ -415,7 +415,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     
     final currentText = doc.plainText;
     // Use the prescription text from DB, preserving format
-    final line = med.prescription;
+    final line = med.prescription ?? '';
     // Add separator line between medications
     final newContent = currentText.isEmpty ? line : '$currentText\n\n────────────────────────────────────\n\n$line';
     doc.setPlainText(newContent);
@@ -895,7 +895,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
             const Icon(Icons.description, color: Colors.white70, size: 18),
             const SizedBox(width: 8),
             if (isViewing)
-              Expanded(child: Text(currentDoc.displayTitle, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis))
+              Expanded(child: Text(currentDoc.displayTitle ?? '', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis))
             else
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1067,7 +1067,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
           ),
           child: SingleChildScrollView(
             child: SelectableText(
-              doc.content,
+              doc.content ?? '',
               style: const TextStyle(
                 fontSize: 14,
                 fontFamily: 'Courier New',
@@ -1126,7 +1126,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   /// Print existing document (no save needed)
   /// Tab 0 & 1 use A5, Tab 2 (Comptes) uses A4 - all same format, no background image
   Future<void> _printExistingDocument(OrdonnanceDocument doc) async {
-    final printContent = _stripSeparatorsForPrint(doc.content);
+    final printContent = _stripSeparatorsForPrint(doc.content ?? '');
     final p = widget.patient;
     final tabIndex = _tabController.index;
     
@@ -1135,7 +1135,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       patientName: '${p.firstName} ${p.lastName}',
       patientCode: p.code.toString(),
       barcode: p.code.toString(),
-      date: doc.formattedDate,
+      date: doc.formattedDate ?? '',
       content: printContent,
       documentType: doc.type ?? 'ORDONNANCE',
       age: p.age?.toString(),
@@ -1153,7 +1153,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   /// Download existing document as PDF
   /// Tab 0 & 1 use A5, Tab 2 (Comptes) uses A4 - all same format, no background image
   Future<void> _downloadExistingDocument(OrdonnanceDocument doc) async {
-    final pdfContent = _stripSeparatorsForPrint(doc.content);
+    final pdfContent = _stripSeparatorsForPrint(doc.content ?? '');
     final p = widget.patient;
     final tabIndex = _tabController.index;
     
@@ -1163,7 +1163,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
         patientName: '${p.firstName} ${p.lastName}',
         patientCode: p.code.toString(),
         barcode: p.code.toString(),
-        date: doc.formattedDate,
+        date: doc.formattedDate ?? '',
         content: pdfContent,
         documentType: doc.type ?? 'ORDONNANCE',
         age: p.age?.toString(),

@@ -103,12 +103,12 @@ class HistoricPaymentsDialog extends ConsumerWidget {
                         child: Row(
                           children: [
                             _DataCell(
-                              DateFormat('dd/MM/yyyy HH:mm').format(payment.paymentTime),
+                              payment.paymentTime != null ? DateFormat('dd/MM/yyyy HH:mm').format(payment.paymentTime!) : '',
                               flex: 2,
                             ),
-                            _DataCell(payment.medicalActName, flex: 3),
+                            _DataCell(payment.medicalActName ?? '', flex: 3),
                             _DataCell(
-                              '${payment.amount} DA',
+                              '${payment.amount ?? 0} DA',
                               flex: 2,
                               isBold: true,
                               color: const Color(0xFF00897B),
@@ -125,7 +125,7 @@ class HistoricPaymentsDialog extends ConsumerWidget {
             // Footer with total
             paymentsAsync.when(
               data: (payments) {
-                final total = payments.fold<int>(0, (sum, p) => sum + p.amount);
+                final total = payments.fold<int>(0, (sum, p) => sum + (p.amount ?? 0));
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(

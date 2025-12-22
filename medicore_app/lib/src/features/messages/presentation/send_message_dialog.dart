@@ -397,7 +397,7 @@ class _SendMessageDialogState extends ConsumerState<SendMessageDialog> {
                           final template = templates[index];
                           return _TemplateItem(
                             template: template,
-                            onTap: () => _addTemplate(template.content),
+                            onTap: () => _addTemplate(template.content ?? ''),
                           );
                         },
                       ),

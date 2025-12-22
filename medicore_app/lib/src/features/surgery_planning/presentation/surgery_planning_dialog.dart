@@ -1293,7 +1293,7 @@ class _SurgeryPlanningDialogState extends ConsumerState<SurgeryPlanningDialog> {
                                 );
                                 if (confirm == true) {
                                   final repo = ref.read(surgeryPlansRepositoryProvider);
-                                  await repo.deleteSurgeryPlan(plan.id);
+                                  await repo.deleteSurgeryPlan(int.tryParse(plan.id) ?? 0);
                                   _loadSurgeryPlans();
                                 }
                               },

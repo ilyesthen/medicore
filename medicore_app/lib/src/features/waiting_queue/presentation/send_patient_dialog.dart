@@ -56,7 +56,7 @@ class _SendPatientDialogState extends ConsumerState<SendPatientDialog> {
         patientCode: widget.patient.code,
         patientFirstName: widget.patient.firstName,
         patientLastName: widget.patient.lastName,
-        patientBirthDate: widget.patient.dateOfBirth,
+        patientBirthDate: widget.patient.dateOfBirth != null ? DateTime.tryParse(widget.patient.dateOfBirth!) : null,
         patientAge: widget.patient.age ?? 0,
         roomId: widget.room.id.toString(),
         roomName: widget.room.name,

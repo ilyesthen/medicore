@@ -30,22 +30,22 @@ class _ImportPatientsDialogState extends ConsumerState<ImportPatientsDialog> {
       // TODO: Re-implement with gRPC
       throw UnimplementedError('Patient import not yet implemented with gRPC');
       
+      // Dead code - will be re-implemented with gRPC
       // final result = await importService.importFromXml('/Applications/eye/patients.xml');
-      
-      setState(() {
-        _isImporting = false;
-        _successCount = result.successCount;
-        _errorCount = result.errorCount;
-        _errors = result.errors;
-        
-        if (result.isSuccess) {
-          _result = 'success';
-        } else if (result.successCount > 0) {
-          _result = 'partial';
-        } else {
-          _result = 'error';
-        }
-      });
+      // setState(() {
+      //   _isImporting = false;
+      //   _successCount = result.successCount;
+      //   _errorCount = result.errorCount;
+      //   _errors = result.errors;
+      //   
+      //   if (result.isSuccess) {
+      //     _result = 'success';
+      //   } else if (result.successCount > 0) {
+      //     _result = 'partial';
+      //   } else {
+      //     _result = 'error';
+      //   }
+      // });
     } catch (e) {
       setState(() {
         _isImporting = false;

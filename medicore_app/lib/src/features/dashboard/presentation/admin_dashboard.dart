@@ -442,12 +442,9 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
     setState(() => _isBackingUp = true);
     
     try {
-      // Get the database file using DatabasePath helper
-      final dbFile = await DatabasePath.getDbFile();
-      if (!await dbFile.exists()) {
-        _showMessage(context, 'Base de données introuvable', isError: true);
-        return;
-      }
+      // TODO: Implement gRPC-based backup export
+      _showMessage(context, 'Sauvegarde non disponible en mode gRPC', isError: true);
+      return;
       
       // Let user choose where to save
       final result = await FilePicker.platform.saveFile(
@@ -457,11 +454,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
       );
       
       if (result != null) {
-        // Copy the database file
-        await dbFile.copy(result);
-        
-        // Also create internal backup
-        await DatabaseBackupService.instance.createBackup();
+        // TODO: Export database via gRPC call
         
         // Save backup date
         await _saveLastBackupDate();

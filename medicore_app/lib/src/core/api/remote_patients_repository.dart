@@ -277,6 +277,22 @@ class RemotePatientsRepository {
     return grpc;
   }
   
+  /// Import patient from XML (stub - not yet implemented)
+  Future<void> importPatient({
+    required int code,
+    String? barcode,
+    DateTime? createdAt,
+    String? firstName,
+    String? lastName,
+    int? age,
+    DateTime? dateOfBirth,
+    String? address,
+    String? phoneNumber,
+    String? otherInfo,
+  }) async {
+    throw UnimplementedError('Patient import not yet implemented in gRPC mode');
+  }
+  
   void dispose() {
     // Unregister SSE callback
     if (_sseRefreshCallback != null) {

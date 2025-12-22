@@ -60,6 +60,16 @@ final appointmentsRepositoryProvider = Provider((ref) {
   throw UnimplementedError('AppointmentsRepository not yet implemented');
 });
 
+/// Surgery plans repository provider (stub - not yet implemented)
+final surgeryPlansRepositoryProvider = Provider((ref) {
+  throw UnimplementedError('SurgeryPlansRepository not yet implemented');
+});
+
+/// Medical acts repository provider (stub - not yet implemented)
+final medicalActsRepositoryProvider = Provider((ref) {
+  throw UnimplementedError('MedicalActsRepository not yet implemented');
+});
+
 /// Database path class (stub)
 class DatabasePath {
   static String? _path;

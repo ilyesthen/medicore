@@ -1,6 +1,7 @@
 import '../generated/medicore.pb.dart';
 import 'medicore_client.dart';
 import '../../features/users/data/models/user_model.dart';
+import '../../features/users/data/models/template_model.dart';
 
 /// Remote Users Repository - Uses REST API to communicate with admin server
 /// Used in CLIENT mode only
@@ -84,6 +85,34 @@ class RemoteUsersRepository {
   Future<void> deleteUser(String id) async {
     final intId = int.tryParse(id) ?? 0;
     await _client.deleteUser(intId);
+  }
+
+  /// Get all templates (stub - not implemented yet)
+  Future<List<UserTemplate>> getAllTemplates() async {
+    // TODO: Implement template support in gRPC
+    return [];
+  }
+
+  /// Create new template (stub - not implemented yet)
+  Future<UserTemplate> createTemplate({
+    required String role,
+    required String password,
+    required double percentage,
+  }) async {
+    // TODO: Implement template support in gRPC
+    throw UnimplementedError('Template creation not implemented in gRPC mode');
+  }
+
+  /// Update existing template (stub - not implemented yet)
+  Future<void> updateTemplate(UserTemplate template) async {
+    // TODO: Implement template support in gRPC
+    throw UnimplementedError('Template update not implemented in gRPC mode');
+  }
+
+  /// Delete template (stub - not implemented yet)
+  Future<void> deleteTemplate(String templateId) async {
+    // TODO: Implement template support in gRPC
+    throw UnimplementedError('Template deletion not implemented in gRPC mode');
   }
 
   /// Convert GrpcUser to local User model

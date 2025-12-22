@@ -49,21 +49,18 @@ class PatientContextService {
       );
     }
     
-    // Fetch patient basic info
-    final patient = await _patientsRepo.getPatientByCode(patientCode);
-    if (patient == null) {
-      return PatientContextResult(
-        success: false,
-        error: 'Patient avec code $patientCode non trouvé',
-        patientCode: patientCode,
-      );
-    }
+    // TODO: Implement patient context in gRPC mode
+    // Repositories not yet implemented with gRPC
+    return PatientContextResult(
+      success: false,
+      error: 'Patient context service not yet implemented in gRPC mode',
+      patientCode: patientCode,
+    );
     
-    // Fetch all visits
-    final visits = await _visitsRepo.getVisitsForPatient(patientCode);
-    
-    // Fetch all documents
-    final documents = await _ordonnancesRepo.getDocumentsForPatient(patientCode);
+    // Dead code - will be re-implemented with gRPC
+    // final patient = await _patientsRepo.getPatientByCode(patientCode);
+    // final visits = await _visitsRepo.getVisitsForPatient(patientCode);
+    // final documents = await _ordonnancesRepo.getDocumentsForPatient(patientCode);
     
     // Build the comprehensive context
     final context = _buildContextText(patient, visits, documents);

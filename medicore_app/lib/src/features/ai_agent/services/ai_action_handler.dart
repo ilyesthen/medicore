@@ -191,27 +191,17 @@ class AIActionHandler {
         buffer.writeln('Instructions: $instructions');
       }
       
-      // Insert ordonnance
-      final ordonnanceId = await _ordonnancesRepo.insertOrdonnance(
-        OrdonnancesCompanion.insert(
-          patientCode: currentPatientCode!,
-          sequence: const Value(1),
-          documentDate: Value(DateTime.now()),
-          doctorName: Value(currentUserName ?? 'Dr.'),
-          type1: const Value('PRESCRIPTION'),
-          content1: Value(buffer.toString()),
-        ),
-      );
-      
+      // TODO: Implement ordonnances in gRPC mode
+      // OrdonnancesCompanion and Value are Drift constructs not available in gRPC
       return ActionResult(
         tool: 'prescribe_and_print',
-        success: true,
-        data: {
-          'ordonnance_id': ordonnanceId,
-          'meds_count': meds.length,
-          'should_print': shouldPrint,
-        },
+        success: false,
+        error: 'Ordonnance creation not yet implemented in gRPC mode',
       );
+      
+      // Dead code - will be re-implemented with gRPC
+      // final ordonnanceId = await _ordonnancesRepo.insertOrdonnance(...);
+      // return ActionResult(tool: 'prescribe_and_print', success: true, ...);
     } catch (e) {
       return ActionResult(
         tool: 'prescribe_and_print',
@@ -324,22 +314,16 @@ class AIActionHandler {
           ? 'to_nurse' 
           : 'to_doctor';
       
-      await _messagesRepo.sendMessage(
-        roomId: currentRoomId!,
-        senderId: currentUserId!,
-        senderName: currentUserName ?? 'Dr.',
-        senderRole: currentUserRole ?? 'Médecin',
-        content: message,
-        direction: direction,
-        patientCode: currentPatientCode,
-        patientName: currentPatientName,
-      );
-      
+      // TODO: Implement messages in gRPC mode
       return ActionResult(
         tool: 'send_intercom',
-        success: true,
-        data: {'to': recipient, 'msg': message},
+        success: false,
+        error: 'Intercom messages not yet implemented in gRPC mode',
       );
+      
+      // Dead code - will be re-implemented with gRPC
+      // await _messagesRepo.sendMessage(...);
+      // return ActionResult(tool: 'send_intercom', success: true, ...);
     } catch (e) {
       return ActionResult(
         tool: 'send_intercom',

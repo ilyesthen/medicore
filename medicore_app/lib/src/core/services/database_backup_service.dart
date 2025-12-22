@@ -42,35 +42,8 @@ class DatabaseBackupService {
   Future<bool> createBackup() async {
     try {
       // TODO: Implement backup for gRPC-based system
-      print('⚠️ Backup not implemented for gRPC');
+      print('⚠️ Backup not implemented for gRPC - backups are handled server-side');
       return false;
-      
-      // Get backup directory
-      final backupDir = await _getBackupDirectory();
-      if (!await backupDir.exists()) {
-        await backupDir.create(recursive: true);
-      }
-      
-      // Create timestamped backup
-      final now = DateTime.now();
-      final timestamp = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
-      final backupPath = p.join(backupDir.path, 'medicore_backup_$timestamp.db');
-      
-      // Also keep a "latest" backup that's always current
-      final latestPath = p.join(backupDir.path, 'medicore_latest.db');
-      
-      // Copy database
-      await dbFile.copy(backupPath);
-      await dbFile.copy(latestPath);
-      
-      final size = await dbFile.length();
-      final sizeMB = (size / 1024 / 1024).toStringAsFixed(2);
-      print('✅ Backup created: $backupPath ($sizeMB MB)');
-      
-      // Clean old backups (keep last 10)
-      await _cleanOldBackups(backupDir);
-      
-      return true;
     } catch (e) {
       print('❌ Backup failed: $e');
       return false;
@@ -135,20 +108,9 @@ class DatabaseBackupService {
     try {
       if (!await backupFile.exists()) return false;
       
-      // Close current database
-      if (AppDatabase.isInitialized) {
-        await AppDatabase.instance.close();
-      }
-      
       // TODO: Implement restore for gRPC-based system
-      final success = false;
-      
-      if (success) {
-        print('✅ Database restored from backup');
-        await AppDatabase.reinitialize(skipMigrations: true);
-      }
-      
-      return success;
+      print('⚠️ Restore not implemented for gRPC - restores are handled server-side');
+      return false;
     } catch (e) {
       print('❌ Restore failed: $e');
       return false;

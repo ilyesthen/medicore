@@ -24,9 +24,11 @@ class Visit {
   final String? traitement;
   final String? conduct;
   final String? diagnosis;
+  final String? doctorName;
   // OD fields (Right Eye)
   final String? odSv;
   final String? odAv;
+  final String? odVl;
   final String? odSphere;
   final String? odCylinder;
   final String? odAxis;
@@ -45,6 +47,7 @@ class Visit {
   // OG fields (Left Eye)
   final String? ogSv;
   final String? ogAv;
+  final String? ogVl;
   final String? ogSphere;
   final String? ogCylinder;
   final String? ogAxis;
@@ -73,10 +76,11 @@ class Visit {
     this.traitement,
     this.conduct,
     this.diagnosis,
-    this.odSv, this.odAv, this.odSphere, this.odCylinder, this.odAxis,
+    this.doctorName,
+    this.odSv, this.odAv, this.odVl, this.odSphere, this.odCylinder, this.odAxis,
     this.odK1, this.odK2, this.odR1, this.odR2, this.odR0,
     this.odPachy, this.odToc, this.odTo, this.odGonio, this.odLaf, this.odFo, this.odNotes,
-    this.ogSv, this.ogAv, this.ogSphere, this.ogCylinder, this.ogAxis,
+    this.ogSv, this.ogAv, this.ogVl, this.ogSphere, this.ogCylinder, this.ogAxis,
     this.ogK1, this.ogK2, this.ogR1, this.ogR2, this.ogR0,
     this.ogPachy, this.ogToc, this.ogTo, this.ogGonio, this.ogLaf, this.ogFo, this.ogNotes,
     this.addition, this.dip,
@@ -92,6 +96,11 @@ class Appointment {
   final DateTime? appointmentDate;
   final String? motif;
   final String? notes;
+  final int? age;
+  final DateTime? dateOfBirth;
+  final String? phone;
+  final String? address;
+  final bool? wasAdded;
   
   Appointment({
     required this.id,
@@ -102,6 +111,11 @@ class Appointment {
     this.appointmentDate,
     this.motif,
     this.notes,
+    this.age,
+    this.dateOfBirth,
+    this.phone,
+    this.address,
+    this.wasAdded,
   });
 }
 
@@ -111,6 +125,18 @@ class SurgeryPlan {
   final DateTime? surgeryDate;
   final String? surgeryType;
   final String? surgeryStatus;
+  final String? patientFirstName;
+  final String? patientLastName;
+  final int? patientAge;
+  final String? patientPhone;
+  final String? surgeryHour;
+  final String? eyeToOperate;
+  final String? implantPower;
+  final int? tarif;
+  final String? notes;
+  final String? paymentStatus;
+  final double? amountRemaining;
+  final String? createdBy;
   
   SurgeryPlan({
     required this.id,
@@ -118,6 +144,18 @@ class SurgeryPlan {
     this.surgeryDate,
     this.surgeryType,
     this.surgeryStatus,
+    this.patientFirstName,
+    this.patientLastName,
+    this.patientAge,
+    this.patientPhone,
+    this.surgeryHour,
+    this.eyeToOperate,
+    this.implantPower,
+    this.tarif,
+    this.notes,
+    this.paymentStatus,
+    this.amountRemaining,
+    this.createdBy,
   });
 }
 

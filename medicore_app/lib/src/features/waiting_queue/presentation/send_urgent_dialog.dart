@@ -67,7 +67,7 @@ class _SendUrgentDialogState extends ConsumerState<SendUrgentDialog> {
         patientCode: widget.patient.code,
         patientFirstName: widget.patient.firstName,
         patientLastName: widget.patient.lastName,
-        patientBirthDate: widget.patient.dateOfBirth,
+        patientBirthDate: widget.patient.dateOfBirth != null ? DateTime.tryParse(widget.patient.dateOfBirth!) : null,
         patientAge: widget.patient.age ?? 0,
         roomId: _selectedRoom!.id.toString(),
         roomName: _selectedRoom!.name,

@@ -1046,7 +1046,7 @@ class _RoomBox extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => DilatationDialog(
-        roomId: [roomId!],
+        roomIds: [roomId!],
         isDoctor: false,
       ),
     );

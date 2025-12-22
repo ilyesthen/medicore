@@ -203,7 +203,7 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
     // If already linked to existing patient, just mark as added
     if (apt.existingPatientCode != null) {
       final repo = ref.read(appointmentsRepositoryProvider);
-      await repo.markAsAdded(apt.id);
+      await repo.markAsAdded(int.tryParse(apt.id) ?? 0);
       _loadAppointments();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -228,7 +228,7 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
       
       // Mark appointment as added
       final repo = ref.read(appointmentsRepositoryProvider);
-      await repo.markAsAdded(apt.id);
+      await repo.markAsAdded(int.tryParse(apt.id) ?? 0);
       
       // Refresh patient list
       ref.invalidate(filteredPatientsProvider);
@@ -266,7 +266,7 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
     
     if (confirm == true) {
       final repo = ref.read(appointmentsRepositoryProvider);
-      await repo.deleteAppointment(apt.id);
+      await repo.deleteAppointment(int.tryParse(apt.id) ?? 0);
       _loadAppointments();
     }
   }
@@ -281,7 +281,7 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
     
     if (picked != null && picked != apt.appointmentDate) {
       final repo = ref.read(appointmentsRepositoryProvider);
-      await repo.updateAppointmentDate(apt.id, picked);
+      await repo.updateAppointmentDate(int.tryParse(apt.id) ?? 0, picked);
       _loadAppointments();
       
       if (mounted) {

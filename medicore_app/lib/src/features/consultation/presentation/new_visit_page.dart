@@ -277,114 +277,29 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
       final visitDate = widget.existingVisit?.visitDate ?? _savedVisitDate ?? now;
       final createdAt = widget.existingVisit?.createdAt ?? (isEditMode ? _savedVisitDate : now) ?? now;
       
-      final visitCompanion = VisitsCompanion(
-        patientCode: Value(widget.patient.code),
-        visitDate: Value(visitDate), // Keep original date when editing
-        doctorName: Value(authState.user?.name ?? 'Médecin'),
-        motif: Value(_selectedMotif),
-        diagnosis: Value(ogState?.diagValue),
-        conduct: Value(odState?.conduiteValue),
-        
-        // OD fields
-        odSv: Value(odState?.svValue),
-        odAv: Value(odState?.avValue),
-        odSphere: Value(odState?.sphereValue),
-        odCylinder: Value(odState?.cylindreValue),
-        odAxis: Value(odState?.axeValue),
-        odVl: Value(odState?.vlValue),
-        odK1: Value(odState?.k1Value),
-        odK2: Value(odState?.k2Value),
-        odR1: Value(odState?.r1Value),
-        odR2: Value(odState?.r2Value),
-        odR0: Value(odState?.r0Value),
-        odPachy: Value(odState?.pachyValue),
-        odToc: Value(odState?.tocValue),
-        odTo: Value(odState?.toValue),
-        odGonio: Value(odState?.gonioValue),
-        odLaf: Value(odState?.lafValue),
-        odFo: Value(odState?.foValue),
-        odNotes: Value(odState?.notesValue),
-        
-        // OG fields
-        ogSv: Value(ogState?.svValue),
-        ogAv: Value(ogState?.avValue),
-        ogSphere: Value(ogState?.sphereValue),
-        ogCylinder: Value(ogState?.cylindreValue),
-        ogAxis: Value(ogState?.axeValue),
-        ogVl: Value(ogState?.vlValue),
-        ogK1: Value(ogState?.k1Value),
-        ogK2: Value(ogState?.k2Value),
-        ogR1: Value(ogState?.r1Value),
-        ogR2: Value(ogState?.r2Value),
-        ogR0: Value(ogState?.r0Value),
-        ogPachy: Value(ogState?.pachyValue),
-        ogToc: Value(ogState?.tocValue),
-        ogTo: Value(ogState?.toValue),
-        ogGonio: Value(ogState?.gonioValue),
-        ogLaf: Value(ogState?.lafValue),
-        ogFo: Value(ogState?.foValue),
-        ogNotes: Value(ogState?.notesValue),
-        
-        // Shared fields
-        addition: Value(ogState?.addValue),
-        dip: Value(ogState?.dipValue),
-        
-        createdAt: Value(createdAt),
-        updatedAt: Value(now),
-      );
-      
-      final repository = ref.read(visitsRepositoryProvider);
-      
-      if (_currentVisitId != null) {
-        // Update existing visit (either from widget or from previous save)
-        await repository.updateVisit(_currentVisitId!, visitCompanion);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('✓ Visite mise à jour avec succès'),
-            backgroundColor: MediCoreColors.healthyGreen,
-          ));
-        }
-      } else {
-        // First save - create new visit and store the ID
-        final newId = await repository.insertVisit(visitCompanion);
-        if (newId > 0) {
-          // Store the saved visit ID and date so subsequent saves will update instead of insert
-          setState(() {
-            _savedVisitId = newId;
-            _savedVisitDate = now;
-          });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✓ Visite enregistrée avec succès'),
-              backgroundColor: MediCoreColors.healthyGreen,
-            ));
-          }
-        } else {
-          // Insert failed - show error message
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('❌ Échec de l\'enregistrement - vérifiez la connexion'),
-              backgroundColor: Colors.red,
-            ));
-          }
-          return; // Don't continue with reset/invalidate if save failed
-        }
+      // TODO: Implement visits in gRPC mode
+      // VisitsCompanion and Value are Drift constructs not available in gRPC
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('❌ Enregistrement de visite non disponible en mode gRPC'),
+          backgroundColor: Colors.orange,
+        ));
       }
+      return;
       
-      // Reset change tracking after save
-      setState(() {
-        _hasChanges = false;
-        _initialMotif = _selectedMotif;
-        _initialCycloplegie = _selectedCycloplegie;
-        _initialActesGeneraux = _actesGenerauxController.text;
-        _initialActesOphtalmo = _actesOphtalmoController.text;
-      });
-      odState?.resetChangeTracking();
-      ogState?.resetChangeTracking();
-      
-      // Invalidate the visits providers to refresh the list and count
-      ref.invalidate(patientVisitsProvider(widget.patient.code));
-      ref.invalidate(patientVisitCountProvider(widget.patient.code));
+      // Dead code - will be re-implemented with gRPC
+      // final visitCompanion = {...};
+      // final repository = ref.read(visitsRepositoryProvider);
+      // if (_currentVisitId != null) {
+      //   await repository.updateVisit(_currentVisitId!, visitCompanion);
+      //   if (mounted) { ScaffoldMessenger.of(context).showSnackBar(...); }
+      // } else {
+      //   final newId = await repository.insertVisit(visitCompanion);
+      //   if (newId > 0) { setState(() { _savedVisitId = newId; }); }
+      // }
+      // setState(() { _hasChanges = false; });
+      // ref.invalidate(patientVisitsProvider(widget.patient.code));
+      // ref.invalidate(patientVisitCountProvider(widget.patient.code));
       
     } catch (e) {
       if (mounted) {
@@ -402,7 +317,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
     final authState = ref.read(authStateProvider);
     final selectedRoom = authState.selectedRoom;
     if (authState.user != null && selectedRoom != null) {
-      showDialog(context: context, builder: (context) => SendMessageDialog(preSelectedRoomId: selectedRoom.id, patientCode: widget.patient.code, patientName: '${widget.patient.firstName} ${widget.patient.lastName}'));
+      showDialog(context: context, builder: (context) => SendMessageDialog(preSelectedRoomId: selectedRoom.id.toString(), patientCode: widget.patient.code, patientName: '${widget.patient.firstName} ${widget.patient.lastName}'));
     }
   }
 
@@ -410,7 +325,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
     final authState = ref.read(authStateProvider);
     final selectedRoom = authState.selectedRoom;
     if (selectedRoom != null) {
-      showDialog(context: context, builder: (context) => ReceiveMessagesDialog(doctorRoomId: selectedRoom.id));
+      showDialog(context: context, builder: (context) => ReceiveMessagesDialog(doctorRoomId: selectedRoom.id.toString()));
     }
   }
 

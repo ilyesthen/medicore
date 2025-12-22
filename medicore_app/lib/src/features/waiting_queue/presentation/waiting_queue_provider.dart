@@ -263,8 +263,8 @@ RemoteWaitingQueueRepository? _localWaitingQueueRepo;
 /// Waiting queue repository provider - switches between local and remote
 final waitingQueueRepositoryProvider = Provider<IRemoteWaitingQueueRepository>((ref) {
   if (GrpcClientConfig.isServer) {
-    print('✓ [RemoteWaitingQueueRepository] Using LOCAL database (Admin mode)');
-    _localWaitingQueueRepo ??= RemoteWaitingQueueRepository(AppDatabase.instance);
+    print('✓ [RemoteWaitingQueueRepository] Using LOCAL mode (Admin/Server)');
+    _localWaitingQueueRepo ??= RemoteWaitingQueueRepository();
     return LocalWaitingQueueAdapter(_localWaitingQueueRepo!);
   } else {
     print('✓ [RemoteWaitingQueueRepository] Using REMOTE API (Client mode)');

@@ -801,7 +801,7 @@ class _SetupWizardSimplifiedState extends State<SetupWizardSimplified> {
       await prefs.setString('app_version', '5.0.0');
 
       // Configure GrpcClient
-      await GrpcClientConfig.setServerHost(_selectedServerIp!);
+      GrpcClientConfig.setServerHost(_selectedServerIp!);
 
       setState(() {
         _status = '✅ Configuration saved!';
