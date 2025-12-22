@@ -412,7 +412,7 @@ class _MessageItem extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                timeFormat.format(message.sentAt),
+                timeFormat.format(DateTime.tryParse(message.sentAt) ?? DateTime.now()),
                 style: MediCoreTypography.label.copyWith(
                   fontSize: 11,
                   color: Colors.grey[600],

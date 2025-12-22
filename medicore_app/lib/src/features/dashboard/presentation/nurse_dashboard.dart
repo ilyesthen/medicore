@@ -600,13 +600,13 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
                           child: Container(
                             margin: EdgeInsets.only(right: isLast ? 0 : 16),
                             child: _RoomBox(
-                              room: room,
+                              roomId: room?.id.toString(),
                               roomName: room?.name ?? 'Pas de salle',
                               isActive: room != null,
                               usersInRoom: usersInRoom,
                               onChangeRoom: () => _showRoomSelector(index, allRooms),
                               selectedPatient: selectedPatient,
-                              currentUserId: authState.user?.id ?? '',
+                              senderId: authState.user?.id.toString() ?? '',
                               currentUserName: authState.user?.name ?? '',
                             ),
                           ),
@@ -697,10 +697,10 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
 
   Widget _buildPatientTable(List<Patient> patients) {
     final rows = patients.map((patient) {
-      final createdDate = DateFormat('dd/MM/yyyy').format(patient.createdAt);
+      final createdAt = DateTime.tryParse(patient.createdAt ?? '');
       return [
         patient.code.toString(),
-        createdDate,
+        createdAt != null ? DateFormat('dd/MM/yyyy').format(createdAt) : '',
         patient.lastName,
         patient.firstName,
         patient.currentAge?.toString() ?? '-',
@@ -738,7 +738,9 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
     // Remove current nurse's rooms from "in use" list
     if (authState.user != null) {
       final myRooms = await _prefsRepo.getNurseRoomPreferences(authState.user!.id);
-      roomsInUse.removeAll(myRooms.whereType<String>());
+      for (final room in myRooms.whereType<String>()) {
+        roomsInUse.remove(room);
+      }
     }
 
     if (!mounted) return;
@@ -758,13 +760,14 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
             itemCount: allRooms.length,
             itemBuilder: (context, index) {
               final room = allRooms[index];
+              final selectedRoomId = _selectedRoomIds[boxIndex]?.toString();
               final isSelectedByMe = _selectedRoomIds
                   .asMap()
                   .entries
                   .where((e) => e.key != boxIndex)
-                  .any((e) => e.value == room.id);
+                  .any((e) => e.value == room.id.toString());
 
-              final isInUseByOthers = roomsInUse.contains(room.id);
+              final isInUseByOthers = roomsInUse.contains(room.id.toString());
               final isDisabled = isSelectedByMe || isInUseByOthers;
 
               return ListTile(
@@ -798,7 +801,7 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
                         : null,
                 onTap: () {
                   setState(() {
-                    _selectedRoomIds[boxIndex] = room.id;
+                    _selectedRoomIds[boxIndex] = room.id.toString();
                   });
                   _updateActiveRoomIds();
                   _savePreferences();
@@ -842,7 +845,7 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
   void _showPatientDialog(BuildContext context, Patient? patient) {
     showDialog(
       context: context,
-      builder: (context) => PatientFormDialog(patient: patient),
+      builder: (context) => PatientFormDialog(patient: patient, roomId: patient?.roomId.toString()),
     ).then((result) {
       if (result == true) {
         ref.read(selectedPatientProvider.notifier).state = null;
@@ -913,7 +916,7 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
       builder: (context) => SendUrgentDialog(
         patient: patient,
         availableRooms: availableRooms,
-        currentUserId: authState.user?.id ?? '',
+        currentUserId: authState.user?.id.toString() ?? '',
         currentUserName: authState.user?.name ?? '',
       ),
     );
@@ -976,71 +979,70 @@ class _NurseDashboardState extends ConsumerState<NurseDashboard> {
 
 /// Individual room box widget
 class _RoomBox extends ConsumerWidget {
-  final Room? room;
+  final String? roomId;
   final String roomName;
   final bool isActive;
   final List<String> usersInRoom;
   final VoidCallback onChangeRoom;
   final Patient? selectedPatient;
-  final String currentUserId;
+  final String senderId;
   final String currentUserName;
 
   const _RoomBox({
-    required this.room,
+    required this.roomId,
     required this.roomName,
     required this.isActive,
     required this.usersInRoom,
     required this.onChangeRoom,
     required this.selectedPatient,
-    required this.currentUserId,
+    required this.senderId,
     required this.currentUserName,
   });
 
   void _showSendPatientDialog(BuildContext context) {
-    if (room == null || selectedPatient == null) return;
+    if (roomId == null || selectedPatient == null) return;
     showDialog(
       context: context,
       builder: (context) => SendPatientDialog(
         patient: selectedPatient!,
-        room: room!,
-        currentUserId: currentUserId,
+        roomId: roomId!,
+        senderId: senderId,
         currentUserName: currentUserName,
       ),
     );
   }
 
   void _showWaitingQueueDialog(BuildContext context) {
-    if (room == null) return;
+    if (roomId == null) return;
     showDialog(
       context: context,
-      builder: (context) => WaitingQueueDialog(room: room!, isDoctor: false),
+      builder: (context) => WaitingQueueDialog(roomId: roomId!, isDoctor: false),
     );
   }
 
   void _showUrgencesDialog(BuildContext context) {
-    if (room == null) return;
+    if (roomId == null) return;
     showDialog(
       context: context,
-      builder: (context) => UrgencesDialog(room: room!, isDoctor: false),
+      builder: (context) => UrgencesDialog(roomId: roomId!, isDoctor: false),
     );
   }
 
   void _showRoomDilatationDialog(BuildContext context, WidgetRef ref) async {
-    if (room == null) return;
+    if (roomId == null) return;
     
     // Stop notification sound immediately
     NotificationService().stopNotificationSound();
     
     // Mark dilatations as notified for this room
     final repo = ref.read(waitingQueueRepositoryProvider);
-    await repo.markDilatationsAsNotified([room!.id]);
+    await repo.markDilatationsAsNotified([roomId!]);
     
     if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (context) => DilatationDialog(
-        roomIds: [room!.id],
-        singleRoomId: room!.id,
+        roomId: roomId!,
         isDoctor: false,
       ),
     );

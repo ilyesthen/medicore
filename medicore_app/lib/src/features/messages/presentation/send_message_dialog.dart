@@ -121,14 +121,14 @@ class _SendMessageDialogState extends ConsumerState<SendMessageDialog> {
 
     try {
       final message = await ref.read(messagesRepositoryProvider).sendMessage(
-        roomId: _selectedRoomId!,
-        senderId: user.id,
+        roomId: widget.roomId.toString() ?? '',
+        senderId: widget.senderId ?? '',
         senderName: user.name,
         senderRole: user.role,
         content: _messageController.text.trim(),
         direction: direction,
         patientCode: widget.patientCode,
-        patientName: widget.patientName,
+        patientName: _selectedPatientName ?? '',
       );
 
       print('✅ MESSAGE SENT SUCCESSFULLY:');

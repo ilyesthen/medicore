@@ -49,10 +49,10 @@ class _RoomFormDialogState extends ConsumerState<RoomFormDialog> {
       } else {
         // Update existing room
         final updatedRoom = Room(
-          id: widget.room!.id,
+          id: 0,
+          stringId: '',
           name: _nameController.text.trim(),
-          createdAt: widget.room!.createdAt,
-          updatedAt: DateTime.now(),
+          type: 'consultation',
           needsSync: true,
         );
         await ref.read(roomsListProvider.notifier).updateRoom(updatedRoom);

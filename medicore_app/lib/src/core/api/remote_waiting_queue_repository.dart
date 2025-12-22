@@ -127,7 +127,7 @@ class RemoteWaitingQueueRepository {
     Future<void> fetchData() async {
       try {
         final response = await _client.getWaitingPatientsByRoom(roomId);
-        final patients = response.patients.map(_grpcWaitingPatientToLocal).toList();
+        final patients = (response.patients as List).cast<pb.GrpcWaitingPatient>().toList();
         
         if (key.startsWith('waiting_')) {
           _roomStreams[key]?.add(patients.where((p) => !p.isUrgent && !p.isDilatation && p.isActive).toList());

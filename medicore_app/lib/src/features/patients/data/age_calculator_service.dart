@@ -2,10 +2,9 @@ import '../../../core/types/proto_types.dart';
 
 /// Service to calculate and update patient ages based on creation date
 class AgeCalculatorService {
-  final AppDatabase _db;
+  // final AppDatabase _db;
 
-  AgeCalculatorService([AppDatabase? database]) 
-      : _db = database ?? AppDatabase();
+  AgeCalculatorService();
 
   /// Calculate age from a birth date to today
   static int calculateAgeFromDate(DateTime birthDate) {
@@ -89,7 +88,7 @@ class AgeCalculatorService {
       age: currentAge,
       dateOfBirth: patient.dateOfBirth,
       address: patient.address,
-      phoneNumber: patient.phoneNumber,
+      phone: patient.phoneNumber,
       otherInfo: patient.otherInfo,
       updatedAt: patient.updatedAt,
       needsSync: patient.needsSync,

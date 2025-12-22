@@ -179,7 +179,7 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
       lastName: _selectedPatient!.lastName,
       age: _selectedPatient!.age,
       dateOfBirth: _selectedPatient!.dateOfBirth,
-      phoneNumber: _selectedPatient!.phoneNumber,
+      phoneNumber: _selectedPatient!.phone,
       address: _selectedPatient!.address,
       existingPatientCode: _selectedPatient!.code,
       createdBy: authState.user?.name,
@@ -220,7 +220,7 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
         lastName: apt.lastName,
         age: apt.age,
         dateOfBirth: apt.dateOfBirth,
-        phoneNumber: apt.phoneNumber,
+        phoneNumber: apt.phone,
         address: apt.address,
         otherInfo: apt.notes,
       );
@@ -663,7 +663,7 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
                     _DataCell(apt.lastName, flex: 2, bold: true),
                     _DataCell(apt.firstName, flex: 2),
                     _DataCell(apt.age?.toString() ?? '-', flex: 1),
-                    _DataCell(apt.phoneNumber ?? '-', flex: 2),
+                    _DataCell(apt.phone ?? '-', flex: 2),
                     _DataCell(apt.notes ?? '-', flex: 2),
                     Expanded(
                       flex: 3,

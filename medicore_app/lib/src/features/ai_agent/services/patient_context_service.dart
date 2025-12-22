@@ -92,7 +92,7 @@ class PatientContextService {
       'code': patient.code,
       'age': patient.age,
       'dateNaissance': patient.dateOfBirth != null ? dateFormat.format(patient.dateOfBirth!) : null,
-      'notes': patient.otherInfo,
+      'notes': patient.notes,
     };
     
     // Build visits as clean JSON array

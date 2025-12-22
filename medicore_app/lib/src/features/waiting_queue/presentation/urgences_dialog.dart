@@ -198,6 +198,7 @@ class _UrgencesDialogState extends ConsumerState<UrgencesDialog> {
                       final patient = filteredPatients[index];
                       return _UrgentPatientRow(
                         patient: patient,
+                        roomId: widget.room.id.toString(),
                         isDoctor: widget.isDoctor,
                         isSelected: index == _selectedIndex,
                         onOpenFile: () => _openPatientFile(context, patient),
@@ -265,6 +266,7 @@ class _HeaderCell extends StatelessWidget {
 
 class _UrgentPatientRow extends ConsumerWidget {
   final WaitingPatient patient;
+  final String roomId;
   final bool isDoctor;
   final bool isSelected;
   final VoidCallback onOpenFile;
@@ -272,6 +274,7 @@ class _UrgentPatientRow extends ConsumerWidget {
 
   const _UrgentPatientRow({
     required this.patient,
+    required this.roomId,
     required this.isDoctor,
     this.isSelected = false,
     required this.onOpenFile,
@@ -327,7 +330,7 @@ class _UrgentPatientRow extends ConsumerWidget {
             width: 80,
             child: Center(
               child: Text(
-                timeFormat.format(patient.sentAt.toLocal()),
+                Text(DateFormat('HH:mm').format(DateTime.tryParse(patient.sentAt)?.toLocal() ?? DateTime.now()),
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: MediCoreColors.criticalRed),
               ),
             ),

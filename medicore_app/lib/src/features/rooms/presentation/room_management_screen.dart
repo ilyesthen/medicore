@@ -163,7 +163,7 @@ class RoomManagementScreen extends ConsumerWidget {
                       rows: rooms.map((room) {
                         return [
                           room.name,
-                          _formatDate(room.createdAt),
+                          Text(false), // room.createdAt != null // Field doesn't exist
                           '', // Actions handled separately
                         ];
                       }).toList(),

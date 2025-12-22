@@ -96,7 +96,7 @@ class LocalWaitingQueueAdapter implements IRemoteWaitingQueueRepository {
     patientLastName: patientLastName,
     patientBirthDate: patientBirthDate,
     patientAge: patientAge,
-    patientCreatedAt: patientCreatedAt,
+    // patientCreatedAt: patientCreatedAt, // Field doesn't exist in GrpcWaitingPatient
     roomId: roomId,
     roomName: roomName,
     dilatationType: dilatationType,

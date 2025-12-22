@@ -54,43 +54,43 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
-    final selectedRoom = authState.selectedRoom;
+    final roomId = authState.selectedRoom!.id.toString();
     final userRole = authState.user?.role ?? '';
     final patientsAsync = ref.watch(filteredPatientsProvider);
     final selectedPatient = ref.watch(selectedPatientProvider);
 
     // Register selected room with SSE for targeted notifications
-    if (selectedRoom != null) {
-      RealtimeSyncService.instance.setActiveRooms([selectedRoom.id]);
+    if (authState.selectedRoom != null) {
+      RealtimeSyncService.instance.setActiveRooms([roomId]);
     }
 
     // Watch unread message count for this doctor's room
-    final unreadCountAsync = selectedRoom != null
-        ? ref.watch(doctorUnreadCountProvider(selectedRoom.id))
+    final unreadCountAsync = authState.selectedRoom != null
+        ? ref.watch(doctorUnreadCountProvider(roomId))
         : const AsyncValue.data(0);
 
     // Watch waiting patients count for this room
-    final waitingCountAsync = selectedRoom != null
-        ? ref.watch(waitingCountProvider(selectedRoom.id))
+    final waitingCountAsync = authState.selectedRoom != null
+        ? ref.watch(waitingCountProvider(roomId))
         : const AsyncValue.data(0);
     final waitingCount = waitingCountAsync.valueOrNull ?? 0;
 
     // Watch urgent patients count for this room
-    final urgentCountAsync = selectedRoom != null
-        ? ref.watch(urgentCountProvider(selectedRoom.id))
+    final urgentCountAsync = authState.selectedRoom != null
+        ? ref.watch(urgentCountProvider(roomId))
         : const AsyncValue.data(0);
     final urgentCount = urgentCountAsync.valueOrNull ?? 0;
 
     // Watch dilatation count for this room
-    final dilatationCountAsync = selectedRoom != null
-        ? ref.watch(dilatationCountProvider(selectedRoom.id))
+    final dilatationCountAsync = authState.selectedRoom != null
+        ? ref.watch(dilatationCountProvider(roomId))
         : const AsyncValue.data(0);
     final dilatationCount = dilatationCountAsync.valueOrNull ?? 0;
 
     // Extract count value
     final currentCount = unreadCountAsync.asData?.value ?? 0;
     
-    print('👨‍⚕️ DOCTOR DASHBOARD: Room = ${selectedRoom?.id}');
+    print('👨‍⚕️ DOCTOR DASHBOARD: Room = ${authState.selectedRoom?.id}');
     print('👨‍⚕️ DOCTOR DASHBOARD: Unread count = $currentCount (previous: $_previousUnreadCount)');
 
     // Play notification sound when new message arrives OR on login with unread messages
@@ -129,11 +129,11 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
     
     return KeyboardShortcutHandler(
       onF1Pressed: () => _showPatientDialog(context, null),
-      onF2Pressed: selectedRoom != null
-          ? () => _showReceiveMessagesDialog(context, selectedRoom.id)
+      onF2Pressed: authState.selectedRoom != null
+          ? () => _showReceiveMessagesDialog(context, roomId)
           : null,
-      onF3Pressed: selectedRoom != null
-          ? () => _showSendMessageDialog(context, selectedRoom.id)
+      onF3Pressed: authState.selectedRoom != null
+          ? () => _showSendMessageDialog(context, roomId)
           : null,
       onF5Pressed: () => _showComptabiliteDialog(context),
       onArrowUpPressed: () => _navigatePatients(patients, -1),
@@ -238,7 +238,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                   ),
 
                   // Room indicator with change button
-                  if (selectedRoom != null)
+                  if (authState.selectedRoom != null)
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 20),
                       padding: const EdgeInsets.all(12),
@@ -272,7 +272,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                                       ),
                                     ),
                                     Text(
-                                      selectedRoom.name,
+                                      authState.selectedRoom!.name,
                                       style: MediCoreTypography.button.copyWith(
                                         color: Colors.white,
                                         fontSize: 13,
@@ -322,7 +322,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                   const Divider(color: MediCoreColors.steelOutline, height: 1),
 
                   // Message buttons
-                  if (selectedRoom != null) ...[
+                  if (authState.selectedRoom != null) ...[
                     Padding(
                       padding: const EdgeInsets.all(20),
                       child: Column(
@@ -343,7 +343,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                             label: 'ENVOYER',
                             shortcut: 'F3',
                             color: MediCoreColors.healthyGreen,
-                            onPressed: () => _showSendMessageDialog(context, selectedRoom.id),
+                            onPressed: () => _showSendMessageDialog(context, roomId),
                           ),
                           const SizedBox(height: 8),
                           // Receive Messages Button (F2) with badge
@@ -354,7 +354,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                               label: 'RECEVOIR',
                               shortcut: 'F2',
                               color: MediCoreColors.professionalBlue,
-                              onPressed: () => _showReceiveMessagesDialog(context, selectedRoom.id),
+                              onPressed: () => _showReceiveMessagesDialog(context, roomId),
                             ),
                           ),
                         ],
@@ -522,7 +522,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  selectedRoom?.name.toUpperCase() ?? 'AUCUNE SALLE',
+                                  authState.selectedRoom?.name.toUpperCase() ?? 'AUCUNE SALLE',
                                   style: MediCoreTypography.sectionHeader.copyWith(
                                     color: Colors.white,
                                     fontSize: 14,
@@ -541,11 +541,11 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                                   label: 'En attente consultation',
                                   count: waitingCount,
                                   color: const Color(0xFFF57C00), // Orange
-                                  onTap: selectedRoom != null ? () {
+                                  onTap: authState.selectedRoom != null ? () {
                                     showDialog(
                                       context: context,
                                       builder: (context) => WaitingQueueDialog(
-                                        room: selectedRoom,
+                                        room: authState.selectedRoom!,
                                         isDoctor: true,
                                       ),
                                     );
@@ -556,12 +556,12 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                                   label: 'Dilatations',
                                   count: dilatationCount,
                                   color: MediCoreColors.healthyGreen,
-                                  onTap: selectedRoom != null ? () {
+                                  onTap: authState.selectedRoom != null ? () {
                                     showDialog(
                                       context: context,
                                       builder: (context) => DilatationDialog(
-                                        roomIds: [selectedRoom.id],
-                                        singleRoomId: selectedRoom.id,
+                                        roomId: roomId,
+                                        singleRoomId: roomId,
                                         isDoctor: true,
                                       ),
                                     );
@@ -573,11 +573,11 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                                   count: urgentCount,
                                   color: MediCoreColors.criticalRed,
                                   isLast: true,
-                                  onTap: selectedRoom != null ? () {
+                                  onTap: authState.selectedRoom != null ? () {
                                     showDialog(
                                       context: context,
                                       builder: (context) => UrgencesDialog(
-                                        room: selectedRoom,
+                                        room: authState.selectedRoom!,
                                         isDoctor: true,
                                       ),
                                     );
@@ -673,10 +673,10 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
 
   Widget _buildPatientTable(List<Patient> patients) {
     final rows = patients.map((patient) {
-      final createdDate = DateFormat('dd/MM/yyyy').format(patient.createdAt);
+      final createdAt = DateTime.tryParse(patient.createdAt ?? '');
       return [
         patient.code.toString(),
-        createdDate,
+        createdAt != null ? DateFormat('dd/MM/yyyy').format(createdAt) : '',
         patient.lastName,
         patient.firstName,
         patient.currentAge?.toString() ?? '-',
