@@ -5,6 +5,7 @@ import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
 import '../data/waiting_queue_repository.dart';
 import 'waiting_queue_provider.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Dialog for sending a patient to a room's waiting queue
 class SendPatientDialog extends ConsumerStatefulWidget {

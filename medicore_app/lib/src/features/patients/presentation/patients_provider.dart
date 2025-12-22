@@ -4,6 +4,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_patients_repository.dart';
 import '../data/patients_repository.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Global refresh trigger for instant CRUD updates
 final _patientsRefreshController = StreamController<void>.broadcast();

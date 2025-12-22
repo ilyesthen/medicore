@@ -27,6 +27,7 @@ import '../../waiting_queue/presentation/dilatation_dialog.dart';
 import '../../rooms/presentation/rooms_provider.dart';
 import '../../appointments/presentation/appointments_dialog.dart';
 import '../../surgery_planning/presentation/surgery_planning_dialog.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Doctor/Assistant dashboard with enterprise messaging integration
 class DoctorDashboard extends ConsumerStatefulWidget {

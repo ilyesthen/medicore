@@ -13,6 +13,7 @@ import '../../messages/services/notification_service.dart';
 import '../data/waiting_queue_repository.dart';
 import 'waiting_queue_provider.dart';
 import 'waiting_queue_filters.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Dialog showing dilatation patients for nurse (from all rooms)
 class DilatationDialog extends ConsumerStatefulWidget {

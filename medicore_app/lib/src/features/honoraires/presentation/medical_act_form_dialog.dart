@@ -5,6 +5,7 @@ import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
 import 'medical_acts_provider.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Form dialog for adding/editing medical acts (Doctor only)
 class MedicalActFormDialog extends ConsumerStatefulWidget {

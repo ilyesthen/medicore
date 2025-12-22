@@ -3,6 +3,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_waiting_queue_repository.dart';
 import '../data/waiting_queue_repository.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Abstract interface for waiting queue operations
 abstract class IWaitingQueueRepository {

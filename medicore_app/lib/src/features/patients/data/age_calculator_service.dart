@@ -1,5 +1,6 @@
 import '../../../core/database/app_database.dart';
 import 'package:drift/drift.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Service to calculate and update patient ages based on creation date
 class AgeCalculatorService {

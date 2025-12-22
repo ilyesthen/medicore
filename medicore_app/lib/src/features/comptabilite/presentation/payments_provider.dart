@@ -4,6 +4,7 @@ import '../data/payments_repository.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Provider for the payments repository
 final paymentsRepositoryProvider = Provider<PaymentsRepository>((ref) {

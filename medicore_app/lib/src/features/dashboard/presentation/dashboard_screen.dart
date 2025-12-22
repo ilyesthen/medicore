@@ -4,6 +4,7 @@ import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/ui/cockpit_pane.dart';
 import '../../auth/presentation/auth_provider.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Main dashboard screen - shows after login
 class DashboardScreen extends ConsumerWidget {

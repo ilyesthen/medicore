@@ -1,5 +1,6 @@
 import '../../users/data/models/user_model.dart';
 import '../../users/presentation/users_provider.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Authentication Repository
 /// Handles login/logout with user system

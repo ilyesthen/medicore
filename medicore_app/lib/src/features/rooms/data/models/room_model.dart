@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import '../../../../core/generated/medicore.pb.dart';
 
 /// Room model - Medical/operational room in the facility
 class Room {

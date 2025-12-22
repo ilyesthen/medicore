@@ -6,6 +6,7 @@ import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart';
 import 'patients_provider.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Dialog for creating or editing a patient
 class PatientFormDialog extends ConsumerStatefulWidget {

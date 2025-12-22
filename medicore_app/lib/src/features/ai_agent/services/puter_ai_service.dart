@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../../core/generated/medicore.pb.dart';
 
 /// AI Service using Google Gemini API
 /// Configured as Expert Ophthalmologist Assistant with:

@@ -5,6 +5,7 @@ import '../data/models/template_model.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/api/remote_users_repository.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 export '../data/users_repository.dart';
 

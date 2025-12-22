@@ -5,6 +5,7 @@ import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_messages_repository.dart';
 import '../data/messages_repository.dart';
 import '../data/message_templates_repository.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Abstract interface for message operations
 abstract class IMessagesRepository {

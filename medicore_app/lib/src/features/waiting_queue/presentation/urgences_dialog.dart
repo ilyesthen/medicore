@@ -11,6 +11,7 @@ import '../../consultation/presentation/patient_consultation_page.dart';
 import '../../messages/services/notification_service.dart';
 import 'waiting_queue_provider.dart';
 import 'waiting_queue_filters.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Dialog showing urgent patients for a specific room
 class UrgencesDialog extends ConsumerStatefulWidget {

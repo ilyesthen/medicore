@@ -4,6 +4,7 @@ import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/database/app_database.dart' show Room;
 import 'rooms_provider.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Dialog for selecting a room on login
 class RoomSelectionDialog extends ConsumerStatefulWidget {

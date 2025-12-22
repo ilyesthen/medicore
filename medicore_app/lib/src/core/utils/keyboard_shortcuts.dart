@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/generated/medicore.pb.dart';
 
 /// Enterprise-grade keyboard shortcut handler
 /// F1: New Patient, F2: Receive Messages, F3: Send Message, F5: Comptabilité

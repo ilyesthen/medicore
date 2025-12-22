@@ -3,6 +3,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_rooms_repository.dart';
 import '../data/rooms_repository.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Abstract interface for room operations
 abstract class IRoomsRepository {

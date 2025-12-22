@@ -8,6 +8,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../rooms/presentation/room_presence_provider.dart';
 import '../../users/data/nurse_preferences_repository.dart';
 import '../../rooms/presentation/rooms_provider.dart' show roomsRepositoryProvider;
+import '../../../core/generated/medicore.pb.dart';
 
 /// Auth repository provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

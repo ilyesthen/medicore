@@ -8,6 +8,7 @@ import '../../patients/data/patients_repository.dart';
 import '../../patients/presentation/patients_provider.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../data/appointments_repository.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Appointments Dialog - View and manage patient appointments
 /// Works on both admin and client modes

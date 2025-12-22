@@ -17,6 +17,7 @@ import '../data/ordonnances_repository.dart';
 import '../data/medications_repository.dart';
 import '../../consultation/presentation/prescription_optique_dialog.dart';
 import '../../consultation/presentation/prescription_lentilles_dialog.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Ordonnance Page - 3 tabs with different document types
 class OrdonnancePage extends ConsumerStatefulWidget {

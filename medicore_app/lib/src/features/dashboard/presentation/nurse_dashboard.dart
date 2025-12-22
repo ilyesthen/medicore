@@ -30,6 +30,7 @@ import '../../waiting_queue/presentation/urgences_dialog.dart';
 import '../../waiting_queue/presentation/dilatation_dialog.dart';
 import '../../appointments/presentation/appointments_dialog.dart';
 import '../../surgery_planning/presentation/surgery_planning_dialog.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Nurse dashboard with enterprise 3-room messaging integration
 class NurseDashboard extends ConsumerStatefulWidget {

@@ -6,6 +6,7 @@ import '../../../core/ui/cockpit_input.dart';
 import '../../../core/ui/cockpit_button.dart';
 import '../../../core/database/app_database.dart' show Room;
 import 'rooms_provider.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Dialog for creating or editing a room
 class RoomFormDialog extends ConsumerStatefulWidget {

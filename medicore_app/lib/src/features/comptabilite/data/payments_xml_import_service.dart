@@ -3,6 +3,7 @@ import 'package:xml/xml.dart' as xml;
 import 'package:intl/intl.dart';
 import '../../../core/database/app_database.dart';
 import 'payments_repository.dart';
+import '../../../core/generated/medicore.pb.dart';
 
 /// Service for importing payments from XML file
 /// Handles the migration from the legacy WINDEV system
