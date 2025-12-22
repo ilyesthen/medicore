@@ -147,7 +147,6 @@ class RemotePatientsRepository {
         dateOfBirth: dateOfBirth?.toIso8601String(),
         address: address,
         phone: phoneNumber,
-        notes: otherInfo,
       );
       
       final realCode = await _client.createPatient(request);

@@ -1,5 +1,10 @@
 # Windows Build Fixes Applied
 
+## CRITICAL FIX (Latest) ✅
+**Added `as pb` import alias to protobuf imports** - This was causing ~30+ compilation errors
+- Fixed: `import '../generated/medicore.pb.dart' as pb;` in all 4 remote repositories
+- Fixed: Added missing `NursePreferencesRepository` import to nurse_dashboard.dart
+
 ## Critical Fixes Completed
 
 ### 1. Type System Corrections ✅

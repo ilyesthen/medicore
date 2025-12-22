@@ -121,7 +121,6 @@ class RemoteMessagesRepository {
         direction: direction,
         isRead: false,
         sentAt: DateTime.now().toIso8601String(),
-        readAt: '',
         patientCode: patientCode,
         patientName: patientName,
       );

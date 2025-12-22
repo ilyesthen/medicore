@@ -56,7 +56,7 @@ class RemoteWaitingQueueRepository {
   }) async {
     try {
       print('📤 [RemoteWaitingQueue] Adding patient $patientCode to room $roomId (age: $patientAge)');
-      final request = CreateWaitingPatientRequest(
+      final request = pb.CreateWaitingPatientRequest(
         patientCode: patientCode,
         patientFirstName: patientFirstName,
         patientLastName: patientLastName,
@@ -160,7 +160,7 @@ class RemoteWaitingQueueRepository {
       print('📤 [RemoteWaitingQueue] Adding dilatation patient $patientCode to room $roomId');
       final dilatationLabel = dilatationLabels[dilatationType] ?? dilatationType;
       
-      final request = CreateWaitingPatientRequest(
+      final request = pb.CreateWaitingPatientRequest(
         patientCode: patientCode,
         patientFirstName: patientFirstName,
         patientLastName: patientLastName,
@@ -271,7 +271,7 @@ class RemoteWaitingQueueRepository {
   Future<void> toggleChecked(int id) async {
     // Get current state, toggle, and update
     try {
-      final patient = GrpcWaitingPatient(id: id, isChecked: true);
+      final patient = pb.GrpcWaitingPatient(id: id, isChecked: true, patientCode: 0, patientFirstName: '', patientLastName: '', sentAt: '', roomId: '', roomName: '', motif: '', sentByUserId: '', sentByUserName: '');
       await _client.updateWaitingPatient(patient);
       // Force immediate refresh (don't wait for SSE)
       _forceRefreshAllRooms(null);
