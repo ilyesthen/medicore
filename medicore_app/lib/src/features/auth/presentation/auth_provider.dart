@@ -3,10 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/auth_repository.dart';
 import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';
-import '../../../core/database/app_database.dart' show Room;
 import '../../../core/constants/app_constants.dart';
 import '../../rooms/presentation/room_presence_provider.dart';
-import '../../users/data/nurse_preferences_repository.dart';
 import '../../rooms/presentation/rooms_provider.dart' show roomsRepositoryProvider;
 import '../../../core/generated/medicore.pb.dart';
 

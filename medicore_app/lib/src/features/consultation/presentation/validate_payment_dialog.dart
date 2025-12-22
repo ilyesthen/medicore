@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
-import '../../../core/database/app_database.dart' show MedicalAct;
 import '../../users/data/models/user_model.dart';
 import '../../comptabilite/presentation/payments_provider.dart';
 import '../../honoraires/presentation/medical_acts_provider.dart';

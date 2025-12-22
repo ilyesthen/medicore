@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
-import '../../../core/database/app_database.dart';
 import '../../../core/services/database_backup_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../users/presentation/user_management_screen.dart';

@@ -1,17 +1,14 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
-import '../../../core/database/app_database.dart';
 import '../../patients/data/age_calculator_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../messages/presentation/send_message_dialog.dart';
 import '../../messages/presentation/receive_messages_dialog.dart';
 import '../../comptabilite/presentation/comptabilite_dialog.dart';
 import '../../waiting_queue/presentation/waiting_queue_provider.dart';
-import '../../visits/data/visits_repository.dart';
 import '../../comptabilite/presentation/payments_provider.dart';
 import 'validate_payment_dialog.dart';
 import 'prescription_optique_dialog.dart';

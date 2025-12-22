@@ -1,6 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/database/app_database.dart';
-import '../data/payments_repository.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../users/presentation/users_provider.dart';
 import '../../users/data/models/user_model.dart';

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import '../database/app_database.dart';
 
 /// Automatic database backup service
 /// Creates backups every 5 minutes and on app close

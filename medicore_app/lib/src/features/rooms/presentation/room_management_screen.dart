@@ -5,7 +5,6 @@ import '../../../core/theme/medicore_typography.dart';
 import '../../../core/ui/cockpit_pane.dart';
 import '../../../core/ui/cockpit_button.dart';
 import '../../../core/ui/data_grid.dart';
-import '../../../core/database/app_database.dart' show Room;
 import 'rooms_provider.dart';
 import 'room_form_dialog.dart';
 import '../../../core/generated/medicore.pb.dart';

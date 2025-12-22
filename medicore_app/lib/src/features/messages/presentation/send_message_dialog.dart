@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
-import '../../../core/database/app_database.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../rooms/presentation/rooms_provider.dart';
 import 'messages_provider.dart';

@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/users_repository.dart';
 import '../data/models/user_model.dart';
 import '../data/models/template_model.dart';
 import '../../../core/api/grpc_client.dart';

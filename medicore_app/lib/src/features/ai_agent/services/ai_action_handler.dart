@@ -1,9 +1,4 @@
 import 'dart:convert';
-import '../../../core/database/app_database.dart';
-import '../../ordonnance/data/ordonnances_repository.dart';
-import '../../waiting_queue/data/waiting_queue_repository.dart';
-import '../../messages/data/messages_repository.dart';
-import 'package:drift/drift.dart';
 import '../../../core/generated/medicore.pb.dart';
 
 /// AI Action Handler - Middleware between AI output and Repositories

@@ -8,7 +8,6 @@ import 'package:path/path.dart' as p;
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
 import '../../../core/api/grpc_client.dart';
-import '../../../core/database/app_database.dart';
 import '../data/network_service.dart';
 import '../data/setup_provider.dart';
 

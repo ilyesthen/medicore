@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
-import '../../patients/data/patients_repository.dart';
 import '../../patients/data/xml_import_service.dart';
 
 /// Dialog for importing patients from XML

@@ -1,10 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
-import '../../../core/database/app_database.dart';
 import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_messages_repository.dart';
-import '../data/messages_repository.dart';
-import '../data/message_templates_repository.dart';
 import '../../../core/generated/medicore.pb.dart';
 
 /// Abstract interface for message operations

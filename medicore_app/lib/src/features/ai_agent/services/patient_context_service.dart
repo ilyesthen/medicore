@@ -1,9 +1,5 @@
 import 'dart:convert';
 import 'package:intl/intl.dart';
-import '../../../core/database/app_database.dart';
-import '../../patients/data/patients_repository.dart';
-import '../../visits/data/visits_repository.dart';
-import '../../ordonnance/data/ordonnances_repository.dart';
 import '../../../core/generated/medicore.pb.dart';
 
 /// Service to build comprehensive patient context for AI analysis

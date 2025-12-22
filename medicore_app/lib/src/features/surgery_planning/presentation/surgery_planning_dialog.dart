@@ -7,10 +7,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
-import '../../../core/database/app_database.dart';
 import '../../patients/presentation/patients_provider.dart';
 import '../../auth/presentation/auth_provider.dart';
-import '../data/surgery_plans_repository.dart';
 import '../../../core/generated/medicore.pb.dart';
 
 /// Surgery Planning Dialog - View and manage surgery schedules

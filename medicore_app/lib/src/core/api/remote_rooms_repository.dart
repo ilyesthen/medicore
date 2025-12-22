@@ -1,7 +1,6 @@
 import 'dart:async';
 import '../generated/medicore.pb.dart';
 import 'medicore_client.dart';
-import '../database/app_database.dart' show Room;
 import 'realtime_sync_service.dart';
 
 /// Remote Rooms Repository - Uses REST API to communicate with admin server
