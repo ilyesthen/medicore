@@ -292,7 +292,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     if (authState.user != null && authState.selectedRoom != null) {
       showDialog(context: context, builder: (_) => SendMessageDialog(
         preSelectedRoomId: authState.selectedRoom!.id.toString(),
-        patientCode: widget.patient.code.toString(),
+        patientCode: widget.patient.code,
         patientName: '${widget.patient.firstName} ${widget.patient.lastName}',
       ));
     }

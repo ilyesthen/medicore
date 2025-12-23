@@ -86,7 +86,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Supprimer la visite'),
-        content: Text('Voulez-vous vraiment supprimer la visite du ${DateFormat('dd/MM/yyyy').format(visit.visitDate)} ?'),
+        content: Text('Voulez-vous vraiment supprimer la visite du ${DateFormat('dd/MM/yyyy').format(visit.visitDate ?? DateTime.now())} ?'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           ElevatedButton(
@@ -249,7 +249,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
         builder: (context) => SendMessageDialog(
           preSelectedRoomId: selectedRoom.id.toString(),
           // Link patient to the message
-          patientCode: widget.patient.code.toString(),
+          patientCode: widget.patient.code,
           patientName: '${widget.patient.firstName} ${widget.patient.lastName}',
         ),
       );
