@@ -11,6 +11,7 @@ import '../../patients/presentation/patients_provider.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../../core/types/proto_types.dart';
 import 'surgery_provider.dart';
+import '../data/surgery_repository_stub.dart';
 
 /// Surgery Planning Dialog - View and manage surgery schedules
 /// Clinic name: Thaziri
@@ -156,7 +157,7 @@ class _SurgeryPlanningDialogState extends ConsumerState<SurgeryPlanningDialog> {
   
   Future<void> _updatePaymentStatus(SurgeryPlan plan) async {
     String? selectedStatus = plan.paymentStatus;
-    int? amountRemaining = plan.amountRemaining;
+    int? amountRemaining = plan.amountRemaining?.toInt();
     final amountController = TextEditingController(text: amountRemaining?.toString() ?? '');
     
     final result = await showDialog<Map<String, dynamic>>(
@@ -325,7 +326,7 @@ class _SurgeryPlanningDialogState extends ConsumerState<SurgeryPlanningDialog> {
                         onPressed: () async {
                           final picked = await showDatePicker(
                             context: context,
-                            initialDate: plan.surgeryDate.add(const Duration(days: 7)),
+                            initialDate: (plan.surgeryDate ?? DateTime.now()).add(const Duration(days: 7)),
                             firstDate: DateTime.now(),
                             lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
                           );
@@ -416,11 +417,7 @@ class _SurgeryPlanningDialogState extends ConsumerState<SurgeryPlanningDialog> {
       await repo.rescheduleSurgery(
         plan.id,
         result['date'] as DateTime,
-        surgeryHour: result['hour'] as String?,
-        surgeryType: result['surgery_type'] as String?,
-        eyeToOperate: result['eye'] as String?,
-        implantPower: result['implant_power'] as String?,
-        tarif: result['tarif'] as int?,
+        newHour: result['hour'] as String?,
       );
       _loadSurgeryPlans();
       
@@ -440,8 +437,8 @@ class _SurgeryPlanningDialogState extends ConsumerState<SurgeryPlanningDialog> {
     final implantController = TextEditingController(text: plan.implantPower ?? '');
     final tarifController = TextEditingController(text: plan.tarif?.toString() ?? '');
     final notesController = TextEditingController(text: plan.notes ?? '');
-    String surgeryType = plan.surgeryType;
-    String eye = plan.eyeToOperate;
+    String surgeryType = plan.surgeryType ?? 'Cataracte';
+    String eye = plan.eyeToOperate ?? 'OD';
     
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -673,8 +670,8 @@ class _SurgeryPlanningDialogState extends ConsumerState<SurgeryPlanningDialog> {
                       _pdfDataCell('${plan.patientLastName} ${plan.patientFirstName}'),
                       _pdfDataCell(plan.patientAge?.toString() ?? '-'),
                       _pdfDataCell(plan.patientPhone ?? '-'),
-                      _pdfDataCell(plan.surgeryType),
-                      _pdfDataCell(plan.eyeToOperate),
+                      _pdfDataCell(plan.surgeryType ?? '-'),
+                      _pdfDataCell(plan.eyeToOperate ?? '-'),
                       _pdfDataCell(plan.implantPower ?? '-'),
                     ],
                   )),
@@ -1188,8 +1185,8 @@ class _SurgeryPlanningDialogState extends ConsumerState<SurgeryPlanningDialog> {
                     _DataCell('${plan.patientLastName} ${plan.patientFirstName}', flex: 2),
                     _DataCell(plan.patientAge?.toString() ?? '-', flex: 1),
                     _DataCell(plan.patientPhone ?? '-', flex: 2),
-                    _DataCell(plan.surgeryType, flex: 2),
-                    _DataCell(plan.eyeToOperate, flex: 1),
+                    _DataCell(plan.surgeryType ?? '-', flex: 2),
+                    _DataCell(plan.eyeToOperate ?? '-', flex: 1),
                     _DataCell(plan.implantPower ?? '-', flex: 1),
                     _DataCell(plan.tarif != null ? '${plan.tarif} DA' : '-', flex: 1),
                     // Payment status
@@ -1201,18 +1198,18 @@ class _SurgeryPlanningDialogState extends ConsumerState<SurgeryPlanningDialog> {
                           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _getPaymentStatusColor(plan.paymentStatus).withOpacity(0.1),
+                            color: _getPaymentStatusColor(plan.paymentStatus ?? 'pending').withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _getPaymentStatusColor(plan.paymentStatus)),
+                            border: Border.all(color: _getPaymentStatusColor(plan.paymentStatus ?? 'pending')),
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                _getPaymentStatusLabel(plan.paymentStatus),
+                                _getPaymentStatusLabel(plan.paymentStatus ?? 'pending'),
                                 style: TextStyle(
                                   fontSize: 9,
-                                  color: _getPaymentStatusColor(plan.paymentStatus),
+                                  color: _getPaymentStatusColor(plan.paymentStatus ?? 'pending'),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

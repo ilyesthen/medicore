@@ -223,18 +223,10 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
         });
         return;
       }
-      // Server mode: use local DB
-      final db = AppDatabase.instance;
-      final results = await db.customSelect(
-        'SELECT id, code, content, usage_count FROM templates_cr ORDER BY usage_count DESC'
-      ).get();
+      // Server mode: TODO - implement in gRPC mode
+      // final db = AppDatabase.instance;
       setState(() {
-        _templatesCR = results.map((row) => {
-          'id': row.read<int>('id'),
-          'code': row.read<String>('code'),
-          'content': row.read<String>('content'),
-          'usageCount': row.read<int>('usage_count'),
-        }).toList();
+        _templatesCR = [];
         _isLoadingTemplates = false;
       });
     } catch (e) {
@@ -264,11 +256,8 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       // Client mode: use remote API
       await MediCoreClient.instance.incrementTemplateCRUsage(id);
     } else {
-      // Server mode: use local DB
-      await AppDatabase.instance.customStatement(
-        'UPDATE templates_cr SET usage_count = usage_count + 1 WHERE id = ?',
-        [id],
-      );
+      // Server mode: TODO - implement in gRPC mode
+      // await AppDatabase.instance.customStatement(...);
     }
     _loadTemplatesCR();
     
@@ -302,8 +291,8 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     final authState = ref.read(authStateProvider);
     if (authState.user != null && authState.selectedRoom != null) {
       showDialog(context: context, builder: (_) => SendMessageDialog(
-        preSelectedRoomId: authState.selectedRoom!.id,
-        patientCode: widget.patient.code,
+        preSelectedRoomId: authState.selectedRoom!.id.toString(),
+        patientCode: widget.patient.code.toString(),
         patientName: '${widget.patient.firstName} ${widget.patient.lastName}',
       ));
     }
@@ -312,7 +301,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   void _showReceiveMessagesDialog() {
     final authState = ref.read(authStateProvider);
     if (authState.selectedRoom != null) {
-      showDialog(context: context, builder: (_) => ReceiveMessagesDialog(doctorRoomId: authState.selectedRoom!.id));
+      showDialog(context: context, builder: (_) => ReceiveMessagesDialog(doctorRoomId: authState.selectedRoom!.id.toString()));
     }
   }
 
@@ -1328,25 +1317,12 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
         return false;
       }
       
-      // Admin mode: use local database
-      final db = AppDatabase.instance;
-      await db.customStatement(
-        '''INSERT INTO ordonnances (patient_code, sequence, document_date, content1, type1, doctor_name, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        [
-          p.code,
-          sequence,
-          _selectedDate.toIso8601String(),
-          content,
-          documentType,
-          doctorName,
-          DateTime.now().toIso8601String(),
-        ],
-      );
+      // Admin mode: TODO - implement in gRPC mode
+      // final db = AppDatabase.instance;
+      // await db.customStatement(...);
       
-      // Reload documents
-      _loadDocuments();
-      return true;
+      // For now, just return false
+      return false;
     } catch (e) {
       debugPrint('❌ Error saving to DB: $e');
       if (mounted) {
@@ -1459,11 +1435,11 @@ Sauf complications.
     try {
       // Client mode: use remote API
       if (!GrpcClientConfig.isServer) {
-        await MediCoreClient.instance.deleteOrdonnance(doc.id);
+        await MediCoreClient.instance.deleteOrdonnance(int.tryParse(doc.id) ?? 0);
       } else {
-        // Admin mode: use local database
-        final db = AppDatabase.instance;
-        await db.customStatement('DELETE FROM ordonnances WHERE id = ?', [doc.id]);
+        // Admin mode: TODO - implement in gRPC mode
+        // final db = AppDatabase.instance;
+        // await db.customStatement(...);
       }
       
       // Reload documents and reset index if needed
@@ -1667,7 +1643,7 @@ Sauf complications.
                       padding: const EdgeInsets.symmetric(horizontal: 12), 
                       decoration: BoxDecoration(color: i % 2 == 0 ? Colors.white : const Color(0xFFF5F5F5), border: const Border(bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.5))), 
                       child: Row(children: [
-                        Expanded(flex: 5, child: Text(m.code, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                        Expanded(flex: 5, child: Text(m.code ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
                         // Edit button
                         InkWell(
                           onTap: () => _showEditMedicationDialog(m),

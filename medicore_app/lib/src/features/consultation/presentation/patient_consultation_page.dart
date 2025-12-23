@@ -247,9 +247,9 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       showDialog(
         context: context,
         builder: (context) => SendMessageDialog(
-          preSelectedRoomId: selectedRoom.id,
+          preSelectedRoomId: selectedRoom.id.toString(),
           // Link patient to the message
-          patientCode: widget.patient.code,
+          patientCode: widget.patient.code.toString(),
           patientName: '${widget.patient.firstName} ${widget.patient.lastName}',
         ),
       );
@@ -264,7 +264,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       showDialog(
         context: context,
         builder: (context) => ReceiveMessagesDialog(
-          doctorRoomId: selectedRoom.id,
+          doctorRoomId: selectedRoom.id.toString(),
         ),
       );
     }
@@ -691,7 +691,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
         patientBirthDate: widget.patient.dateOfBirth != null ? DateTime.tryParse(widget.patient.dateOfBirth!) : null,
         patientAge: widget.patient.age,
         patientCreatedAt: widget.patient.createdAt != null ? DateTime.tryParse(widget.patient.createdAt!) : null,
-        roomId: selectedRoom.id,
+        roomId: selectedRoom.id.toString(),
         roomName: selectedRoom.name,
         dilatationType: dilatationType,
         sentByUserId: authState.user?.id ?? '',
@@ -1025,7 +1025,7 @@ class _VisitRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('dd/MM/yyyy').format(visit.visitDate);
+    final dateStr = DateFormat('dd/MM/yyyy').format(visit.visitDate ?? DateTime.now());
     return GestureDetector(
       onDoubleTap: onDoubleTap,
       onSecondaryTap: onRightClick,
