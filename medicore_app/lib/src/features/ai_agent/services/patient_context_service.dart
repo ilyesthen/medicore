@@ -91,7 +91,7 @@ class PatientContextService {
       'barcode': patient.barcode ?? '',
       'created_at': patient.createdAt ?? '',
       'age': patient.age,
-      'dateNaissance': patient.dateOfBirth != null ? dateFormat.format(patient.dateOfBirth!) : null,
+      'dateNaissance': patient.dateOfBirth,
       'notes': patient.notes,
     };
     
@@ -132,7 +132,7 @@ class PatientContextService {
   /// Convert a Visit to clean JSON with explicit field names
   Map<String, dynamic> _visitToJson(Visit visit, DateFormat dateFormat) {
     final json = <String, dynamic>{
-      'date': dateFormat.format(visit.visitDate),
+      'date': visit.visitDate != null ? dateFormat.format(visit.visitDate!) : 'N/A',
       'medecin': visit.doctorName,
     };
     
@@ -208,7 +208,7 @@ class PatientContextService {
     if (doc.referredBy?.isNotEmpty ?? false) {
       json['adressePar'] = doc.referredBy;
     }
-    if (doc.content.isNotEmpty) {
+    if (doc.content?.isNotEmpty ?? false) {
       json['contenu'] = doc.content;
     }
     

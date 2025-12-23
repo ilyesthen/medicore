@@ -732,12 +732,12 @@ class _AppointmentsDialogState extends ConsumerState<AppointmentsDialog> {
               ),
               const SizedBox(width: 16),
               Text(
-                '${_appointments.where((a) => a.wasAdded).length} ajoutés',
+                '${_appointments.where((a) => a.wasAdded ?? false).length} ajoutés',
                 style: const TextStyle(color: Colors.green),
               ),
               const SizedBox(width: 16),
               Text(
-                '${_appointments.where((a) => !a.wasAdded).length} en attente',
+                '${_appointments.where((a) => !(a.wasAdded ?? false)).length} en attente',
                 style: const TextStyle(color: Colors.orange),
               ),
             ],

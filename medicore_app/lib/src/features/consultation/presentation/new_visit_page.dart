@@ -344,7 +344,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
     }
     try {
       final repository = ref.read(waitingQueueRepositoryProvider);
-      await repository.addToDilatation(patientCode: widget.patient.code, patientFirstName: widget.patient.firstName, patientLastName: widget.patient.lastName, patientBirthDate: widget.patient.dateOfBirth, patientAge: widget.patient.age, patientCreatedAt: widget.patient.createdAt, roomId: selectedRoom.id, roomName: selectedRoom.name, dilatationType: dilatationType, sentByUserId: authState.user?.id ?? '', sentByUserName: authState.user?.name ?? '');
+      await repository.addToDilatation(patientCode: widget.patient.code, patientFirstName: widget.patient.firstName, patientLastName: widget.patient.lastName, patientBirthDate: widget.patient.dateOfBirth != null ? DateTime.tryParse(widget.patient.dateOfBirth!) : null, patientAge: widget.patient.age, patientCreatedAt: widget.patient.createdAt != null ? DateTime.tryParse(widget.patient.createdAt!) : null, roomId: selectedRoom.id.toString(), roomName: selectedRoom.name, dilatationType: dilatationType, sentByUserId: authState.user?.id ?? '', sentByUserName: authState.user?.name ?? '');
       final label = {'skiacol': 'Dilatation sous Skiacol', 'od': 'Dilatation OD', 'og': 'Dilatation OG', 'odg': 'Dilatation ODG'}[dilatationType] ?? dilatationType;
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Row(children: [const Icon(Icons.opacity, color: Colors.white), const SizedBox(width: 8), Expanded(child: Text('💊 $label envoyé pour ${widget.patient.firstName}'))]), backgroundColor: MediCoreColors.healthyGreen));
     } catch (e) {
@@ -514,7 +514,7 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
               const SizedBox(width: 8),
               _CompactButton(icon: Icons.blur_circular, label: 'LENTILLES', onPressed: _showPrescriptionLentilles),
               const SizedBox(width: 8),
-              _CompactButton(icon: Icons.description_outlined, label: 'ORDO', onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrdonnancePage(patient: widget.patient, roomId: authState.selectedRoom?.id.toString(), senderId: authState.user?.id, senderName: authState.user?.name)))),
+              _CompactButton(icon: Icons.description_outlined, label: 'ORDO', onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrdonnancePage(patient: widget.patient)))),
               const SizedBox(width: 16),
               Container(width: 1, height: 32, color: MediCoreColors.steelOutline),
               const SizedBox(width: 16),

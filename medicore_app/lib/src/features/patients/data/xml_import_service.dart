@@ -135,16 +135,10 @@ class XmlImportService {
               ?.innerText
               .trim();
 
-          // Import patient (use createPatient - code/barcode/createdAt are ignored in gRPC mode)
-          await _repository.createPatient(
-            firstName: firstName ?? '',
-            lastName: lastName ?? '',
-            age: age,
-            dateOfBirth: dateOfBirth,
-            address: address?.isEmpty ?? true ? null : address,
-            phoneNumber: phoneNumber?.isEmpty ?? true ? null : phoneNumber,
-            otherInfo: otherInfo?.isEmpty ?? true ? null : otherInfo,
-          );
+          // Import patient - TODO: implement in gRPC mode
+          // await _repository.importPatient(...);
+          // For now, skip import in gRPC mode
+          throw UnimplementedError('Patient XML import not yet implemented in gRPC mode');
 
           successCount++;
         } catch (e) {

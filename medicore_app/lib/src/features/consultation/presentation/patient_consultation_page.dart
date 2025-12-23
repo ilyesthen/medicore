@@ -20,6 +20,7 @@ import 'prescription_lentilles_dialog.dart';
 import 'historic_payments_dialog.dart';
 import '../../ordonnance/presentation/ordonnance_page.dart';
 import '../../../core/types/proto_types.dart';
+import 'visits_provider.dart';
 
 /// Patient Consultation Page - The heart of the application
 /// Opens when double-clicking on a patient from the dashboard
@@ -98,9 +99,8 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     );
     
     if (confirmed == true) {
-      // TODO: Implement visit deletion in gRPC mode
-      // final repository = ref.read(visitsRepositoryProvider);
-      // await repository.deleteVisit(visit.id);
+      final repository = ref.read(visitsRepositoryProvider);
+      await repository.deleteVisit(visit.id);
       
       // Refresh visits list and count
       ref.invalidate(patientVisitsProvider(widget.patient.code));
@@ -247,7 +247,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       showDialog(
         context: context,
         builder: (context) => SendMessageDialog(
-          preSelectedRoomId: selectedRoom.id.toString(),
+          preSelectedRoomId: selectedRoom.id,
           // Link patient to the message
           patientCode: widget.patient.code,
           patientName: '${widget.patient.firstName} ${widget.patient.lastName}',
@@ -264,7 +264,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       showDialog(
         context: context,
         builder: (context) => ReceiveMessagesDialog(
-          doctorRoomId: selectedRoom.id.toString(),
+          doctorRoomId: selectedRoom.id,
         ),
       );
     }
@@ -691,7 +691,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
         patientBirthDate: widget.patient.dateOfBirth != null ? DateTime.tryParse(widget.patient.dateOfBirth!) : null,
         patientAge: widget.patient.age,
         patientCreatedAt: widget.patient.createdAt != null ? DateTime.tryParse(widget.patient.createdAt!) : null,
-        roomId: selectedRoom.id.toString(),
+        roomId: selectedRoom.id,
         roomName: selectedRoom.name,
         dilatationType: dilatationType,
         sentByUserId: authState.user?.id ?? '',
@@ -1025,7 +1025,7 @@ class _VisitRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('dd/MM/yyyy').format(visit.visitDate ?? DateTime.now());
+    final dateStr = DateFormat('dd/MM/yyyy').format(visit.visitDate);
     return GestureDetector(
       onDoubleTap: onDoubleTap,
       onSecondaryTap: onRightClick,
@@ -1042,7 +1042,7 @@ class _VisitRow extends StatelessWidget {
             _VisitCell('$index', flex: 1),
             _VisitCell(dateStr, flex: 2),
             _VisitCell(visit.motif ?? '-', flex: 5),
-            _VisitCell(visit.doctorName, flex: 2),
+            _VisitCell(visit.doctorName ?? '-', flex: 2),
           ],
         ),
       ),

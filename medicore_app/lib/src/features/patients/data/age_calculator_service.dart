@@ -62,9 +62,9 @@ class AgeCalculatorService {
     final dateOfBirth = patient.dateOfBirth != null ? DateTime.tryParse(patient.dateOfBirth!) : null;
     final createdAt = patient.createdAt != null ? DateTime.tryParse(patient.createdAt!) : null;
     final currentAge = calculateCurrentAge(
-      dateOfBirth: dateOfBirth,
+      dateOfBirth: dateOfBirth ?? DateTime(1900),
       storedAge: patient.age,
-      createdAt: createdAt,
+      createdAt: createdAt ?? DateTime.now(),
     );
     
     return Patient(
@@ -91,9 +91,9 @@ extension PatientAgeExtension on Patient {
     final dob = dateOfBirth != null ? DateTime.tryParse(dateOfBirth!) : null;
     final created = createdAt != null ? DateTime.tryParse(createdAt!) : null;
     return AgeCalculatorService.calculateCurrentAge(
-      dateOfBirth: dob,
+      dateOfBirth: dob ?? DateTime(1900),
       storedAge: age,
-      createdAt: created,
+      createdAt: created ?? DateTime.now(),
     );
   }
 }
