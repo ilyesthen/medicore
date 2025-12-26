@@ -99,10 +99,26 @@ class _AppInitializerState extends State<AppInitializer> {
       // Check if setup has been completed
       final setupComplete = prefs.getBool('setup_complete') ?? false;
       final serverIp = prefs.getString('server_ip');
+      final isServer = prefs.getBool('is_server') ?? false;
+      
+      // CRITICAL: If app is in ADMIN/server mode, force reset to setup
+      // The app should NEVER be in server mode - it should connect to REST API
+      if (isServer) {
+        print('⚠️ App is in ADMIN mode - forcing reset to CLIENT setup');
+        await _forceResetToClientMode(prefs);
+        setState(() {
+          _setupComplete = false;
+          _isLoading = false;
+        });
+        return;
+      }
       
       if (setupComplete && serverIp != null && serverIp.isNotEmpty) {
         // Configure client with saved server
         GrpcClientConfig.setServerHost(serverIp);
+        GrpcClientConfig.setServerMode(false);
+        
+        print('✅ App configured as CLIENT connecting to: $serverIp');
         
         setState(() {
           _setupComplete = true;
@@ -121,6 +137,17 @@ class _AppInitializerState extends State<AppInitializer> {
         _isLoading = false;
       });
     }
+  }
+  
+  /// Force reset app from ADMIN mode to CLIENT mode
+  Future<void> _forceResetToClientMode(SharedPreferences prefs) async {
+    print('🔄 Resetting app configuration...');
+    // Clear all setup-related preferences
+    await prefs.remove('setup_complete');
+    await prefs.remove('is_server');
+    await prefs.remove('server_name');
+    // Keep server_ip in case it's useful, but mark as not complete
+    print('✅ Reset complete - app will show setup wizard');
   }
 
   @override
@@ -150,22 +177,31 @@ class _AppInitializerState extends State<AppInitializer> {
 
     if (!_setupComplete) {
       return SetupWizardSimplified(
-        onComplete: () {
-          setState(() {
-            _setupComplete = true;
-          });
+        onComplete: () async {
+          // Reload setup status after wizard completes
+          await _checkSetup();
         },
       );
     }
 
-    // Setup complete - show main app
-    return const AppRouter();
+    // Setup complete - show main app with reset option
+    return AppRouter(
+      onResetRequested: () async {
+        final prefs = await SharedPreferences.getInstance();
+        await _forceResetToClientMode(prefs);
+        setState(() {
+          _setupComplete = false;
+        });
+      },
+    );
   }
 }
 
 /// Routes between login and main app
 class AppRouter extends ConsumerWidget {
-  const AppRouter({super.key});
+  final VoidCallback? onResetRequested;
+  
+  const AppRouter({super.key, this.onResetRequested});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

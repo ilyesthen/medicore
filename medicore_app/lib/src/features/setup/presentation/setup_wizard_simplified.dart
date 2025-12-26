@@ -27,7 +27,7 @@ class _SetupWizardSimplifiedState extends State<SetupWizardSimplified> {
   bool _scanning = false;
   
   // Manual server entry
-  final _serverIpController = TextEditingController();
+  final _serverIpController = TextEditingController(text: '192.168.1.5');
   String? _selectedServerIp;
   
   // Connection test
@@ -794,22 +794,31 @@ class _SetupWizardSimplifiedState extends State<SetupWizardSimplified> {
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      // Save configuration (client mode only)
+      // CRITICAL: Save as CLIENT mode (NOT admin/server mode)
+      await prefs.setBool('is_server', false);  // MUST be false for REST API client
       await prefs.setString('mode', 'client');
       await prefs.setString('server_ip', _selectedServerIp!);
+      await prefs.setInt('server_port', 50052);
+      await prefs.setString('server_url', 'http://$_selectedServerIp:50052');
       await prefs.setBool('setup_complete', true);
       await prefs.setString('app_version', '5.0.0');
+      
+      print('✅ Saved configuration:');
+      print('   - Mode: CLIENT (is_server=false)');
+      print('   - Server IP: $_selectedServerIp');
+      print('   - Server URL: http://$_selectedServerIp:50052');
 
-      // Configure GrpcClient
+      // Configure GrpcClient as CLIENT
       GrpcClientConfig.setServerHost(_selectedServerIp!);
+      GrpcClientConfig.setServerMode(false);  // CLIENT mode
 
       setState(() {
-        _status = '✅ Configuration saved!';
+        _status = '✅ Configuration saved as CLIENT mode!';
         _isWorking = false;
       });
 
       // Complete setup
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 800));
       widget.onComplete();
     } catch (e) {
       setState(() {
