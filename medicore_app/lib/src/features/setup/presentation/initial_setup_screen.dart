@@ -276,10 +276,15 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
         return;
       }
       
+      // Build REST API base URL
+      final baseUrl = 'http://${server.ip}:${server.port}';
+      
       // Save client configuration
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_server', false);
       await prefs.setString('server_ip', server.ip);
+      await prefs.setInt('server_port', server.port);
+      await prefs.setString('server_url', baseUrl);
       await prefs.setString('server_name', server.name);
       await prefs.setBool('setup_complete', true);
       
@@ -287,9 +292,9 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
       GrpcClientConfig.setServerMode(false);
       GrpcClientConfig.setServerHost(server.ip);
       
-      setState(() => _statusMessage = 'Connecté à ${server.name}\nBase de données partagée');
+      setState(() => _statusMessage = 'Connecté à ${server.name}\nURL: $baseUrl');
       
-      await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 2));
       widget.onSetupComplete();
       
     } catch (e) {
@@ -550,6 +555,7 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
 
   void _showClientDialog() {
     _scanForServers();
+    final manualIpController = TextEditingController(text: '192.168.1.5');
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -564,8 +570,8 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
             const Text('Connexion Client'),
           ]),
           content: SizedBox(
-            width: 400,
-            height: 300,
+            width: 450,
+            height: 400,
             child: Column(children: [
               // Scan button
               ElevatedButton.icon(
@@ -578,6 +584,58 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
                     : const Icon(Icons.refresh),
                 label: Text(_isScanning ? 'Recherche...' : 'Rechercher les serveurs'),
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1565C0)),
+              ),
+              const SizedBox(height: 16),
+              // Manual IP entry
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Column(children: [
+                  Row(children: [
+                    Icon(Icons.edit, size: 16, color: Colors.orange.shade700),
+                    const SizedBox(width: 8),
+                    Text('Connexion manuelle', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.orange.shade900)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: manualIpController,
+                        decoration: const InputDecoration(
+                          hintText: '192.168.1.5',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          border: OutlineInputBorder(),
+                        ),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        final ip = manualIpController.text.trim();
+                        if (ip.isNotEmpty) {
+                          Navigator.pop(ctx);
+                          _connectToServer(ServerInfo(
+                            name: 'MediCore Server',
+                            ip: ip,
+                            port: 50052,
+                            version: '1.0.0',
+                          ));
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange.shade700,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      child: const Text('Connecter', style: TextStyle(fontSize: 12)),
+                    ),
+                  ]),
+                ]),
               ),
               const SizedBox(height: 16),
               // Server list
@@ -623,7 +681,13 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen> {
             ]),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+            TextButton(
+              onPressed: () {
+                manualIpController.dispose();
+                Navigator.pop(ctx);
+              },
+              child: const Text('Annuler'),
+            ),
           ],
         ),
       ),

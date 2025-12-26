@@ -2,10 +2,12 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:http/http.dart' as http;
+
 /// Network service for LAN server discovery and communication
 class NetworkService {
   static const int broadcastPort = 45678;
-  static const int serverPort = 50051; // gRPC port
+  static const int serverPort = 50052; // REST API port
   static RawDatagramSocket? _broadcastSocket;
   static Timer? _broadcastTimer;
 
@@ -183,28 +185,66 @@ class NetworkService {
   /// Check if a specific IP has a MediCore server
   static Future<ServerInfo?> _checkServer(String ip) async {
     try {
-      final socket = await Socket.connect(ip, serverPort, timeout: const Duration(milliseconds: 500));
-      socket.destroy();
-      
-      // If connection succeeded, it's likely our server
-      return ServerInfo(
-        name: 'MediCore Server',
-        ip: ip,
-        port: serverPort,
-        version: '1.0.0',
+      // Test REST API health endpoint
+      final url = Uri.parse('http://$ip:$serverPort/api/health');
+      final response = await http.get(url).timeout(
+        const Duration(milliseconds: 800),
+        onTimeout: () => http.Response('timeout', 408),
       );
+      
+      if (response.statusCode == 200) {
+        // Parse response to get server info
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final patientCount = data['patients'] ?? 0;
+          return ServerInfo(
+            name: 'MediCore Server ($patientCount patients)',
+            ip: ip,
+            port: serverPort,
+            version: '1.0.0',
+          );
+        } catch (_) {
+          // If parsing fails, still return server info
+          return ServerInfo(
+            name: 'MediCore Server',
+            ip: ip,
+            port: serverPort,
+            version: '1.0.0',
+          );
+        }
+      }
+      return null;
     } catch (e) {
       return null;
     }
   }
 
-  /// Test connection to a server
+  /// Test connection to a server using REST API
   static Future<bool> testConnection(String ip, int port) async {
     try {
-      final socket = await Socket.connect(ip, port, timeout: const Duration(seconds: 2));
-      socket.destroy();
-      return true;
+      final url = Uri.parse('http://$ip:$port/api/health');
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => http.Response('timeout', 408),
+      );
+      return response.statusCode == 200;
     } catch (e) {
+      print('Connection test failed for $ip:$port - $e');
+      return false;
+    }
+  }
+  
+  /// Test connection with full URL
+  static Future<bool> testConnectionUrl(String baseUrl) async {
+    try {
+      final url = Uri.parse('$baseUrl/api/health');
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => http.Response('timeout', 408),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Connection test failed for $baseUrl - $e');
       return false;
     }
   }

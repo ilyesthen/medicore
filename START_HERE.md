@@ -136,6 +136,46 @@ Every single function in the app:
 
 ---
 
+## 📚 DOCUMENTATION GUIDES
+
+**Choose the guide that fits your needs:**
+
+1. **`SIMPLE_SETUP_GUIDE.md`** ⭐ **START HERE!**
+   - Quick and easy
+   - Just the essentials
+   - 5 steps for server, 2 steps for clients
+   - Perfect if you want to get started fast
+
+2. **`SERVER_SETUP_GUIDE.md`** 📖
+   - Complete step-by-step instructions
+   - Detailed explanations
+   - Troubleshooting section
+   - Auto-discovery explained
+   - Perfect for detailed setup
+
+3. **`SETUP_CHECKLIST.md`** ✅
+   - Printable checklist
+   - Check off each step
+   - Track progress
+   - Keep for reference
+   - Perfect for organized setup
+
+4. **`ARCHITECTURE_DIAGRAM.md`** 🏗️
+   - How everything works
+   - Visual diagrams
+   - Network flow
+   - Data architecture
+   - Perfect for understanding the system
+
+5. **`README_PRODUCTION_DEPLOYMENT.md`** 🚀
+   - Full deployment guide
+   - Production best practices
+   - Security notes
+   - Maintenance schedule
+   - Perfect for complete deployment
+
+---
+
 ## 🚀 SUMMARY
 
 **Your database:** `/Applications/eye/medicore_database_COMPLETE.sql` ✅  
@@ -145,7 +185,7 @@ Every single function in the app:
 **Auto-discovery:** Yes ✅  
 **No local database:** Confirmed ✅  
 
-**Read `README_PRODUCTION_DEPLOYMENT.md` for detailed instructions!**
+**Read `SIMPLE_SETUP_GUIDE.md` to get started quickly!**
 
 ---
 
