@@ -4,13 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
-import '../../../core/database/app_database.dart';
+import '../../patients/data/age_calculator_service.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../messages/presentation/send_message_dialog.dart';
 import '../../messages/presentation/receive_messages_dialog.dart';
 import '../../comptabilite/presentation/comptabilite_dialog.dart';
 import '../../comptabilite/presentation/payments_provider.dart';
-import '../../visits/data/visits_repository.dart';
 import '../../waiting_queue/presentation/waiting_queue_provider.dart';
 import '../../patients/presentation/patient_form_dialog.dart';
 import '../../patients/presentation/patients_provider.dart';
@@ -20,6 +19,8 @@ import 'prescription_optique_dialog.dart';
 import 'prescription_lentilles_dialog.dart';
 import 'historic_payments_dialog.dart';
 import '../../ordonnance/presentation/ordonnance_page.dart';
+import '../../../core/types/proto_types.dart';
+import 'visits_provider.dart';
 
 /// Patient Consultation Page - The heart of the application
 /// Opens when double-clicking on a patient from the dashboard
@@ -85,7 +86,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Supprimer la visite'),
-        content: Text('Voulez-vous vraiment supprimer la visite du ${DateFormat('dd/MM/yyyy').format(visit.visitDate)} ?'),
+        content: Text('Voulez-vous vraiment supprimer la visite du ${DateFormat('dd/MM/yyyy').format(visit.visitDate ?? DateTime.now())} ?'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           ElevatedButton(
@@ -210,7 +211,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     final patientName = '${widget.patient.firstName} ${widget.patient.lastName}';
     final patientCode = widget.patient.code.toString();
     final barcode = widget.patient.barcode;
-    final age = widget.patient.age?.toString();
+    final age = widget.patient.currentAge?.toString();
     showDialog(
       context: context,
       builder: (context) => PrescriptionOptiqueDialog(
@@ -228,7 +229,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
     final patientName = '${widget.patient.firstName} ${widget.patient.lastName}';
     final patientCode = widget.patient.code.toString();
     final barcode = widget.patient.barcode;
-    final age = widget.patient.age?.toString();
+    final age = widget.patient.currentAge?.toString();
     showDialog(
       context: context,
       builder: (context) => PrescriptionLentillesDialog(
@@ -246,7 +247,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       showDialog(
         context: context,
         builder: (context) => SendMessageDialog(
-          preSelectedRoomId: selectedRoom.id,
+          preSelectedRoomId: selectedRoom.id.toString(),
           // Link patient to the message
           patientCode: widget.patient.code,
           patientName: '${widget.patient.firstName} ${widget.patient.lastName}',
@@ -263,7 +264,7 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
       showDialog(
         context: context,
         builder: (context) => ReceiveMessagesDialog(
-          doctorRoomId: selectedRoom.id,
+          doctorRoomId: selectedRoom.id.toString(),
         ),
       );
     }
@@ -394,10 +395,10 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
                         const SizedBox(width: 32),
                         
                         // Age
-                        if (patient.age != null) ...[
+                        if (patient.currentAge != null) ...[
                           _InfoChip(
                             icon: Icons.cake_outlined,
-                            label: '${patient.age} ans',
+                            label: '${patient.currentAge} ans',
                           ),
                           const SizedBox(width: 16),
                         ],
@@ -687,9 +688,10 @@ class _PatientConsultationPageState extends ConsumerState<PatientConsultationPag
         patientCode: widget.patient.code,
         patientFirstName: widget.patient.firstName,
         patientLastName: widget.patient.lastName,
-        patientBirthDate: widget.patient.dateOfBirth,
+        patientBirthDate: widget.patient.dateOfBirth != null ? DateTime.tryParse(widget.patient.dateOfBirth!) : null,
         patientAge: widget.patient.age,
-        roomId: selectedRoom.id,
+        patientCreatedAt: widget.patient.createdAt != null ? DateTime.tryParse(widget.patient.createdAt!) : null,
+        roomId: selectedRoom.id.toString(),
         roomName: selectedRoom.name,
         dilatationType: dilatationType,
         sentByUserId: authState.user?.id ?? '',
@@ -946,6 +948,7 @@ class _PastVisitsSection extends ConsumerWidget {
                       _TableHeader('N', flex: 1),
                       _TableHeader('DATE', flex: 2),
                       _TableHeader('MOTIF DE CONSULTATION', flex: 5),
+                      _TableHeader('ADDITION', flex: 2),
                       _TableHeader('DOCTEUR', flex: 2),
                     ],
                   ),
@@ -1023,7 +1026,7 @@ class _VisitRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('dd/MM/yyyy').format(visit.visitDate);
+    final dateStr = DateFormat('dd/MM/yyyy').format(visit.visitDate ?? DateTime.now());
     return GestureDetector(
       onDoubleTap: onDoubleTap,
       onSecondaryTap: onRightClick,
@@ -1040,7 +1043,8 @@ class _VisitRow extends StatelessWidget {
             _VisitCell('$index', flex: 1),
             _VisitCell(dateStr, flex: 2),
             _VisitCell(visit.motif ?? '-', flex: 5),
-            _VisitCell(visit.doctorName, flex: 2),
+            _VisitCell(visit.addition ?? '-', flex: 2),
+            _VisitCell(visit.doctorName ?? '-', flex: 2),
           ],
         ),
       ),
@@ -1060,7 +1064,7 @@ class _VisitCell extends StatelessWidget {
       flex: flex,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(text, style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+        child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
       ),
     );
   }
@@ -1340,7 +1344,7 @@ class _FieldBig extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: labelTextColor,
               ),
@@ -1354,8 +1358,8 @@ class _FieldBig extends StatelessWidget {
               child: Text(
                 displayValue,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: displayValue.isNotEmpty ? FontWeight.w500 : FontWeight.normal,
+                  fontSize: 16,
+                  fontWeight: displayValue.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
                   color: MediCoreColors.deepNavy,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -1403,7 +1407,7 @@ class _NotesField extends StatelessWidget {
               children: [
                 Icon(Icons.edit_note, size: 12, color: Color(0xFFF57C00)),
                 SizedBox(width: 4),
-                Text('NOTES', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFFF57C00), letterSpacing: 0.5)),
+                Text('NOTES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFF57C00), letterSpacing: 0.5)),
               ],
             ),
           ),
@@ -1412,7 +1416,7 @@ class _NotesField extends StatelessWidget {
               padding: const EdgeInsets.all(6),
               child: Text(
                 value ?? '',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF424242)),
+                style: const TextStyle(fontSize: 16, color: Color(0xFF424242), fontWeight: FontWeight.w500),
                 overflow: TextOverflow.fade,
               ),
             ),

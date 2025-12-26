@@ -455,10 +455,10 @@ class _NewVisitPageState extends ConsumerState<NewVisitPage> {
       child: Scaffold(
         backgroundColor: MediCoreColors.canvasGrey,
         body: Column(children: [
-          // TOP BAR
+          // TOP BAR - Different color to distinguish from Past Visits page
           Container(
             height: 70,
-            decoration: const BoxDecoration(color: MediCoreColors.deepNavy, border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline, width: 2))),
+            decoration: const BoxDecoration(color: MediCoreColors.warningOrange, border: Border(bottom: BorderSide(color: MediCoreColors.steelOutline, width: 2))), // Warning Orange to indicate NEW VISIT in progress
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(children: [
               Container(

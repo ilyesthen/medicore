@@ -74,6 +74,9 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
   // Templates CR from DB (only for Comptes tab)
   List<Map<String, dynamic>> _templatesCR = [];
   bool _isLoadingTemplates = true;
+  
+  // Print without date option
+  bool _printWithoutDate = false;
 
   static const bilanTypes = [
     'TOUS',  // Shows all medications without filtering
@@ -1014,7 +1017,18 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: const Color(0xFFE8F5E9).withOpacity(0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
-      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        // Print without date checkbox
+        Row(children: [
+          Checkbox(
+            value: _printWithoutDate,
+            onChanged: (value) => setState(() => _printWithoutDate = value ?? false),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 4),
+          const Text('Imprimer sans date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+        ]),
         // Download button
         Material(
           color: const Color(0xFF1565C0),
@@ -1266,7 +1280,20 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: const Color(0xFFFFF3E0).withOpacity(0.5), border: const Border(top: BorderSide(color: MediCoreColors.steelOutline)), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(7), bottomRight: Radius.circular(7))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [Icon(Icons.print, color: Colors.orange.shade700, size: 16), const SizedBox(width: 6), Icon(Icons.description, color: Colors.orange.shade600, size: 14), const SizedBox(width: 8), Text('Imprimer avec un autre nom', style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600))]),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [Icon(Icons.print, color: Colors.orange.shade700, size: 16), const SizedBox(width: 6), Icon(Icons.description, color: Colors.orange.shade600, size: 14), const SizedBox(width: 8), Text('Imprimer avec un autre nom', style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600))]),
+          // Print without date checkbox
+          Row(children: [
+            Checkbox(
+              value: _printWithoutDate,
+              onChanged: (value) => setState(() => _printWithoutDate = value ?? false),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 4),
+            const Text('Imprimer sans date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+          ]),
+        ]),
         const SizedBox(height: 10),
         Row(children: [
           Expanded(child: _SmallField(controller: _printNameController, label: 'Nom', focusNode: _printNameFocus, nextFocus: _printPrenomFocus)),
@@ -1530,7 +1557,7 @@ Sauf complications.
       patientName: '${p.firstName} ${p.lastName}',
       patientCode: p.code.toString(),
       barcode: p.code.toString(),
-      date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+      date: _printWithoutDate ? '' : DateFormat('dd/MM/yyyy').format(_selectedDate),
       content: printContent,
       documentType: documentType,
       printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,
@@ -1578,7 +1605,7 @@ Sauf complications.
         patientName: '${p.firstName} ${p.lastName}',
         patientCode: p.code.toString(),
         barcode: p.code.toString(),
-        date: DateFormat('dd/MM/yyyy').format(_selectedDate),
+        date: _printWithoutDate ? '' : DateFormat('dd/MM/yyyy').format(_selectedDate),
         content: pdfContent,
         documentType: documentType,
         printName: _printNameController.text.isNotEmpty ? _printNameController.text : null,

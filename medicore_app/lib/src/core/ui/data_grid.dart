@@ -83,20 +83,35 @@ class DataGrid extends StatelessWidget {
                   child: Container(
                     height: MediCoreDimensions.gridRowHeight,
                     decoration: BoxDecoration(
+                      // VERY obvious selection using brand kit Professional Blue
                       color: isSelected
-                          ? MediCoreColors.professionalBlue.withOpacity(0.2)
+                          ? MediCoreColors.professionalBlue.withOpacity(0.35) // Professional Blue with high visibility
                           : isEven 
                               ? MediCoreColors.paperWhite 
                               : MediCoreColors.zebraRowAlt,
                       border: Border(
                         bottom: BorderSide(
-                          color: MediCoreColors.gridLines,
-                          width: MediCoreDimensions.gridLineWidth,
+                          color: isSelected 
+                              ? MediCoreColors.professionalBlue // Professional Blue border for selected
+                              : MediCoreColors.gridLines,
+                          width: isSelected ? 2.5 : MediCoreDimensions.gridLineWidth,
                         ),
-                        left: isSelected
-                            ? const BorderSide(
+                        top: isSelected
+                            ? BorderSide(
                                 color: MediCoreColors.professionalBlue,
-                                width: 3,
+                                width: 2.5,
+                              )
+                            : BorderSide.none,
+                        left: isSelected
+                            ? BorderSide(
+                                color: MediCoreColors.professionalBlue,
+                                width: 5,
+                              )
+                            : BorderSide.none,
+                        right: isSelected
+                            ? BorderSide(
+                                color: MediCoreColors.professionalBlue,
+                                width: 2.5,
                               )
                             : BorderSide.none,
                       ),
