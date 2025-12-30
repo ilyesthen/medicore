@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/user_model.dart';
 import '../data/models/template_model.dart';
-import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/api/remote_users_repository.dart';
 import '../../../core/types/proto_types.dart';
@@ -9,7 +8,7 @@ import '../../../core/types/proto_types.dart';
 export '../data/users_repository.dart';
 
 /// Abstract interface for user operations
-/// Allows switching between local (admin) and remote (client) implementations
+/// Manages user operations via server REST API
 abstract class IRemoteUsersRepository {
   Future<List<User>> getAllUsers();
   Future<User?> getUserById(String id);
@@ -97,24 +96,10 @@ class RemoteUsersAdapter implements IRemoteUsersRepository {
   Future<void> deleteUser(String id) => _remote.deleteUser(id);
 }
 
-/// Users repository provider - Switches between local and remote based on mode
-/// ADMIN mode: Uses local SQLite database
-/// CLIENT mode: Uses REST API to communicate with admin server
+/// Users repository provider - All instances use server REST API
 final usersRepositoryProvider = Provider<IRemoteUsersRepository>((ref) {
-  if (GrpcClientConfig.isServer) {
-    // ADMIN MODE: Use local database
-    print('✓ [RemoteUsersRepository] Using LOCAL database (Admin mode)');
-    return LocalUsersAdapter(RemoteUsersRepository());
-  } else {
-    // CLIENT MODE: Use remote REST API
-    print('✓ [RemoteUsersRepository] Using REMOTE API (Client mode)');
-    
-    // Initialize client with server host if not already done
-    final serverHost = GrpcClientConfig.serverHost;
-    MediCoreClient.instance.initialize(host: serverHost);
-    
-    return RemoteUsersAdapter(RemoteUsersRepository());
-  }
+  print('✓ [RemoteUsersRepository] Using server REST API');
+  return RemoteUsersAdapter(RemoteUsersRepository());
 });
 
 /// All users provider
@@ -175,10 +160,8 @@ class UsersNotifier extends StateNotifier<List<User>> {
   }
 }
 
-/// All templates provider (only available in ADMIN mode)
-/// Templates are only used for admin functions, so they always use local database
+/// All templates provider - uses server REST API
 final templatesListProvider = StateNotifierProvider<TemplatesNotifier, List<UserTemplate>>((ref) {
-  // Templates only work in admin mode - always use local repository
   return TemplatesNotifier(RemoteUsersRepository());
 });
 

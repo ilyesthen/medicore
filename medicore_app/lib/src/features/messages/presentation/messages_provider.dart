@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
-import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_messages_repository.dart';
 import '../../../core/types/proto_types.dart';
 
@@ -149,21 +148,14 @@ class RemoteMessagesAdapter implements IRemoteMessagesRepository {
   Future<void> deleteMessage(int id) => _remote.deleteMessage(id);
 }
 
-// Singleton instances to prevent multiple SSE registrations
-RemoteMessagesRepository? _remoteMessagesRepo;
-RemoteMessagesRepository? _localMessagesRepo;
+// Singleton instance to prevent multiple SSE registrations
+RemoteMessagesRepository? _messagesRepo;
 
-/// Messages repository provider - switches between local and remote
+/// Messages repository provider - always uses server REST API
 final messagesRepositoryProvider = Provider<IRemoteMessagesRepository>((ref) {
-  if (GrpcClientConfig.isServer) {
-    print('✓ [RemoteMessagesRepository] Using LOCAL database (Admin mode)');
-    _localMessagesRepo ??= RemoteMessagesRepository();
-    return LocalMessagesAdapter(_localMessagesRepo!);
-  } else {
-    print('✓ [RemoteMessagesRepository] Using REMOTE API (Client mode)');
-    _remoteMessagesRepo ??= RemoteMessagesRepository();
-    return RemoteMessagesAdapter(_remoteMessagesRepo!);
-  }
+  print('✓ [RemoteMessagesRepository] Using server REST API');
+  _messagesRepo ??= RemoteMessagesRepository();
+  return RemoteMessagesAdapter(_messagesRepo!);
 });
 
 /// Message templates repository provider (stub - templates not yet implemented)

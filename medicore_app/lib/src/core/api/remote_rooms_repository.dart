@@ -3,8 +3,8 @@ import '../generated/medicore.pb.dart' as pb;
 import 'medicore_client.dart';
 import 'realtime_sync_service.dart';
 
-/// Remote Rooms Repository - Uses REST API to communicate with admin server
-/// Used in CLIENT mode only
+/// Remote Rooms Repository - Uses REST API to communicate with server
+/// Uses REST API
 class RemoteRoomsRepository {
   final MediCoreClient _client;
   

@@ -15,7 +15,7 @@ void refreshPatientsList() {
 }
 
 /// Abstract interface for patient operations
-/// Allows switching between local (admin) and remote (client) implementations
+/// Manages patient operations via server REST API
 abstract class IPatientsRepository {
   Stream<List<Patient>> watchAllPatients();
   Future<Patient?> getPatientByCode(int code);

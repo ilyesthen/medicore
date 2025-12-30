@@ -3,8 +3,8 @@ import '../generated/medicore.pb.dart' as pb;
 import 'medicore_client.dart';
 import 'realtime_sync_service.dart';
 
-/// Remote Patients Repository - Uses REST API to communicate with admin server
-/// Used in CLIENT mode only - now with SSE-powered instant updates!
+/// Remote Patients Repository - Uses REST API to communicate with server
+/// Uses REST API with SSE-powered instant updates
 class RemotePatientsRepository {
   final MediCoreClient _client;
   

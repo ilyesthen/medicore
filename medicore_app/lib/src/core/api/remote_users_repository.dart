@@ -3,8 +3,8 @@ import 'medicore_client.dart';
 import '../../features/users/data/models/user_model.dart';
 import '../../features/users/data/models/template_model.dart';
 
-/// Remote Users Repository - Uses REST API to communicate with admin server
-/// Used in CLIENT mode only
+/// Remote Users Repository - Uses REST API to communicate with server
+/// Uses REST API
 class RemoteUsersRepository {
   final MediCoreClient _client;
 

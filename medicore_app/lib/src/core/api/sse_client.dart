@@ -68,92 +68,49 @@ enum SSEEventType {
 /// Parse event type from string
 SSEEventType parseEventType(String type) {
   switch (type) {
-    case 'connected':
-      return SSEEventType.connected;
-    case 'ping':
-      return SSEEventType.ping;
-    case 'patient_created':
-      return SSEEventType.patientCreated;
-    case 'patient_updated':
-      return SSEEventType.patientUpdated;
-    case 'patient_deleted':
-      return SSEEventType.patientDeleted;
-    case 'message_created':
-      return SSEEventType.messageCreated;
-    case 'message_read':
-      return SSEEventType.messageRead;
-    case 'messages_cleared':
-      return SSEEventType.messagesCleared;
-    case 'waiting_added':
-      return SSEEventType.waitingAdded;
-    case 'waiting_updated':
-      return SSEEventType.waitingUpdated;
-    case 'waiting_removed':
-      return SSEEventType.waitingRemoved;
-    case 'dilatation_added':
-      return SSEEventType.dilatationAdded;
-    case 'payment_created':
-      return SSEEventType.paymentCreated;
-    case 'payment_updated':
-      return SSEEventType.paymentUpdated;
-    case 'payment_deleted':
-      return SSEEventType.paymentDeleted;
-    case 'user_created':
-      return SSEEventType.userCreated;
-    case 'user_updated':
-      return SSEEventType.userUpdated;
-    case 'user_deleted':
-      return SSEEventType.userDeleted;
-    case 'room_created':
-      return SSEEventType.roomCreated;
-    case 'room_updated':
-      return SSEEventType.roomUpdated;
-    case 'room_deleted':
-      return SSEEventType.roomDeleted;
-    case 'visit_created':
-      return SSEEventType.visitCreated;
-    case 'visit_updated':
-      return SSEEventType.visitUpdated;
-    case 'visit_deleted':
-      return SSEEventType.visitDeleted;
-    case 'ordonnance_created':
-      return SSEEventType.ordonnanceCreated;
-    case 'ordonnance_updated':
-      return SSEEventType.ordonnanceUpdated;
-    case 'ordonnance_deleted':
-      return SSEEventType.ordonnanceDeleted;
-    case 'medical_act_created':
-      return SSEEventType.medicalActCreated;
-    case 'medical_act_updated':
-      return SSEEventType.medicalActUpdated;
-    case 'medical_act_deleted':
-      return SSEEventType.medicalActDeleted;
-    case 'medical_act_reorder':
-      return SSEEventType.medicalActReorder;
-    case 'msg_template_created':
-      return SSEEventType.msgTemplateCreated;
-    case 'msg_template_updated':
-      return SSEEventType.msgTemplateUpdated;
-    case 'msg_template_deleted':
-      return SSEEventType.msgTemplateDeleted;
-    case 'msg_template_reorder':
-      return SSEEventType.msgTemplateReorder;
-    case 'medication_updated':
-      return SSEEventType.medicationUpdated;
-    case 'template_created':
-      return SSEEventType.templateCreated;
-    case 'template_updated':
-      return SSEEventType.templateUpdated;
-    case 'template_deleted':
-      return SSEEventType.templateDeleted;
-    case 'nurse_prefs_updated':
-      return SSEEventType.nursePrefsUpdated;
-    case 'nurse_active':
-      return SSEEventType.nurseActive;
-    case 'nurse_inactive':
-      return SSEEventType.nurseInactive;
-    default:
-      return SSEEventType.unknown;
+    case 'connected': return SSEEventType.connected;
+    case 'ping': return SSEEventType.ping;
+    case 'patient_created': return SSEEventType.patientCreated;
+    case 'patient_updated': return SSEEventType.patientUpdated;
+    case 'patient_deleted': return SSEEventType.patientDeleted;
+    case 'message_created': return SSEEventType.messageCreated;
+    case 'message_read': return SSEEventType.messageRead;
+    case 'messages_cleared': return SSEEventType.messagesCleared;
+    case 'waiting_added': return SSEEventType.waitingAdded;
+    case 'waiting_updated': return SSEEventType.waitingUpdated;
+    case 'waiting_removed': return SSEEventType.waitingRemoved;
+    case 'dilatation_added': return SSEEventType.dilatationAdded;
+    case 'payment_created': return SSEEventType.paymentCreated;
+    case 'payment_updated': return SSEEventType.paymentUpdated;
+    case 'payment_deleted': return SSEEventType.paymentDeleted;
+    case 'user_created': return SSEEventType.userCreated;
+    case 'user_updated': return SSEEventType.userUpdated;
+    case 'user_deleted': return SSEEventType.userDeleted;
+    case 'room_created': return SSEEventType.roomCreated;
+    case 'room_updated': return SSEEventType.roomUpdated;
+    case 'room_deleted': return SSEEventType.roomDeleted;
+    case 'visit_created': return SSEEventType.visitCreated;
+    case 'visit_updated': return SSEEventType.visitUpdated;
+    case 'visit_deleted': return SSEEventType.visitDeleted;
+    case 'ordonnance_created': return SSEEventType.ordonnanceCreated;
+    case 'ordonnance_updated': return SSEEventType.ordonnanceUpdated;
+    case 'ordonnance_deleted': return SSEEventType.ordonnanceDeleted;
+    case 'medical_act_created': return SSEEventType.medicalActCreated;
+    case 'medical_act_updated': return SSEEventType.medicalActUpdated;
+    case 'medical_act_deleted': return SSEEventType.medicalActDeleted;
+    case 'medical_act_reorder': return SSEEventType.medicalActReorder;
+    case 'msg_template_created': return SSEEventType.msgTemplateCreated;
+    case 'msg_template_updated': return SSEEventType.msgTemplateUpdated;
+    case 'msg_template_deleted': return SSEEventType.msgTemplateDeleted;
+    case 'msg_template_reorder': return SSEEventType.msgTemplateReorder;
+    case 'medication_updated': return SSEEventType.medicationUpdated;
+    case 'template_created': return SSEEventType.templateCreated;
+    case 'template_updated': return SSEEventType.templateUpdated;
+    case 'template_deleted': return SSEEventType.templateDeleted;
+    case 'nurse_prefs_updated': return SSEEventType.nursePrefsUpdated;
+    case 'nurse_active': return SSEEventType.nurseActive;
+    case 'nurse_inactive': return SSEEventType.nurseInactive;
+    default: return SSEEventType.unknown;
   }
 }
 
@@ -185,7 +142,7 @@ class SSEEvent {
 }
 
 /// SSE Client for real-time updates from server
-/// Connects to /api/events endpoint and streams events
+/// Enterprise-grade with exponential backoff reconnection
 class SSEClient {
   static SSEClient? _instance;
   static SSEClient get instance => _instance ??= SSEClient._();
@@ -199,6 +156,11 @@ class SSEClient {
   bool _shouldReconnect = true;
   Timer? _reconnectTimer;
   StreamSubscription? _eventSubscription;
+  
+  // Reconnection with exponential backoff
+  int _reconnectAttempts = 0;
+  static const _minReconnectDelay = Duration(seconds: 1);
+  static const _maxReconnectDelay = Duration(seconds: 30);
 
   /// Event stream controller
   final _eventController = StreamController<SSEEvent>.broadcast();
@@ -218,6 +180,7 @@ class SSEClient {
     _serverHost = host ?? GrpcClientConfig.serverHost;
     _serverPort = port ?? 50052;
     _shouldReconnect = true;
+    _reconnectAttempts = 0;
 
     debugPrint('📡 [SSE] Connecting to $_serverHost:$_serverPort/api/events');
 
@@ -243,6 +206,7 @@ class SSEClient {
 
       if (response.statusCode == 200) {
         _isConnected = true;
+        _reconnectAttempts = 0; // Reset on successful connection
         _connectionController.add(true);
         debugPrint('✅ [SSE] Connected to server');
 
@@ -307,9 +271,17 @@ class SSEClient {
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 3), () {
+    
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
+    final delaySeconds = (_minReconnectDelay.inSeconds * (1 << _reconnectAttempts))
+        .clamp(_minReconnectDelay.inSeconds, _maxReconnectDelay.inSeconds);
+    final delay = Duration(seconds: delaySeconds);
+    
+    debugPrint('🔄 [SSE] Reconnecting in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
+    
+    _reconnectTimer = Timer(delay, () {
       if (_shouldReconnect) {
-        debugPrint('🔄 [SSE] Attempting reconnect...');
+        _reconnectAttempts++;
         _connectInternal();
       }
     });
@@ -324,7 +296,17 @@ class SSEClient {
     _httpClient?.close();
     _httpClient = null;
     _isConnected = false;
+    _reconnectAttempts = 0;
     _connectionController.add(false);
+  }
+
+  /// Force reconnect now
+  void reconnectNow() {
+    if (!_isConnected && _shouldReconnect) {
+      _reconnectTimer?.cancel();
+      _reconnectAttempts = 0;
+      _connectInternal();
+    }
   }
 
   /// Dispose resources

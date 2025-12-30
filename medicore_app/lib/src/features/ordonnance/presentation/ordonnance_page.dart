@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/medicore_colors.dart';
 import '../../../core/theme/medicore_typography.dart';
-import '../../../core/api/grpc_client.dart';
 import '../../../core/api/medicore_client.dart';
 import '../../../core/services/prescription_print_service.dart';
 import '../../../core/providers/app_providers.dart';
@@ -205,28 +204,18 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     return tabIndex == 0 ? _isCreatingNewTab1 : tabIndex == 1 ? _isCreatingNewTab2 : _isCreatingNewTab3;
   }
 
-  /// Load templates CR from database (remote in client mode)
+  /// Load templates CR from database
   Future<void> _loadTemplatesCR() async {
     setState(() => _isLoadingTemplates = true);
     try {
-      // Client mode: use remote API
-      if (!GrpcClientConfig.isServer) {
-        final templates = await MediCoreClient.instance.getAllTemplatesCR();
-        setState(() {
-          _templatesCR = templates.map((t) => {
-            'id': (t['id'] as num).toInt(),
-            'code': t['code'] as String,
-            'content': t['content'] as String,
-            'usageCount': (t['usage_count'] as num?)?.toInt() ?? 0,
-          }).toList();
-          _isLoadingTemplates = false;
-        });
-        return;
-      }
-      // Server mode: TODO - implement in gRPC mode
-      // final db = AppDatabase.instance;
+      final templates = await MediCoreClient.instance.getAllTemplatesCR();
       setState(() {
-        _templatesCR = [];
+        _templatesCR = templates.map((t) => {
+          'id': (t['id'] as num).toInt(),
+          'code': t['code'] as String,
+          'content': t['content'] as String,
+          'usageCount': (t['usage_count'] as num?)?.toInt() ?? 0,
+        }).toList();
         _isLoadingTemplates = false;
       });
     } catch (e) {
@@ -252,13 +241,7 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
     
     // Increment usage count
     final id = template['id'] as int;
-    if (!GrpcClientConfig.isServer) {
-      // Client mode: use remote API
-      await MediCoreClient.instance.incrementTemplateCRUsage(id);
-    } else {
-      // Server mode: TODO - implement in gRPC mode
-      // await AppDatabase.instance.customStatement(...);
-    }
+    await MediCoreClient.instance.incrementTemplateCRUsage(id);
     _loadTemplatesCR();
     
     setState(() {});
@@ -1300,28 +1283,18 @@ class _OrdonnancePageState extends ConsumerState<OrdonnancePage> with SingleTick
       // Get next sequence number based on existing documents count
       final sequence = _allDocuments.length + 1;
       
-      // Client mode: use remote API
-      if (!GrpcClientConfig.isServer) {
-        final result = await MediCoreClient.instance.createOrdonnance({
-          'patient_code': p.code,
-          'sequence': sequence,
-          'document_date': _selectedDate.toIso8601String(),
-          'content1': content,
-          'type1': documentType,
-          'doctor_name': doctorName,
-        });
-        if (result > 0) {
-          _loadDocuments();
-          return true;
-        }
-        return false;
+      final result = await MediCoreClient.instance.createOrdonnance({
+        'patient_code': p.code,
+        'sequence': sequence,
+        'document_date': _selectedDate.toIso8601String(),
+        'content1': content,
+        'type1': documentType,
+        'doctor_name': doctorName,
+      });
+      if (result > 0) {
+        _loadDocuments();
+        return true;
       }
-      
-      // Admin mode: TODO - implement in gRPC mode
-      // final db = AppDatabase.instance;
-      // await db.customStatement(...);
-      
-      // For now, just return false
       return false;
     } catch (e) {
       debugPrint('❌ Error saving to DB: $e');
@@ -1433,14 +1406,7 @@ Sauf complications.
     if (confirmed != true) return;
     
     try {
-      // Client mode: use remote API
-      if (!GrpcClientConfig.isServer) {
-        await MediCoreClient.instance.deleteOrdonnance(int.tryParse(doc.id) ?? 0);
-      } else {
-        // Admin mode: TODO - implement in gRPC mode
-        // final db = AppDatabase.instance;
-        // await db.customStatement(...);
-      }
+      await MediCoreClient.instance.deleteOrdonnance(int.tryParse(doc.id) ?? 0);
       
       // Reload documents and reset index if needed
       _loadDocuments();

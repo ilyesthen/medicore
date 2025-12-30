@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/api/grpc_client.dart';
 import '../../../core/api/remote_waiting_queue_repository.dart';
 import '../../../core/types/proto_types.dart';
 
@@ -256,21 +255,14 @@ class RemoteWaitingQueueAdapter implements IRemoteWaitingQueueRepository {
     _remote.markDilatationsAsNotified(roomIds);
 }
 
-// Singleton instances to prevent multiple SSE registrations
-RemoteWaitingQueueRepository? _remoteWaitingQueueRepo;
-RemoteWaitingQueueRepository? _localWaitingQueueRepo;
+// Singleton instance to prevent multiple SSE registrations
+RemoteWaitingQueueRepository? _waitingQueueRepo;
 
-/// Waiting queue repository provider - switches between local and remote
+/// Waiting queue repository provider - always uses server REST API
 final waitingQueueRepositoryProvider = Provider<IRemoteWaitingQueueRepository>((ref) {
-  if (GrpcClientConfig.isServer) {
-    print('✓ [RemoteWaitingQueueRepository] Using LOCAL mode (Admin/Server)');
-    _localWaitingQueueRepo ??= RemoteWaitingQueueRepository();
-    return LocalWaitingQueueAdapter(_localWaitingQueueRepo!);
-  } else {
-    print('✓ [RemoteWaitingQueueRepository] Using REMOTE API (Client mode)');
-    _remoteWaitingQueueRepo ??= RemoteWaitingQueueRepository();
-    return RemoteWaitingQueueAdapter(_remoteWaitingQueueRepo!);
-  }
+  print('✓ [RemoteWaitingQueueRepository] Using server REST API');
+  _waitingQueueRepo ??= RemoteWaitingQueueRepository();
+  return RemoteWaitingQueueAdapter(_waitingQueueRepo!);
 });
 
 /// Provider for waiting count for a specific room (non-urgent)

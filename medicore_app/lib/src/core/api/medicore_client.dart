@@ -6,7 +6,7 @@ import '../generated/medicore.pb.dart';
 import 'grpc_client.dart';
 
 /// MediCore gRPC/HTTP Client
-/// Connects to admin server for all data operations in CLIENT mode
+/// Connects to server for all data operations
 /// Uses HTTP/JSON as transport (compatible with Go server)
 class MediCoreClient {
   static MediCoreClient? _instance;

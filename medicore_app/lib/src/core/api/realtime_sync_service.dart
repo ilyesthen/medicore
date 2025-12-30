@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'sse_client.dart';
-import 'grpc_client.dart';
 import '../../features/messages/services/notification_service.dart';
 import '../../core/types/proto_types.dart';
 
@@ -47,12 +46,6 @@ class RealtimeSyncService {
   /// Initialize the real-time sync service
   Future<void> initialize() async {
     if (_isInitialized) return;
-
-    // Only initialize in client mode
-    if (GrpcClientConfig.isServer) {
-      debugPrint('📡 [RealtimeSync] Skipping SSE in server mode (uses local DB)');
-      return;
-    }
 
     debugPrint('📡 [RealtimeSync] Initializing real-time sync service');
 
